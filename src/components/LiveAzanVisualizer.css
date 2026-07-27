@@ -1,0 +1,18 @@
+.azan-visualizer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  height: 48px;
+  padding: 0 8px;
+}
+
+.azan-visualizer-bar {
+  width: 4px;
+  height: 40px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #7dd3fc 0%, var(--primary) 100%);
+  transform-origin: bottom center;
+  transition: transform 0.08s ease-out;
+  opacity: 0.9;
+}

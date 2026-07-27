@@ -1,0 +1,74 @@
+.hadith-page {
+  padding: 20px 16px;
+}
+
+.hadith-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.hadith-header h2 {
+  font-size: 22px;
+  margin-bottom: 4px;
+}
+
+.hadith-header p {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.hadith-featured {
+  padding: 20px 16px;
+  margin-bottom: 20px;
+  border-left: 4px solid var(--primary);
+}
+
+.hadith-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+.hadith-quote {
+  font-size: 15px;
+  font-style: italic;
+  color: var(--text-primary);
+  line-height: 1.7;
+  margin-bottom: 8px;
+}
+
+.hadith-featured .hadith-quote {
+  font-size: 16px;
+}
+
+.hadith-source {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.hadith-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 10px;
+}
+
+.hadith-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hadith-card {
+  padding: 14px 16px;
+}
+
+.hadith-card .hadith-quote {
+  font-size: 14px;
+}

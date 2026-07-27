@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.env
+server/.env
+mobile/.env
+*.log
+.DS_Store
+Thumbs.db
+
+# Expo / React Native
+mobile/.expo/
+mobile/dist/
+mobile/android/
+mobile/ios/
+
+# Local / tooling
+.cursor/
+*.local
+__pycache__/
+*.pyc

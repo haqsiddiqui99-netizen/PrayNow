@@ -1,0 +1,329 @@
+.nearby-mosques {
+  margin-top: 4px;
+}
+
+.nearby-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+
+.nearby-header-text {
+  min-width: 0;
+}
+
+.nearby-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+  letter-spacing: -0.2px;
+}
+
+.nearby-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+  font-weight: 500;
+}
+
+.nearby-radius-bar {
+  margin-bottom: 10px;
+}
+
+.nearby-empty {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 16px 8px;
+  margin: 0;
+}
+
+.view-all-link {
+  background: var(--primary-soft);
+  border: none;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.view-all-link:active {
+  opacity: 0.8;
+}
+
+.travel-mode-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.travel-mode-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  line-height: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: background 0.15s, color 0.15s;
+}
+
+.travel-mode-btn.active {
+  background: var(--primary);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.travel-mode-label {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.mosque-sort-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.mosque-sort-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.mosque-sort-chip {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.mosque-sort-chip.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.arrival-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 0 2px;
+}
+
+.arrival-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.arrival-legend .live-status {
+  width: 8px;
+  height: 8px;
+  animation: none;
+}
+
+.arrival-legend .live-status--early {
+  background: var(--success);
+}
+
+.arrival-legend .live-status--on-time {
+  background: var(--warning);
+}
+
+.arrival-legend .live-status--late {
+  background: #ef4444;
+}
+
+.nearby-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nearby-card {
+  overflow: hidden;
+  transition: box-shadow 0.15s, transform 0.1s;
+}
+
+.nearby-card:active {
+  transform: scale(0.995);
+}
+
+.nearby-card-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px 152px 44px;
+  align-items: center;
+  gap: 0;
+  padding: 10px;
+}
+
+.nearby-card-body {
+  min-width: 0;
+  cursor: pointer;
+  padding-right: 8px;
+}
+
+.nearby-card-body:active {
+  opacity: 0.75;
+}
+
+.mosque-name-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.nearby-notify-col {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+
+.mosque-name {
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.25;
+  color: var(--text-primary);
+  letter-spacing: -0.1px;
+}
+
+.mosque-meta-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-top: 5px;
+  padding: 2px 0;
+}
+
+.mosque-meta-line::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.live-status {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-top: 4px;
+  animation: livePulse 2s ease-in-out infinite;
+}
+
+.live-status--early {
+  background: var(--success);
+  box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.45);
+}
+
+.live-status--on-time {
+  background: var(--warning);
+  box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.45);
+}
+
+.live-status--late {
+  background: #ef4444;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45);
+}
+
+.maps-column {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 44px;
+  padding-left: 6px;
+  align-self: center;
+}
+
+.maps-time {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.maps-icon-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-soft);
+  border: 1px solid rgba(13, 71, 161, 0.15);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s;
+}
+
+.maps-icon-btn:active {
+  background: var(--primary);
+}
+
+.maps-icon-btn:active .maps-icon-svg path {
+  fill: white;
+}
+
+.maps-icon-svg {
+  width: 18px;
+  height: 18px;
+}
+
+@keyframes livePulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.45);
+  }
+  70% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 4px rgba(22, 163, 74, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
+  }
+}

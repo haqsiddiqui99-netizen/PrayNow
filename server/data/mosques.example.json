@@ -1,0 +1,45 @@
+{
+  "mosques": [
+    {
+      "legacy_id": "11",
+      "name": "Masjid Hazrat Shah Waliullah",
+      "address": "Near Turkman Gate, Daryaganj, Delhi 110002",
+      "area": "Daryaganj",
+      "city": "Delhi",
+      "phone": "+91 11 2327 0000",
+      "lat": 28.6412,
+      "lng": 77.2378,
+      "sect": "Sunni",
+      "capacity": 1200,
+      "sermonLanguage": "Urdu",
+      "facilities": ["Wudu Area", "Parking", "Women section"],
+      "events": ["Friday Khutbah 12:30 PM", "Quran classes — Sat 10 AM"],
+      "photos": ["🕌"],
+      "imamDetails": {
+        "name": "Sheikh Example Name",
+        "mobile": "+91 98xxx xxxxx",
+        "photo": ""
+      },
+      "moazzinDetails": {
+        "name": "Moazzin Name",
+        "mobile": "",
+        "photo": ""
+      },
+      "jumaTimings": {
+        "khutba": "12:15 PM",
+        "namaz": "12:30 PM"
+      },
+      "timings": {
+        "Fajr": { "start": "4:55 AM", "azan": "4:55 AM", "jamat": "5:10 AM", "end": "5:40 AM" },
+        "Dhuhr": { "start": "12:15 PM", "azan": "12:15 PM", "jamat": "12:30 PM", "end": "3:30 PM" },
+        "Asr": { "start": "3:30 PM", "azan": "3:32 PM", "jamat": "3:48 PM", "end": "6:45 PM" },
+        "Maghrib": { "start": "6:45 PM", "azan": "6:45 PM", "jamat": "6:50 PM", "end": "8:00 PM" },
+        "Isha": { "start": "8:00 PM", "azan": "8:01 PM", "jamat": "8:16 PM", "end": "4:55 AM" }
+      },
+      "nightTimings": {
+        "tahajjud": { "start": "12:30 AM", "end": "4:40 AM" },
+        "sehri": { "start": "3:10 AM", "end": "4:50 AM" }
+      }
+    }
+  ]
+}

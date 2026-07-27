@@ -1,0 +1,159 @@
+.mosque-peek-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: peekFadeIn 0.28s ease-out;
+}
+
+.mosque-peek-backdrop--closing {
+  animation: peekFadeOut 0.22s ease-in forwards;
+}
+
+.mosque-peek-sheet {
+  width: 100%;
+  max-width: 430px;
+  max-height: 88vh;
+  background: var(--surface-2);
+  border-radius: 20px 20px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.25);
+  animation: peekSlideUp 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: bottom center;
+  will-change: transform;
+}
+
+.mosque-peek-sheet--closing {
+  animation: peekSlideDown 0.22s ease-in forwards;
+}
+
+.mosque-peek-handle-zone {
+  flex-shrink: 0;
+  padding: 10px 0 4px;
+  touch-action: none;
+  cursor: grab;
+}
+
+.mosque-peek-handle {
+  width: 36px;
+  height: 4px;
+  margin: 0 auto;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.mosque-peek-hero {
+  position: relative;
+  height: 120px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.mosque-peek-hero-emoji {
+  font-size: 56px;
+  z-index: 1;
+  animation: peekHeroPop 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+}
+
+.mosque-peek-hero-gradient {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 120%, rgba(255, 255, 255, 0.15), transparent 60%);
+}
+
+.mosque-peek-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 16px 8px;
+}
+
+.mosque-peek-body .detail-title-section--compact h2 {
+  font-size: 20px;
+}
+
+.mosque-peek-body .arrival-badge {
+  margin-bottom: 0;
+}
+
+.mosque-peek-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px calc(16px + var(--safe-bottom));
+  border-top: 0.5px solid var(--border);
+  background: var(--surface-2);
+}
+
+.mosque-peek-actions button {
+  width: 100%;
+}
+
+@keyframes peekFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes peekFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes peekSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes peekSlideDown {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(100%) scale(0.96);
+  }
+}
+
+@keyframes peekHeroPop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.nearby-card--pressing,
+.mosque-list-card--pressing {
+  transform: scale(0.98);
+  transition: transform 0.15s ease;
+}
+
+.nearby-card--peek-origin,
+.mosque-list-card--peek-origin {
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 8px 24px rgba(13, 71, 161, 0.25);
+  transition: box-shadow 0.2s ease;
+}

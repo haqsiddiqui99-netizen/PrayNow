@@ -1,0 +1,74 @@
+{
+  "mosques": [
+    {
+      "legacy_id": "knp-1",
+      "name": "Masjid Ghausia",
+      "address": "Sakera Estate, Anwar Ganj, Kanpur",
+      "area": "Anwar Ganj",
+      "city": "Kanpur",
+      "lat": 26.4567,
+      "lng": 80.3327,
+      "sect": "Sunni",
+      "capacity": 500,
+      "sermonLanguage": "Urdu",
+      "facilities": ["Wudu Area"],
+      "photos": ["🕌"]
+    },
+    {
+      "legacy_id": "knp-2",
+      "name": "Masjid Bhannana Purva",
+      "address": "Chaman Ganj, Kanpur",
+      "area": "Chaman Ganj",
+      "city": "Kanpur",
+      "lat": 26.4515,
+      "lng": 80.336,
+      "sect": "Sunni",
+      "capacity": 500,
+      "sermonLanguage": "Urdu",
+      "facilities": ["Wudu Area"],
+      "photos": ["🕌"]
+    },
+    {
+      "legacy_id": "knp-3",
+      "name": "Nasheman Masjid",
+      "address": "Juhi, Kanpur",
+      "area": "Juhi",
+      "city": "Kanpur",
+      "lat": 26.4412,
+      "lng": 80.3185,
+      "sect": "Sunni",
+      "capacity": 500,
+      "sermonLanguage": "Urdu",
+      "facilities": ["Wudu Area"],
+      "photos": ["🕌"]
+    },
+    {
+      "legacy_id": "knp-4",
+      "name": "Fahimabad Masjid",
+      "address": "Fahimabad, Kanpur",
+      "area": "Fahimabad",
+      "city": "Kanpur",
+      "lat": 26.4653,
+      "lng": 80.3371,
+      "sect": "Sunni",
+      "capacity": 500,
+      "sermonLanguage": "Urdu",
+      "facilities": ["Wudu Area"],
+      "photos": ["🕌"]
+    },
+    {
+      "legacy_id": "knp-5",
+      "name": "Jama Masjid",
+      "address": "Param Purwa, Kanpur",
+      "area": "Param Purwa",
+      "city": "Kanpur",
+      "lat": 26.4385,
+      "lng": 80.3205,
+      "sect": "Sunni",
+      "capacity": 800,
+      "sermonLanguage": "Urdu",
+      "facilities": ["Wudu Area"],
+      "photos": ["🕌"]
+    }
+  ]
+}

@@ -1,0 +1,124 @@
+.mosque-prayer-times {
+  width: 152px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: linear-gradient(180deg, var(--primary-soft) 0%, rgba(227, 242, 253, 0.35) 100%);
+  border: 1px solid rgba(13, 71, 161, 0.12);
+  border-radius: var(--radius-sm);
+  padding: 8px 6px;
+  align-self: stretch;
+  justify-content: center;
+}
+
+.prayer-times-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.prayer-times-inline-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex-wrap: nowrap;
+}
+
+.prayer-time-sep {
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.prayer-times-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.prayer-times-divider {
+  height: 1px;
+  background: rgba(13, 71, 161, 0.12);
+  margin: 3px 0;
+}
+
+.prayer-time-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  text-align: center;
+  min-width: 0;
+}
+
+.prayer-time-key {
+  font-size: 8px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  font-weight: 700;
+}
+
+.prayer-time-val {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.zawal-block {
+  text-align: center;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.zawal-block--active {
+  background: var(--danger-bg);
+  border: 1px solid #fecaca;
+}
+
+.zawal-range {
+  font-size: 8px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.zawal-block--active .zawal-range,
+.zawal-block--active .prayer-times-label {
+  color: var(--danger-text);
+}
+
+.zawal-warning {
+  font-size: 7px;
+  font-weight: 700;
+  color: var(--danger-text);
+  margin-top: 2px;
+  line-height: 1.2;
+}
+
+.mosque-prayer-times--empty {
+  width: 152px;
+  flex-shrink: 0;
+  justify-content: center;
+  align-items: center;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 6px;
+}
+
+.prayer-times-empty {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.3;
+}

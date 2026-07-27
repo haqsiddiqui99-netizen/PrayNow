@@ -1,0 +1,168 @@
+.mosques-toolbar {
+  background: var(--surface-2);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  box-shadow: var(--shadow-sm);
+}
+
+.search-input--compact {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--surface-0);
+  margin-bottom: 8px;
+}
+
+.search-input--compact:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.mosques-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.chip-group--compact {
+  display: flex;
+  gap: 5px;
+}
+
+.chip--compact {
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.chip--compact.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.results-count {
+  font-size: 9px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.mosques-sort-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.mosques-sort-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.mosques-list {
+  padding: 10px 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mosque-list-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.mosque-list-card:active {
+  transform: scale(0.99);
+}
+
+.mosque-list-info {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mosque-list-card .mosque-name {
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.25;
+  margin-bottom: 2px;
+  letter-spacing: -0.1px;
+}
+
+.mosque-list-card .notify-toggle {
+  margin-top: 2px;
+}
+
+.mosque-meta {
+  font-size: 10px;
+  color: var(--text-secondary);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 5px;
+  font-weight: 600;
+}
+
+.mosque-list-card .live-status {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 4px;
+  animation: livePulse 1.5s ease-in-out infinite;
+}
+
+.mosque-list-card .live-status--early {
+  background: var(--success);
+}
+
+.mosque-list-card .live-status--on-time {
+  background: var(--warning);
+}
+
+.mosque-list-card .live-status--late {
+  background: #ef4444;
+}
+
+.empty-state--compact {
+  text-align: center;
+  padding: 20px 12px;
+  color: var(--text-secondary);
+}
+
+.empty-state--compact span {
+  font-size: 26px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.empty-state--compact p {
+  font-size: 11px;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(1.08); }
+}

@@ -1,0 +1,122 @@
+.navigation-page {
+  min-height: 100%;
+}
+
+.nav-hero {
+  padding: 24px 20px;
+  color: white;
+  text-align: center;
+}
+
+.nav-hero.success {
+  background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+}
+
+.nav-hero.warning {
+  background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+}
+
+.nav-hero.danger {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+}
+
+.nav-hero-label {
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.nav-hero-title {
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.nav-hero-time {
+  font-size: 32px;
+  font-weight: 600;
+  margin: 4px 0 12px;
+}
+
+.nav-hero-mosque {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.nav-body {
+  padding: 16px;
+}
+
+.nav-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.nav-stat {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-stat-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.nav-stat-value {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.route-option {
+  padding: 12px;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 8px;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.route-option.selected {
+  border-color: var(--primary);
+}
+
+.route-option-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+
+.route-badge {
+  background: var(--success-bg);
+  color: var(--success-text);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.timing-indicator {
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.timing-indicator.early {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.timing-indicator.on-time {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.timing-indicator.late {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}

@@ -1,0 +1,3 @@
+date,city,fajr_start,fajr_end,dhuhr_start,dhuhr_end,asr_start,asr_end,maghrib_start,maghrib_end,isha_start,isha_end,sunrise,fajr_namaz_end,zawal_start,zawal_end,tahajjud_start,tahajjud_end,sehri_start,sehri_end
+2026-01-01,Delhi,5:35 AM,6:20 AM,12:20 PM,3:25 PM,3:25 PM,5:35 PM,5:35 PM,7:05 PM,7:05 PM,5:35 AM,6:55 AM,6:20 AM,11:25 AM,12:00 PM,12:40 AM,5:10 AM,4:00 AM,5:25 AM
+2026-01-02,Delhi,5:35 AM,6:20 AM,12:20 PM,3:25 PM,3:25 PM,5:36 PM,5:36 PM,7:06 PM,7:06 PM,5:35 AM,6:55 AM,6:20 AM,11:25 AM,12:00 PM,12:40 AM,5:10 AM,4:00 AM,5:25 AM

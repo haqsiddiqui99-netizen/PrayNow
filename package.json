@@ -1,0 +1,34 @@
+{
+  "name": "praynow",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "server:install": "npm install --prefix server",
+    "server:dev": "npm run dev --prefix server",
+    "mobile:start": "npm start --prefix mobile",
+    "mobile:android": "npm run android --prefix mobile",
+    "db:migrate": "npm run db:migrate --prefix server",
+    "db:seed": "npm run db:seed --prefix server",
+    "db:import": "npm run db:import --prefix server",
+    "db:setup": "npm run db:migrate && npm run db:seed",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:seed": "docker compose exec api npm run db:seed"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "typescript": "~6.0.2",
+    "vite": "^8.1.1"
+  },
+  "dependencies": {
+    "agora-rtc-sdk-ng": "^4.24.6",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  }
+}

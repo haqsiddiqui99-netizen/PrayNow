@@ -1,0 +1,46 @@
+# Local / self-host stack: Postgres + API
+# Usage:
+#   1. Copy server/.env.example → server/.env.docker and set JWT_SECRET
+#   2. docker compose up -d
+#   3. Seed: docker compose exec api npm run db:seed
+#   4. Import Kanpur (from host): API_URL=http://localhost:5000 node server/scripts/import-kanpur-year.mjs 2026
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: praynow
+      POSTGRES_PASSWORD: praynow
+      POSTGRES_DB: praynow
+    ports:
+      - '5432:5432'
+    volumes:
+      - praynow_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U praynow -d praynow']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '5000:5000'
+    environment:
+      DATABASE_URL: postgresql://praynow:praynow@db:5432/praynow
+      PGSCHEMA: praynow
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 5000
+      JWT_SECRET: ${JWT_SECRET:-change-me-before-public-launch}
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:5173,http://localhost:4173}
+
+volumes:
+  praynow_pg:

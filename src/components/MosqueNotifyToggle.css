@@ -1,0 +1,35 @@
+.notify-toggle {
+  width: 44px;
+  height: 26px;
+  border-radius: 13px;
+  border: none;
+  padding: 2px;
+  background: #cbd5e1;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  transition: background 0.15s ease;
+}
+
+.notify-toggle--on {
+  background: #14b8a6;
+}
+
+.notify-toggle-knob {
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background: #fff;
+  display: block;
+  transition: transform 0.15s ease;
+  transform: translateX(0);
+}
+
+.notify-toggle--on .notify-toggle-knob {
+  transform: translateX(18px);
+}
+
+.notify-toggle:disabled {
+  opacity: 0.7;
+}

@@ -1,0 +1,154 @@
+.qibla-page {
+  min-height: 100%;
+  text-align: center;
+}
+
+.qibla-body {
+  padding: 16px;
+}
+
+.qibla-intro {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+.compass-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.compass-container.compass-aligned .compass-ring {
+  border-color: var(--success, #16a34a);
+  background: #dcfce7;
+}
+
+.compass-top-notch {
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 16px solid var(--accent);
+  margin-bottom: -8px;
+  z-index: 2;
+}
+
+.compass-ring {
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  border: 3px solid var(--primary);
+  background: var(--surface-2);
+  position: relative;
+  box-shadow: 0 4px 20px rgba(13, 71, 161, 0.15);
+  transition: transform 0.1s linear, border-color 0.2s, background 0.2s;
+}
+
+.compass-n, .compass-e, .compass-s, .compass-w {
+  position: absolute;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.compass-n { top: 8px; left: 50%; transform: translateX(-50%); color: var(--accent); font-size: 16px; }
+.compass-e { right: 10px; top: 50%; transform: translateY(-50%); }
+.compass-s { bottom: 8px; left: 50%; transform: translateX(-50%); }
+.compass-w { left: 10px; top: 50%; transform: translateY(-50%); }
+
+.compass-center-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: var(--primary);
+  z-index: 2;
+}
+
+.compass-qibla-arm {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.compass-qibla-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 16px;
+}
+
+.needle-top {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.needle-line {
+  width: 5px;
+  height: 78px;
+  background: linear-gradient(to bottom, var(--accent), var(--primary));
+  border-radius: 3px;
+  margin-top: 2px;
+}
+
+.compass-loading {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.qibla-turn-hint {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 16px;
+}
+
+.qibla-turn-hint.aligned {
+  color: var(--success, #16a34a);
+}
+
+.qibla-info {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.qibla-stat {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  gap: 12px;
+}
+
+.qibla-stat-label {
+  color: var(--text-secondary);
+}
+
+.qibla-stat-value {
+  font-weight: 600;
+  text-align: right;
+}
+
+.qibla-note {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 0 8px;
+  line-height: 1.5;
+}
+
+.qibla-error {
+  color: var(--warning, #ea580c);
+  margin-bottom: 8px;
+}
