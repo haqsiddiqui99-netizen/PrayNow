@@ -4,12 +4,12 @@ import {
   ActivityIndicator,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native'
-import { colors, radius } from '@/src/constants/theme'
+import { radius } from '@/src/constants/theme'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import {
   createMosqueManager,
   fetchAdminUsers,
@@ -22,6 +22,8 @@ import { useRouter } from 'expo-router'
 import { isAppAdmin } from '@/src/utils/roles'
 
 export default function ManagersScreen() {
+  const styles = useStyles()
+  const { colors } = useTheme()
   const { user } = useAuth()
   const router = useRouter()
   const [users, setUsers] = useState<AdminUserRow[]>([])
@@ -159,7 +161,7 @@ export default function ManagersScreen() {
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   page: { flex: 1, backgroundColor: colors.surface0 },
   content: { padding: 16, paddingBottom: 40 },
   lead: { fontSize: 13, color: colors.textSecondary, marginBottom: 12, lineHeight: 18 },
@@ -219,4 +221,4 @@ const styles = StyleSheet.create({
   meta: { color: colors.textMuted, fontSize: 12, marginTop: 4 },
   error: { color: colors.accent, fontWeight: '600', marginBottom: 8 },
   ok: { color: colors.success, fontWeight: '700', marginBottom: 8 },
-})
+}))

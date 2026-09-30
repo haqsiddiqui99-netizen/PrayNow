@@ -1,19 +1,42 @@
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
-import { useAuth } from '@/src/context/AuthContext'
-import { colors } from '@/src/constants/theme'
+import { Modal, Pressable, Text, View } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import { ThemeToggle } from '@/src/components/ThemeToggle'
 import { userInitials } from '@/src/components/UserMenu.utils'
+import { HEADER_CONTROL_HEIGHT } from '@/src/constants/layout'
+import { radius } from '@/src/constants/theme'
+import { useAuth } from '@/src/context/AuthContext'
+import { useInbox } from '@/src/context/InboxContext'
+import { useLanguage } from '@/src/context/LanguageContext'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
+import { LANGUAGES } from '@/src/i18n/translations'
 
 export { userInitials } from '@/src/components/UserMenu.utils'
 
-export function UserMenu({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
+/**
+ * Header account control. It owns the app-wide switches that used to sit loose in
+ * the header — messages, appearance and language — so the header itself carries
+ * only the brand, the account and the city.
+ */
+export function UserMenu({ greetingName }: { greetingName?: string }) {
+  const styles = useStyles()
+  const { colors } = useTheme()
   const router = useRouter()
   const { user, isGuest, logout } = useAuth()
+  const { unreadCount } = useInbox()
+  const { language, setLanguage, t } = useLanguage()
   const [open, setOpen] = useState(false)
-  const dark = tone === 'dark'
+  const [languageOpen, setLanguageOpen] = useState(false)
 
-  const close = () => setOpen(false)
+  const displayName = greetingName ?? user?.name?.trim().split(/\s+/)[0] ?? t('common.guest')
+  const activeLanguage = LANGUAGES.find((lang) => lang.code === language) ?? LANGUAGES[0]
+  const unread = user ? unreadCount : 0
+
+  const close = () => {
+    setOpen(false)
+    setLanguageOpen(false)
+  }
 
   const onLogout = async () => {
     close()
@@ -26,53 +49,146 @@ export function UserMenu({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
     router.replace('/login')
   }
 
+  const onMessages = () => {
+    close()
+    router.push('/notifications')
+  }
+
   return (
     <>
       <Pressable
-        style={[styles.trigger, dark && styles.triggerDark, open && (dark ? styles.triggerDarkOpen : styles.triggerOpen)]}
+        style={[styles.trigger, open && styles.triggerOpen]}
         onPress={() => setOpen(true)}
-        accessibilityLabel={user ? 'Account menu' : 'Sign in'}
-        accessibilityRole="button">
-        {user ? (
-          <Text style={[styles.initials, dark && styles.initialsDark]}>
-            {userInitials(user.name, user.email)}
-          </Text>
-        ) : (
-          <Text style={styles.icon}>👤</Text>
-        )}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={
+          unread > 0
+            ? `${t('userMenu.account')}, ${t('userMenu.unread', { count: unread })}`
+            : t('userMenu.account')
+        }>
+        <View style={styles.triggerAvatar}>
+          {user ? (
+            <Text style={styles.triggerInitials}>{userInitials(user.name, user.email)}</Text>
+          ) : (
+            <Ionicons name="person" size={13} color={colors.primary} />
+          )}
+        </View>
+        <Text style={styles.triggerName} numberOfLines={1}>
+          {displayName}
+        </Text>
+        <Ionicons name="chevron-down" size={13} color={colors.textMuted} />
+        {/* Keeps the unread count glanceable now that the bell lives in the menu. */}
+        {unread > 0 ? (
+          <View style={styles.triggerBadge}>
+            <Text style={styles.triggerBadgeText}>{unread > 99 ? '99+' : String(unread)}</Text>
+          </View>
+        ) : null}
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
-        <Pressable style={[styles.backdrop, dark && styles.backdropLeft]} onPress={close}>
-          <Pressable style={styles.panel} onPress={(e) => e.stopPropagation()}>
-            {user ? (
-              <>
-                <View style={styles.profile}>
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{userInitials(user.name, user.email)}</Text>
-                  </View>
-                  <Text style={styles.name}>{user.name}</Text>
-                  <Text style={styles.email}>{user.email}</Text>
+        <Pressable style={styles.backdrop} onPress={close}>
+          <Pressable style={styles.panel} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.profile}>
+              <View style={styles.avatar}>
+                {user ? (
+                  <Text style={styles.avatarText}>{userInitials(user.name, user.email)}</Text>
+                ) : (
+                  <Ionicons name="person" size={17} color={colors.primary} />
+                )}
+              </View>
+              <View style={styles.profileText}>
+                <Text style={styles.name} numberOfLines={1}>
+                  {user
+                    ? user.name
+                    : isGuest
+                      ? t('userMenu.guestTitle')
+                      : t('userMenu.welcome')}
+                </Text>
+                <Text style={styles.subtitle} numberOfLines={1}>
+                  {user
+                    ? user.mobile || user.email
+                    : isGuest
+                      ? t('userMenu.guestSub')
+                      : t('userMenu.welcomeSub')}
+                </Text>
+              </View>
+            </View>
+
+            <Pressable
+              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+              onPress={onMessages}
+              accessibilityRole="button">
+              <Ionicons name="notifications-outline" size={17} color={colors.primary} />
+              <Text style={styles.rowLabel}>{t('userMenu.messages')}</Text>
+              {unread > 0 ? (
+                <View style={styles.rowBadge}>
+                  <Text style={styles.rowBadgeText}>{unread > 99 ? '99+' : String(unread)}</Text>
                 </View>
-                <Pressable style={styles.dangerBtn} onPress={() => void onLogout()}>
-                  <Text style={styles.dangerBtnText}>Sign out</Text>
-                </Pressable>
-              </>
-            ) : (
-              <>
-                <View style={styles.guest}>
-                  <Text style={styles.guestTitle}>
-                    {isGuest ? 'Browsing as guest' : 'Welcome to PrayNow'}
-                  </Text>
-                  <Text style={styles.guestSub}>
-                    {isGuest ? 'Sign in to save preferences' : 'Sign in to your account'}
-                  </Text>
-                </View>
-                <Pressable style={styles.primaryBtn} onPress={onSignIn}>
-                  <Text style={styles.primaryBtnText}>Sign in</Text>
-                </Pressable>
-              </>
-            )}
+              ) : null}
+              <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
+            </Pressable>
+
+            <View style={styles.row}>
+              <Ionicons name="contrast-outline" size={17} color={colors.primary} />
+              <Text style={styles.rowLabel}>{t('theme.button')}</Text>
+              <ThemeToggle />
+            </View>
+
+            <Pressable
+              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+              onPress={() => setLanguageOpen((previous) => !previous)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: languageOpen }}>
+              <Ionicons name="language-outline" size={17} color={colors.primary} />
+              <Text style={styles.rowLabel}>{t('lang.button')}</Text>
+              <Text style={styles.rowValue}>{activeLanguage.nativeLabel}</Text>
+              <Ionicons
+                name={languageOpen ? 'chevron-up' : 'chevron-down'}
+                size={15}
+                color={colors.textMuted}
+              />
+            </Pressable>
+
+            {languageOpen
+              ? LANGUAGES.map((lang) => {
+                  const selected = lang.code === language
+                  return (
+                    <Pressable
+                      key={lang.code}
+                      style={({ pressed }) => [
+                        styles.languageRow,
+                        selected && styles.languageRowSelected,
+                        pressed && styles.rowPressed,
+                      ]}
+                      onPress={() => {
+                        setLanguage(lang.code)
+                        setLanguageOpen(false)
+                      }}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}>
+                      <Text
+                        style={[styles.languageLabel, selected && styles.languageLabelSelected]}>
+                        {lang.nativeLabel}
+                      </Text>
+                      {lang.nativeLabel !== lang.label ? (
+                        <Text style={styles.languageSub}>{lang.label}</Text>
+                      ) : null}
+                      {selected ? (
+                        <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+                      ) : null}
+                    </Pressable>
+                  )
+                })
+              : null}
+
+            <Pressable
+              style={({ pressed }) => [styles.authBtn, pressed && styles.rowPressed]}
+              onPress={user ? () => void onLogout() : onSignIn}
+              accessibilityRole="button">
+              <Text style={[styles.authText, user && styles.authTextDanger]}>
+                {user ? t('userMenu.signOut') : t('userMenu.signIn')}
+              </Text>
+            </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -80,71 +196,134 @@ export function UserMenu({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   trigger: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.85)',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    flexShrink: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: HEADER_CONTROL_HEIGHT,
+    paddingLeft: 3,
+    paddingRight: 8,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface1,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  triggerOpen: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.pillBorder,
+  },
+  triggerAvatar: {
+    width: HEADER_CONTROL_HEIGHT - 10,
+    height: HEADER_CONTROL_HEIGHT - 10,
+    borderRadius: (HEADER_CONTROL_HEIGHT - 10) / 2,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  triggerOpen: {
-    backgroundColor: 'rgba(255,255,255,0.28)',
-    borderColor: '#fff',
+  triggerInitials: { fontSize: 10, fontWeight: '800', color: colors.primary },
+  triggerName: {
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
-  triggerDark: {
-    borderColor: colors.border,
-    backgroundColor: 'rgba(255,255,255,0.85)',
+  triggerBadge: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    backgroundColor: colors.accent,
+    borderWidth: 1.5,
+    borderColor: colors.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  triggerDarkOpen: {
-    backgroundColor: colors.surface2,
-    borderColor: colors.textPrimary,
-  },
-  icon: { fontSize: 16 },
-  initials: { fontSize: 11, fontWeight: '800', color: '#fff' },
-  initialsDark: { color: colors.textPrimary },
+  triggerBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15,23,42,0.35)',
     justifyContent: 'flex-start',
     alignItems: 'flex-end',
-    paddingTop: 100,
+    paddingTop: 96,
     paddingRight: 16,
   },
-  backdropLeft: {
-    alignItems: 'flex-start',
-    paddingRight: 0,
-    paddingLeft: 16,
-  },
   panel: {
-    width: 240,
+    width: 268,
+    maxWidth: '92%',
     backgroundColor: colors.surface2,
-    borderRadius: 12,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     overflow: 'hidden',
   },
-  profile: { padding: 16, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.border },
+  profile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
   },
-  avatarText: { fontSize: 14, fontWeight: '800', color: colors.primary },
+  avatarText: { fontSize: 13, fontWeight: '800', color: colors.primary },
+  profileText: { flex: 1, minWidth: 0 },
   name: { fontSize: 14, fontWeight: '800', color: colors.textPrimary },
-  email: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
-  guest: { padding: 14, paddingBottom: 8, gap: 2 },
-  guestTitle: { fontSize: 13, fontWeight: '700', color: colors.textPrimary },
-  guestSub: { fontSize: 11, color: colors.textMuted },
-  primaryBtn: { padding: 14, borderTopWidth: 1, borderTopColor: colors.border },
-  primaryBtnText: { fontSize: 13, fontWeight: '700', color: colors.primary, textAlign: 'center' },
-  dangerBtn: { padding: 14 },
-  dangerBtnText: { fontSize: 13, fontWeight: '700', color: colors.accent, textAlign: 'center' },
-})
+  subtitle: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+  /**
+   * The appearance row holds a full-height control while the others hold only an
+   * icon, so a shared height keeps every row on the same rhythm.
+   */
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: HEADER_CONTROL_HEIGHT + 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  rowPressed: { backgroundColor: colors.surface1 },
+  rowLabel: { flex: 1, fontSize: 13, fontWeight: '700', color: colors.textPrimary },
+  rowValue: { fontSize: 12, fontWeight: '700', color: colors.primary },
+  rowBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  languageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingLeft: 41,
+    paddingRight: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  languageRowSelected: { backgroundColor: colors.primarySoft },
+  languageLabel: { fontSize: 13, fontWeight: '700', color: colors.textPrimary },
+  languageLabelSelected: { color: colors.primary },
+  languageSub: { flex: 1, fontSize: 11, color: colors.textMuted },
+  authBtn: { paddingVertical: 13, alignItems: 'center' },
+  authText: { fontSize: 13, fontWeight: '800', color: colors.primary },
+  authTextDanger: { color: colors.accent },
+}))

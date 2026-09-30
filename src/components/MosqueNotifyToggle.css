@@ -1,7 +1,7 @@
 .notify-toggle {
-  width: 44px;
-  height: 26px;
-  border-radius: 13px;
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
   border: none;
   padding: 2px;
   background: #cbd5e1;
@@ -13,13 +13,13 @@
 }
 
 .notify-toggle--on {
-  background: #14b8a6;
+  background: #16a34a;
 }
 
 .notify-toggle-knob {
-  width: 22px;
-  height: 22px;
-  border-radius: 11px;
+  width: 16px;
+  height: 16px;
+  border-radius: 8px;
   background: #fff;
   display: block;
   transition: transform 0.15s ease;
@@ -27,7 +27,7 @@
 }
 
 .notify-toggle--on .notify-toggle-knob {
-  transform: translateX(18px);
+  transform: translateX(16px);
 }
 
 .notify-toggle:disabled {

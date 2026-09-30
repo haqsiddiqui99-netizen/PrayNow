@@ -1,7 +1,9 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { GoogleMapsButton } from '@/src/components/GoogleMapsButton'
-import { colors, radius, shadows } from '@/src/constants/theme'
+import { radius } from '@/src/constants/theme'
+import { useLanguage } from '@/src/context/LanguageContext'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import type { Mosque } from '@/src/types'
 
 type Props = {
@@ -20,31 +22,31 @@ export function NearbyMosquesMap({
   onSelectMosque,
   onOpenInGoogleMaps,
 }: Props) {
+  const styles = useStyles()
+  const { colors } = useTheme()
+  const { t, placeName } = useLanguage()
   const pinMosques = mosques.filter((m) => Number.isFinite(m.lat) && Number.isFinite(m.lng))
 
   return (
     <View style={styles.wrap}>
       <View style={styles.header}>
         <Ionicons name="map-outline" size={18} color={colors.primary} />
-        <Text style={styles.title}>Map view</Text>
+        <Text style={styles.title}>{t('map.title')}</Text>
       </View>
-      <Text style={styles.subtitle}>
-        Interactive map pins are available in the Expo Go / mobile app. On web, open Google Maps or
-        pick a mosque below.
-      </Text>
+      <Text style={styles.subtitle}>{t('map.webHint')}</Text>
 
       {onOpenInGoogleMaps && pinMosques.length > 0 ? (
         <View style={styles.mapsWrap}>
           <GoogleMapsButton
             variant="chip"
-            label="Open in Google Maps"
+            label={t('mosque.openInMaps')}
             onPress={onOpenInGoogleMaps}
           />
         </View>
       ) : null}
 
       {pinMosques.length === 0 ? (
-        <Text style={styles.emptyText}>No mosques to show on the map</Text>
+        <Text style={styles.emptyText}>{t('map.empty')}</Text>
       ) : (
         <ScrollView style={styles.list} nestedScrollEnabled>
           {pinMosques.map((m) => {
@@ -61,10 +63,10 @@ export function NearbyMosquesMap({
                 />
                 <View style={styles.rowText}>
                   <Text style={styles.name} numberOfLines={1}>
-                    {m.name}
+                    {placeName(m.name)}
                   </Text>
                   <Text style={styles.meta} numberOfLines={1}>
-                    {m.area || m.address}
+                    {placeName(m.area || m.address)}
                   </Text>
                 </View>
               </Pressable>
@@ -76,7 +78,7 @@ export function NearbyMosquesMap({
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, shadows }) => ({
   wrap: {
     minHeight: 280,
     maxHeight: 360,
@@ -141,4 +143,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
   },
-})
+}))

@@ -1,23 +1,14 @@
 import {
   Image,
-  StyleSheet,
   View,
   type ImageStyle,
   type StyleProp,
   type ViewStyle,
 } from 'react-native'
-import { colors } from '@/src/constants/theme'
 import { APP_ICONS, type AppIconName } from '@/src/constants/appIcons'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 
-const BACKGROUNDS = {
-  tab: colors.surface2,
-  menu: colors.surface2,
-  avatar: colors.surface2,
-  header: colors.surface2,
-  page: colors.surface0,
-} as const
-
-export type AppIconVariant = keyof typeof BACKGROUNDS
+export type AppIconVariant = 'tab' | 'menu' | 'avatar' | 'header' | 'page'
 
 type AppIconProps = {
   name: AppIconName
@@ -27,7 +18,16 @@ type AppIconProps = {
 }
 
 export function AppIcon({ name, size = 24, variant = 'tab', style }: AppIconProps) {
-  const backgroundColor = BACKGROUNDS[variant]
+  const styles = useStyles()
+  const { colors } = useTheme()
+  const backgrounds = {
+    tab: colors.surface2,
+    menu: colors.surface2,
+    avatar: colors.surface2,
+    header: colors.surface2,
+    page: colors.surface0,
+  } as const
+  const backgroundColor = backgrounds[variant]
   const inset = Math.max(2, Math.round(size * 0.06))
   const imageSize = size - inset * 2
 
@@ -58,10 +58,10 @@ export function AppIcon({ name, size = 24, variant = 'tab', style }: AppIconProp
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   wrap: {
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
-})
+}))

@@ -9,6 +9,7 @@ import { useLongPress } from '../hooks/useLongPress'
 import { getCurrentPrayerForMosques } from '../utils/prayerSchedule'
 import { MOSQUE_SORT_OPTIONS, sortMosques, type MosqueSortMode } from '../utils/mosqueSort'
 import {
+  CITY_RADIUS_KM,
   DEFAULT_MOSQUE_RADIUS_KM,
   filterMosquesByRadius,
   formatNearbyMosqueHeading,
@@ -26,9 +27,14 @@ import {
 import './NearbyMosques.css'
 import './MosqueFacilitiesLine.css'
 
+function radiusChipLabel(r: MosqueRadiusKm): string {
+  if (r >= CITY_RADIUS_KM) return 'City'
+  if (r < 1) return '500 m'
+  return `${r} km`
+}
+
 interface NearbyMosquesProps {
   onSelectMosque: (mosque: Mosque) => void
-  onViewAll: () => void
   onNeedLogin?: () => void
 }
 
@@ -167,7 +173,7 @@ function NearbyMosqueCard({
   )
 }
 
-export function NearbyMosques({ onSelectMosque, onViewAll, onNeedLogin }: NearbyMosquesProps) {
+export function NearbyMosques({ onSelectMosque, onNeedLogin }: NearbyMosquesProps) {
   const [travelMode, setTravelMode] = useState<TravelMode>('driving')
   const [sortMode, setSortMode] = useState<MosqueSortMode>('nearest')
   const [radiusKm, setRadiusKm] = useState<MosqueRadiusKm>(DEFAULT_MOSQUE_RADIUS_KM)
@@ -199,13 +205,7 @@ export function NearbyMosques({ onSelectMosque, onViewAll, onNeedLogin }: Nearby
       <div className="nearby-header">
         <div className="nearby-header-text">
           <h3 className="nearby-title">{nearbyHeading}</h3>
-          {nearbyAll.length > HOME_NEARBY_PREVIEW_LIMIT && (
-            <p className="nearby-subtitle">
-              Showing nearest {HOME_NEARBY_PREVIEW_LIMIT} of {nearbyAll.length}
-            </p>
-          )}
         </div>
-        <button type="button" className="view-all-link" onClick={onViewAll}>View all →</button>
       </div>
 
       <div className="chip-group chip-group--compact nearby-radius-bar">
@@ -216,7 +216,7 @@ export function NearbyMosques({ onSelectMosque, onViewAll, onNeedLogin }: Nearby
             className={`chip chip--compact${radiusKm === r ? ' active' : ''}`}
             onClick={() => setRadiusKm(r)}
           >
-            {r} km
+            {radiusChipLabel(r)}
           </button>
         ))}
       </div>

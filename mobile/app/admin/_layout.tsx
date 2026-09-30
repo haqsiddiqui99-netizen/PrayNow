@@ -31,6 +31,7 @@ export default function AdminLayout() {
       <Stack.Screen name="mosque/[id]/azan" options={{ title: 'Azan Dashboard' }} />
       <Stack.Screen name="mosques" options={{ title: 'All Mosques' }} />
       <Stack.Screen name="mosque-form" options={{ title: 'Mosque' }} />
+      <Stack.Screen name="mosque-requests" options={{ title: 'Mosque Requests' }} />
       <Stack.Screen name="managers" options={{ title: 'Mosque Admins' }} />
       <Stack.Screen name="city" options={{ title: 'City Schedule' }} />
     </Stack>

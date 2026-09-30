@@ -26,6 +26,14 @@ import {
   parseCityDaysCsv,
   generateYearFromDefaults,
 } from '../services/cityPrayerDays.js'
+import { generateYearFromAladhan } from '../services/aladhanCityDays.js'
+import {
+  fetchRequestById,
+  listRequestsForAdmin,
+  markRequestReviewed,
+  photoUrl,
+  requestPhotoIds,
+} from '../services/mosqueRequests.js'
 
 const router = Router()
 const pool = getPool()
@@ -169,12 +177,12 @@ router.post('/admin/mosques', authMiddleware, requireRole('admin'), async (req, 
     await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
     const { rows } = await client.query(
       `INSERT INTO mosques (id, name, address, area, city, phone, lat, lng, sect, imam, imam_mobile, imam_photo,
-         moazzin_name, moazzin_mobile, moazzin_photo, juma_khutba, juma_namaz, juma_sessions, sermon_language, facilities, events, photos, capacity)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING id`,
+         moazzin_name, moazzin_mobile, moazzin_photo, imams, moazzins, juma_khutba, juma_namaz, juma_sessions, sermon_language, facilities, events, photos, capacity)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25) RETURNING id`,
       [
         randomUUID(), f.name, f.address, f.area, f.city || 'Kanpur', f.phone, f.lat, f.lng, f.sect,
         f.imam, f.imam_mobile, f.imam_photo, f.moazzin_name, f.moazzin_mobile, f.moazzin_photo,
-        f.juma_khutba, f.juma_namaz, f.juma_sessions, f.sermon_language, f.facilities, f.events, f.photos, f.capacity ?? 500,
+        f.imams, f.moazzins, f.juma_khutba, f.juma_namaz, f.juma_sessions, f.sermon_language, f.facilities, f.events, f.photos, f.capacity,
       ],
     )
     const mosqueId = rows[0].id
@@ -203,15 +211,16 @@ router.put('/admin/mosques/:id', authMiddleware, requireRole('admin'), async (re
        city=COALESCE($5,city), phone=COALESCE($6,phone), lat=COALESCE($7,lat), lng=COALESCE($8,lng), sect=COALESCE($9,sect),
        imam=COALESCE($10,imam), imam_mobile=COALESCE($11,imam_mobile), imam_photo=COALESCE($12,imam_photo),
        moazzin_name=COALESCE($13,moazzin_name), moazzin_mobile=COALESCE($14,moazzin_mobile),
-       moazzin_photo=COALESCE($15,moazzin_photo), juma_khutba=COALESCE($16,juma_khutba),
-       juma_namaz=COALESCE($17,juma_namaz), juma_sessions=COALESCE($18,juma_sessions),
-       sermon_language=COALESCE($19,sermon_language),
-       facilities=COALESCE($20,facilities), events=COALESCE($21,events), photos=COALESCE($22,photos),
-       capacity=COALESCE($23,capacity), is_active=COALESCE($24,is_active), updated_at=NOW() WHERE id=$1`,
+       moazzin_photo=COALESCE($15,moazzin_photo), imams=COALESCE($16,imams), moazzins=COALESCE($17,moazzins),
+       juma_khutba=COALESCE($18,juma_khutba),
+       juma_namaz=COALESCE($19,juma_namaz), juma_sessions=COALESCE($20,juma_sessions),
+       sermon_language=COALESCE($21,sermon_language),
+       facilities=COALESCE($22,facilities), events=COALESCE($23,events), photos=COALESCE($24,photos),
+       capacity=COALESCE($25,capacity), is_active=COALESCE($26,is_active), updated_at=NOW() WHERE id=$1`,
       [
         dbId, f.name, f.address, f.area, f.city, f.phone, f.lat, f.lng, f.sect,
         f.imam, f.imam_mobile, f.imam_photo, f.moazzin_name, f.moazzin_mobile, f.moazzin_photo,
-        f.juma_khutba, f.juma_namaz, f.juma_sessions, f.sermon_language, f.facilities, f.events, f.photos, f.capacity, b.isActive,
+        f.imams, f.moazzins, f.juma_khutba, f.juma_namaz, f.juma_sessions, f.sermon_language, f.facilities, f.events, f.photos, f.capacity, b.isActive,
       ],
     )
     if (b.timings) await upsertMosqueTimings(client, dbId, b.timings)
@@ -420,7 +429,11 @@ router.post('/admin/city/days/generate-year', authMiddleware, requireRole('admin
     await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
     const year = Number(req.body?.year) || new Date().getFullYear()
     const city = req.body?.city ? normalizeCityName(req.body.city) : undefined
-    const result = await generateYearFromDefaults(client, year, city)
+    const source = String(req.body?.source || 'aladhan').toLowerCase()
+    const result =
+      source === 'defaults'
+        ? await generateYearFromDefaults(client, year, city)
+        : await generateYearFromAladhan(client, year, city || 'Delhi')
     res.json({ ok: true, ...result })
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : 'Generate failed' })
@@ -605,5 +618,103 @@ router.get(
     }
   },
 )
+
+// --- Review queue for user-submitted mosque requests ---
+
+router.get('/admin/mosque-requests', authMiddleware, requireRole('admin'), async (req, res) => {
+  const client = await pool.connect()
+  try {
+    await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+    const status = String(req.query.status || 'pending')
+    const requests = await listRequestsForAdmin(client, status)
+    res.json({ requests })
+  } catch (err) {
+    console.error('mosque request review list failed', err)
+    res.status(500).json({ error: err.message || 'Failed to load requests' })
+  } finally {
+    client.release()
+  }
+})
+
+/**
+ * Approving creates the real mosque from the request and carries its photos over
+ * by URL, so the uploaded bytes are reused rather than copied a second time.
+ */
+router.post('/admin/mosque-requests/:id/approve', authMiddleware, requireRole('admin'), async (req, res) => {
+  const client = await pool.connect()
+  try {
+    await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+    const request = await fetchRequestById(client, req.params.id)
+    if (!request) return res.status(404).json({ error: 'Request not found' })
+    if (request.status !== 'pending') {
+      return res.status(409).json({ error: `Request was already ${request.status}` })
+    }
+
+    const photoIds = await requestPhotoIds(client, request.id)
+    const f = mosqueFieldsFromBody({
+      name: request.name,
+      address: request.address,
+      area: request.area || request.city || '',
+      city: request.city || null,
+      phone: request.owner_mobile,
+      lat: request.lat,
+      lng: request.lng,
+      photos: photoIds.map(photoUrl),
+      capacity: 0,
+    })
+    const mosqueId = randomUUID()
+    await client.query(
+      `INSERT INTO mosques (id, name, address, area, city, phone, lat, lng, sect, imam, imam_mobile, imam_photo,
+         moazzin_name, moazzin_mobile, moazzin_photo, imams, moazzins, juma_khutba, juma_namaz, juma_sessions,
+         sermon_language, facilities, events, photos, capacity, is_active)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)`,
+      [
+        mosqueId, f.name, f.address, f.area, f.city || 'Kanpur', f.phone, f.lat ?? 0, f.lng ?? 0, f.sect,
+        f.imam, f.imam_mobile, f.imam_photo, f.moazzin_name, f.moazzin_mobile, f.moazzin_photo,
+        f.imams, f.moazzins, f.juma_khutba, f.juma_namaz, f.juma_sessions, f.sermon_language,
+        f.facilities, f.events, f.photos, f.capacity,
+        // Hidden until an admin fills in timings, so the app never shows a blank mosque.
+        false,
+      ],
+    )
+
+    await markRequestReviewed(client, request.id, {
+      status: 'approved',
+      reviewNote: String(req.body?.reviewNote || '').slice(0, 2000),
+      reviewerId: req.user.sub,
+      mosqueId,
+    })
+    const mosque = await fetchMosqueById(client, mosqueId)
+    res.json({ ok: true, mosque })
+  } catch (err) {
+    console.error('mosque request approve failed', err)
+    res.status(500).json({ error: err.message || 'Failed to approve request' })
+  } finally {
+    client.release()
+  }
+})
+
+router.post('/admin/mosque-requests/:id/reject', authMiddleware, requireRole('admin'), async (req, res) => {
+  const client = await pool.connect()
+  try {
+    await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+    const request = await fetchRequestById(client, req.params.id)
+    if (!request) return res.status(404).json({ error: 'Request not found' })
+    if (request.status !== 'pending') {
+      return res.status(409).json({ error: `Request was already ${request.status}` })
+    }
+    await markRequestReviewed(client, request.id, {
+      status: 'rejected',
+      reviewNote: String(req.body?.reviewNote || '').slice(0, 2000),
+      reviewerId: req.user.sub,
+    })
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('mosque request reject failed', err)
+    res.status(500).json({ error: err.message || 'Failed to reject request' })
+  } finally {
+    client.release()
+  }
+})
 
 export default router

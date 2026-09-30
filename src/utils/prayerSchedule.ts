@@ -120,8 +120,8 @@ function formatCountdown(totalMinutes: number): string {
   if (totalMinutes <= 0) return 'starting now'
   const hrs = Math.floor(totalMinutes / 60)
   const mins = totalMinutes % 60
-  if (hrs > 0) return `in ${hrs} hour${hrs > 1 ? 's' : ''} ${mins} min${mins !== 1 ? 's' : ''}`
-  return `in ${mins} min${mins !== 1 ? 's' : ''}`
+  if (hrs > 0) return `in ${hrs} hrs ${mins} min`
+  return `in ${mins} min`
 }
 
 function minutesUntil(fromMin: number, targetMin: number): number {

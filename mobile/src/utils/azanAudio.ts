@@ -1,103 +1,103 @@
-import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio'
+import { setAudioModeAsync } from 'expo-audio'
+import { fetchAzanListenToken } from '@/src/services/api'
+import { AzanListener, isAgoraNativeAvailable } from '@/src/services/agoraClient'
 
-// Remote azan (adhan) audio. Kept as a constant so it can later be swapped for a
-// bundled asset or a per-mosque live stream URL.
-const AZAN_URL = 'https://www.islamcan.com/audio/adhan/azan1.mp3'
-
-let player: AudioPlayer | null = null
-let currentId: string | null = null
+let listener: AzanListener | null = null
+let currentMosqueId: string | null = null
+let currentSessionKey: string | null = null
 let playing = false
-let statusSub: { remove: () => void } | null = null
-const listeners = new Set<() => void>()
+const stateListeners = new Set<() => void>()
 
 function notify() {
-  listeners.forEach((cb) => cb())
+  stateListeners.forEach((cb) => cb())
 }
 
-export type AzanState = { id: string | null; playing: boolean }
+export type AzanState = {
+  mosqueId: string | null
+  id: string | null
+  playing: boolean
+  nativeAgora: boolean
+}
 
 /** Subscribe to azan playback changes. Returns an unsubscribe fn. */
 export function subscribeAzan(cb: () => void): () => void {
-  listeners.add(cb)
+  stateListeners.add(cb)
   return () => {
-    listeners.delete(cb)
+    stateListeners.delete(cb)
   }
 }
 
 /** Current azan playback state. */
 export function getAzanState(): AzanState {
-  return { id: currentId, playing }
+  return {
+    mosqueId: currentMosqueId,
+    id: currentSessionKey,
+    playing,
+    nativeAgora: isAgoraNativeAvailable(),
+  }
 }
 
-/** Stop any loaded azan and release the player. */
-export function stopAzan() {
-  if (statusSub) {
+/** Stop any live azan listener. */
+export async function stopAzan() {
+  if (listener) {
     try {
-      statusSub.remove()
+      await listener.stop()
     } catch {
       /* noop */
     }
-    statusSub = null
+    listener = null
   }
-  if (player) {
-    try {
-      player.remove()
-    } catch {
-      /* noop */
-    }
-    player = null
-  }
-  if (currentId !== null || playing) {
-    currentId = null
+  if (currentMosqueId !== null || currentSessionKey !== null || playing) {
+    currentMosqueId = null
+    currentSessionKey = null
     playing = false
     notify()
   }
 }
 
 /**
- * Toggle azan playback for a given id:
- *  - tapping a new id starts it from the beginning
- *  - tapping the currently playing id pauses it
- *  - tapping the currently paused id resumes it
- * Safe to call on web / when audio is unavailable (fails silently).
+ * Toggle live azan for a mosque:
+ *  - same session → stop
+ *  - different session → switch streams (one azan at a time)
  */
-export async function toggleAzan(id: string) {
-  // Same azan already loaded → just toggle play/pause.
-  if (currentId === id && player) {
-    try {
-      if (playing) {
-        player.pause()
-        playing = false
-      } else {
-        player.play()
-        playing = true
-      }
-      notify()
-    } catch {
-      stopAzan()
-    }
+export async function toggleLiveAzan(mosqueId: string, sessionKey: string) {
+  if (currentMosqueId === mosqueId && currentSessionKey === sessionKey && playing) {
+    await stopAzan()
     return
   }
 
-  // Different azan (or nothing loaded) → start fresh.
-  stopAzan()
+  await stopAzan()
+
+  if (!isAgoraNativeAvailable()) {
+    throw new Error(
+      'Live azan audio needs a PrayNow dev build (not Expo Go). Use web Live Azan or run: npm run eas:preview',
+    )
+  }
 
   try {
     await setAudioModeAsync({ playsInSilentMode: true }).catch(() => {})
-    const next = createAudioPlayer({ uri: AZAN_URL })
-    player = next
-    currentId = id
+    const { agora } = await fetchAzanListenToken(mosqueId)
+    if (!agora.configured || !agora.appId) {
+      throw new Error('Live audio is not configured on the server.')
+    }
+
+    const next = new AzanListener()
+    await next.start(agora)
+    listener = next
+    currentMosqueId = mosqueId
+    currentSessionKey = sessionKey
     playing = true
     notify()
-
-    statusSub = next.addListener('playbackStatusUpdate', (status) => {
-      if (status?.didJustFinish) {
-        stopAzan()
-      }
-    })
-
-    next.play()
-  } catch {
-    stopAzan()
+  } catch (error) {
+    await stopAzan()
+    throw error
   }
+}
+
+/** @deprecated Use toggleLiveAzan(mosqueId, sessionKey). Kept for call-site compatibility. */
+export async function toggleAzan(sessionKey: string, mosqueId?: string) {
+  if (!mosqueId) {
+    throw new Error('Mosque id is required for live azan.')
+  }
+  return toggleLiveAzan(mosqueId, sessionKey)
 }

@@ -1,6 +1,6 @@
 /**
- * Create the first 5 Kanpur mosques via the running API.
- * Usage: node scripts/import-kanpur-mosques.mjs
+ * Create Kanpur mosques via the running API (real location fields only).
+ * Usage: node server/scripts/import-kanpur-mosques.mjs
  */
 const API = process.env.API_URL || 'http://127.0.0.1:5000'
 
@@ -47,40 +47,6 @@ const MOSQUES = [
   },
 ]
 
-function addMin(timeStr, delta) {
-  const m = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
-  if (!m) return timeStr
-  let h = Number(m[1])
-  let min = Number(m[2])
-  const period = m[3].toUpperCase()
-  if (period === 'PM' && h !== 12) h += 12
-  if (period === 'AM' && h === 12) h = 0
-  let total = h * 60 + min + delta
-  total = ((total % (24 * 60)) + 24 * 60) % (24 * 60)
-  h = Math.floor(total / 60)
-  min = total % 60
-  const p = h >= 12 ? 'PM' : 'AM'
-  let hour = h % 12
-  if (hour === 0) hour = 12
-  return `${hour}:${String(min).padStart(2, '0')} ${p}`
-}
-
-function timingsFromDay(day) {
-  const by = Object.fromEntries((day?.schedule || []).map((r) => [r.prayer_name, r]))
-  const slot = (name, jamatOffset = 15) => {
-    const start = by[name]?.start_time || '12:00 PM'
-    const end = by[name]?.end_time || start
-    return { start, azan: start, jamat: addMin(start, jamatOffset), end }
-  }
-  return {
-    Fajr: slot('Fajr', 15),
-    Dhuhr: slot('Dhuhr', 15),
-    Asr: slot('Asr', 15),
-    Maghrib: slot('Maghrib', 5),
-    Isha: slot('Isha', 15),
-  }
-}
-
 async function main() {
   const loginRes = await fetch(`${API}/api/login`, {
     method: 'POST',
@@ -91,7 +57,6 @@ async function main() {
   const { token } = await loginRes.json()
   const auth = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 
-  // Ensure city is Kanpur
   await fetch(`${API}/api/admin/city/settings`, {
     method: 'PUT',
     headers: auth,
@@ -99,16 +64,6 @@ async function main() {
       settings: { city: 'Kanpur', country: 'India', lat: 26.4499, lng: 80.3319 },
     }),
   })
-
-  const today = new Date()
-  const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-  const cityRes = await fetch(`${API}/api/city/settings?city=Kanpur&date=${ymd}`)
-  const cityData = await cityRes.json()
-  const timings = timingsFromDay(cityData.day || cityData)
-  const nightTimings = cityData.day?.nightTimings || {
-    tahajjud: { start: '12:30 AM', end: '3:40 AM' },
-    sehri: { start: '2:30 AM', end: timings.Fajr.start },
-  }
 
   const existing = await fetch(`${API}/api/manager/mosques`, { headers: auth })
   const list = existing.ok ? await existing.json() : []
@@ -128,15 +83,13 @@ async function main() {
     const body = {
       ...m,
       phone: '',
-      sect: 'Sunni',
-      capacity: 500,
-      sermonLanguage: 'Urdu',
-      facilities: ['Wudu Area'],
+      sect: '',
+      capacity: 0,
+      sermonLanguage: '',
+      facilities: [],
       events: [],
-      photos: ['🕌'],
-      jumaTimings: { khutba: timings.Dhuhr.azan, namaz: timings.Dhuhr.jamat },
-      timings,
-      nightTimings,
+      photos: [],
+      jumaTimings: { khutba: '', namaz: '' },
     }
     const res = await fetch(`${API}/api/admin/mosques`, {
       method: 'POST',

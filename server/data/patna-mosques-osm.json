@@ -1,0 +1,88 @@
+{
+  "city": "Patna",
+  "fetchedAt": "2026-08-01T20:04:57.812Z",
+  "source": "OpenStreetMap Overpass",
+  "bbox": "25.55,85.05,25.70,85.25",
+  "pinCodes": [
+    "800001",
+    "800007",
+    "800020"
+  ],
+  "count": 5,
+  "mosques": [
+    {
+      "legacy_id": "osm-way-1173114239",
+      "name": "Ali Nagar Jama Masjid",
+      "address": "A/12, Ali Nagar Colony, Police Colony, Anisabad, Patna, Bihar, patna",
+      "area": "patna",
+      "city": "Patna",
+      "phone": "",
+      "lat": 25.5866693,
+      "lng": 85.0941258,
+      "mapsUrl": "https://www.google.com/maps?q=25.5866693,85.0941258",
+      "source": "openstreetmap",
+      "osmType": "way",
+      "osmId": 1173114239,
+      "pinCode": "800002"
+    },
+    {
+      "legacy_id": "osm-node-7478460558",
+      "name": "Chauhatta Mosque",
+      "address": "Ashok Raj Path, Patna",
+      "area": "Patna",
+      "city": "Patna",
+      "phone": "",
+      "lat": 25.6186945,
+      "lng": 85.1640404,
+      "mapsUrl": "https://www.google.com/maps?q=25.6186945,85.1640404",
+      "source": "openstreetmap",
+      "osmType": "node",
+      "osmId": 7478460558
+    },
+    {
+      "legacy_id": "osm-node-12595881492",
+      "name": "Jama masjid miya bag",
+      "address": "Patna",
+      "area": "Patna",
+      "city": "Patna",
+      "phone": "",
+      "lat": 25.6881231,
+      "lng": 85.1846275,
+      "mapsUrl": "https://www.google.com/maps?q=25.6881231,85.1846275",
+      "source": "openstreetmap",
+      "osmType": "node",
+      "osmId": 12595881492
+    },
+    {
+      "legacy_id": "osm-node-4561586890",
+      "name": "Murtazwi Masjid",
+      "address": "Chowa lal lane, Patna",
+      "area": "Patna",
+      "city": "Patna",
+      "phone": "",
+      "lat": 25.599731,
+      "lng": 85.211307,
+      "mapsUrl": "https://www.google.com/maps?q=25.599731,85.211307",
+      "source": "openstreetmap",
+      "osmType": "node",
+      "osmId": 4561586890,
+      "pinCode": "800008"
+    },
+    {
+      "legacy_id": "osm-node-4883158347",
+      "name": "Sangi Jama Masjid",
+      "address": "Hajipur",
+      "area": "Hajipur",
+      "city": "Patna",
+      "phone": "",
+      "lat": 25.6875168,
+      "lng": 85.1977643,
+      "mapsUrl": "https://www.google.com/maps?q=25.6875168,85.1977643",
+      "source": "openstreetmap",
+      "osmType": "node",
+      "osmId": 4883158347,
+      "sect": "Sunni",
+      "pinCode": "844101"
+    }
+  ]
+}

@@ -1,10 +1,12 @@
 import { Redirect, useRouter } from 'expo-router'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, Text, View } from 'react-native'
 import { useAuth } from '@/src/context/AuthContext'
-import { colors, radius } from '@/src/constants/theme'
+import { radius } from '@/src/constants/theme'
+import { makeStyles } from '@/src/context/ThemeContext'
 import { isAppAdmin, isMosqueAdmin } from '@/src/utils/roles'
 
 export default function AdminIndex() {
+  const styles = useStyles()
   const { user } = useAuth()
   const router = useRouter()
 
@@ -18,6 +20,11 @@ export default function AdminIndex() {
 
   const tiles = [
     { title: 'Mosques', desc: 'Add or edit any mosque', href: '/admin/mosques' as const },
+    {
+      title: 'Mosque Requests',
+      desc: 'Review mosques submitted by app users',
+      href: '/admin/mosque-requests' as const,
+    },
     { title: 'Mosque Admins', desc: 'Create login & assign mosques', href: '/admin/managers' as const },
     { title: 'City Schedule', desc: 'Defaults, Tahajjud/Sehri & 365-day calendar', href: '/admin/city' as const },
     { title: 'Broadcast / My Mosques', desc: 'Start azan on any mosque', href: '/admin/my-mosques' as const },
@@ -36,7 +43,7 @@ export default function AdminIndex() {
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   page: { flex: 1, backgroundColor: colors.surface0, padding: 16 },
   lead: { fontSize: 13, color: colors.textSecondary, marginBottom: 14, lineHeight: 18 },
   tile: {
@@ -49,4 +56,4 @@ const styles = StyleSheet.create({
   },
   tileTitle: { fontSize: 16, fontWeight: '800', color: colors.textPrimary },
   tileDesc: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
-})
+}))

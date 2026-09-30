@@ -1,0 +1,73 @@
+{
+  "city": "Kanpur",
+  "fetchedAt": "2026-08-01T20:35:28.592Z",
+  "source": "OpenStreetMap Overpass",
+  "bbox": "26.28,80.12,26.62,80.52",
+  "pinCodes": [
+    "208001",
+    "208002",
+    "208005",
+    "208012",
+    "208014",
+    "208016"
+  ],
+  "count": 4,
+  "mosques": [
+    {
+      "legacy_id": "osm-node-11652935995",
+      "name": "BANSMANDI MASJID",
+      "address": "Kanpur",
+      "area": "Kanpur",
+      "city": "Kanpur",
+      "phone": "",
+      "lat": 26.4622266,
+      "lng": 80.3408725,
+      "mapsUrl": "https://www.google.com/maps?q=26.4622266,80.3408725",
+      "source": "openstreetmap",
+      "osmType": "node",
+      "osmId": 11652935995
+    },
+    {
+      "legacy_id": "osm-node-9463750540",
+      "name": "masjid sheikh humayon",
+      "address": "colonel ganj, kanpur",
+      "area": "kanpur",
+      "city": "Kanpur",
+      "phone": "",
+      "lat": 26.4742242,
+      "lng": 80.3357433,
+      "mapsUrl": "https://www.google.com/maps?q=26.4742242,80.3357433",
+      "source": "openstreetmap",
+      "osmType": "node",
+      "osmId": 9463750540
+    },
+    {
+      "legacy_id": "osm-node-1300455753",
+      "name": "Mosque",
+      "address": "Vijay Nagar, Kanpur",
+      "area": "Vijay Nagar, Kanpur",
+      "city": "Kanpur",
+      "phone": "",
+      "lat": 26.4650118,
+      "lng": 80.291258,
+      "mapsUrl": "https://www.google.com/maps?q=26.4650118,80.291258",
+      "source": "openstreetmap",
+      "osmType": "node",
+      "osmId": 1300455753
+    },
+    {
+      "legacy_id": "osm-way-1161591710",
+      "name": "Mosque",
+      "address": "Kanpur",
+      "area": "Kanpur",
+      "city": "Kanpur",
+      "phone": "",
+      "lat": 26.6170746,
+      "lng": 80.2731639,
+      "mapsUrl": "https://www.google.com/maps?q=26.6170746,80.2731639",
+      "source": "openstreetmap",
+      "osmType": "way",
+      "osmId": 1161591710
+    }
+  ]
+}

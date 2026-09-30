@@ -16,7 +16,7 @@ import {
   normalizeCityName,
   listCityDays,
 } from '../services/cityPrayerDays.js'
-import { catalogEntry, cityIdFromName } from '../data/cityCatalog.js'
+import { catalogEntry, cityIdFromName, listCatalogCities } from '../data/cityCatalog.js'
 
 const router = Router()
 const pool = getPool()
@@ -81,7 +81,7 @@ router.get('/cities', async (_req, res) => {
               AVG(lat)::float AS lat,
               AVG(lng)::float AS lng
        FROM mosques
-       WHERE is_active = TRUE AND city IS NOT NULL AND TRIM(city) <> ''
+       WHERE is_active = TRUE AND city IS NOT NULL AND city <> ''
        GROUP BY city
        ORDER BY city`,
     )
@@ -99,6 +99,8 @@ router.get('/cities', async (_req, res) => {
         lat: Number(r.lat) || meta?.lat || null,
         lng: Number(r.lng) || meta?.lng || null,
         aliases: meta?.aliases || [name.toLowerCase(), id.replace(/-/g, ' ')],
+        pinCodes: meta?.pinCodes || [],
+        pinPrefixes: meta?.pinPrefixes || [],
       })
     }
 
@@ -114,6 +116,36 @@ router.get('/cities', async (_req, res) => {
         lat: Number(settings[0].lat) || meta?.lat || null,
         lng: Number(settings[0].lng) || meta?.lng || null,
         aliases: meta?.aliases || [home.toLowerCase()],
+        pinCodes: meta?.pinCodes || [],
+        pinPrefixes: meta?.pinPrefixes || [],
+      })
+    }
+
+    // Tier-1 catalog cities (incl. Navi Mumbai / Thane) even before mosques exist.
+    for (const c of listCatalogCities()) {
+      const key = c.name.toLowerCase()
+      if (byName.has(key)) {
+        const existing = byName.get(key)
+        byName.set(key, {
+          ...existing,
+          lat: existing.lat ?? c.lat,
+          lng: existing.lng ?? c.lng,
+          aliases: c.aliases?.length ? c.aliases : existing.aliases,
+          pinCodes: c.pinCodes?.length ? c.pinCodes : existing.pinCodes || [],
+          pinPrefixes: c.pinPrefixes?.length ? c.pinPrefixes : existing.pinPrefixes || [],
+        })
+        continue
+      }
+      byName.set(key, {
+        id: c.id,
+        name: c.name,
+        country: defaultCountry,
+        mosqueCount: 0,
+        lat: c.lat,
+        lng: c.lng,
+        aliases: c.aliases,
+        pinCodes: c.pinCodes || [],
+        pinPrefixes: c.pinPrefixes || [],
       })
     }
 

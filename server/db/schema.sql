@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS mosques (
   moazzin_name     VARCHAR(255),
   moazzin_mobile   VARCHAR(32),
   moazzin_photo    TEXT,
+  imams            JSONB NOT NULL DEFAULT '[]',
+  moazzins         JSONB NOT NULL DEFAULT '[]',
   juma_khutba      VARCHAR(16),
   juma_namaz       VARCHAR(16),
   juma_sessions    TEXT,
@@ -197,3 +199,48 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id) WHERE read_at IS NULL;
+
+-- Multi imam / mo'azzin (idempotent for existing databases)
+ALTER TABLE mosques ADD COLUMN IF NOT EXISTS imams JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE mosques ADD COLUMN IF NOT EXISTS moazzins JSONB NOT NULL DEFAULT '[]';
+
+-- A signed-in user asks for a mosque to be added; an app admin approves or rejects.
+-- Approving copies the request into mosques and records the new id here.
+CREATE TABLE IF NOT EXISTS mosque_requests (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  submitted_by      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name              VARCHAR(255) NOT NULL,
+  address           TEXT NOT NULL,
+  area              VARCHAR(255) NOT NULL DEFAULT '',
+  city              VARCHAR(128) NOT NULL DEFAULT '',
+  lat               DOUBLE PRECISION,
+  lng               DOUBLE PRECISION,
+  owner_name        VARCHAR(255) NOT NULL,
+  owner_mobile      VARCHAR(32) NOT NULL,
+  owner_email       VARCHAR(255) NOT NULL DEFAULT '',
+  notes             TEXT NOT NULL DEFAULT '',
+  status            VARCHAR(16) NOT NULL DEFAULT 'pending'
+                      CHECK (status IN ('pending','approved','rejected')),
+  review_note       TEXT NOT NULL DEFAULT '',
+  reviewed_by       UUID REFERENCES users(id) ON DELETE SET NULL,
+  reviewed_at       TIMESTAMPTZ,
+  created_mosque_id UUID REFERENCES mosques(id) ON DELETE SET NULL,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Photos sit in their own table so listing requests never drags image bytes along.
+CREATE TABLE IF NOT EXISTS mosque_request_photos (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id   UUID NOT NULL REFERENCES mosque_requests(id) ON DELETE CASCADE,
+  content_type VARCHAR(64) NOT NULL DEFAULT 'image/jpeg',
+  byte_size    INTEGER NOT NULL DEFAULT 0,
+  sort_order   SMALLINT NOT NULL DEFAULT 0,
+  data         BYTEA NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_mosque_requests_status ON mosque_requests(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_mosque_requests_user ON mosque_requests(submitted_by, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_mosque_request_photos_request
+  ON mosque_request_photos(request_id, sort_order);

@@ -3,7 +3,14 @@ import { getCityPrayerConfig, type CityPrayerConfig } from '@/src/config/cityPra
 import { DEFAULT_NIGHT_TIMINGS } from '@/src/data/mockData'
 
 export interface LivePrayerInfo {
-  current: { name: PrayerName; displayName: string; start: string; end: string } | null
+  current: {
+    name: PrayerName
+    displayName: string
+    start: string
+    end: string
+    minutesRemaining: number
+    remaining: string
+  } | null
   next: { name: PrayerName; displayName: string; start: string; end: string; minutesUntil: number; countdown: string }
   inTuluAftab: boolean
   inZawal: boolean
@@ -79,6 +86,20 @@ export function parseTime(time: string): number {
   return h * 60 + minutes
 }
 
+export function formatMinutesAsTime(totalMinutes: number): string {
+  const normalized = ((totalMinutes % (24 * 60)) + 24 * 60) % (24 * 60)
+  const hours24 = Math.floor(normalized / 60)
+  const mins = normalized % 60
+  const period = hours24 >= 12 ? 'PM' : 'AM'
+  let h = hours24 % 12
+  if (h === 0) h = 12
+  return `${h}:${String(mins).padStart(2, '0')} ${period}`
+}
+
+export function addMinutesToTime(time: string, deltaMinutes: number): string {
+  return formatMinutesAsTime(parseTime(time) + deltaMinutes)
+}
+
 function isInWindow(nowMin: number, startMin: number, endMin: number) {
   if (startMin <= endMin) return nowMin >= startMin && nowMin < endMin
   return nowMin >= startMin || nowMin < endMin
@@ -88,13 +109,70 @@ function formatCountdown(totalMinutes: number) {
   if (totalMinutes <= 0) return 'starting now'
   const hrs = Math.floor(totalMinutes / 60)
   const mins = totalMinutes % 60
-  if (hrs > 0) return `in ${hrs} hour${hrs > 1 ? 's' : ''} ${mins} min`
-  return `in ${mins} min`
+  if (hrs > 0) return `${hrs} hrs ${mins} min`
+  return `${mins} min`
 }
 
 function minutesUntil(fromMin: number, targetMin: number) {
   if (targetMin > fromMin) return targetMin - fromMin
   return 24 * 60 - fromMin + targetMin
+}
+
+function minutesUntilEnd(nowMin: number, startMin: number, endMin: number) {
+  if (startMin <= endMin) return endMin - nowMin
+  if (nowMin >= startMin) return 24 * 60 - nowMin + endMin
+  return endMin - nowMin
+}
+
+export function formatRemaining(totalMinutes: number) {
+  if (totalMinutes <= 0) return 'Remaining : ending now'
+  const hrs = Math.floor(totalMinutes / 60)
+  const mins = totalMinutes % 60
+  if (hrs > 0 && mins > 0) return `Remaining : ${hrs}hr ${mins} min`
+  if (hrs > 0) return `Remaining : ${hrs}hr`
+  return `Remaining : ${mins} min`
+}
+
+/** Whole minutes from `now` until the next occurrence of a clock time. */
+export function getMinutesUntilTime(time: string, now = new Date()): number {
+  return minutesUntil(now.getHours() * 60 + now.getMinutes(), parseTime(time))
+}
+
+/** Share (0–1) of the current prayer window that has already elapsed. */
+export function getPrayerWindowProgress(
+  current: { start: string; end: string },
+  now = new Date(),
+): number {
+  const startMin = parseTime(current.start)
+  const endMin = parseTime(current.end)
+  const total = startMin <= endMin ? endMin - startMin : 24 * 60 - startMin + endMin
+  if (total <= 0) return 0
+  const nowMin = now.getHours() * 60 + now.getMinutes()
+  const elapsed = total - minutesUntilEnd(nowMin, startMin, endMin)
+  return Math.min(1, Math.max(0, elapsed / total))
+}
+
+export function getCurrentPrayerRemainingMinutes(
+  current: { start: string; end: string },
+  now = new Date(),
+): number {
+  const nowMin = now.getHours() * 60 + now.getMinutes()
+  const startMin = parseTime(current.start)
+  const endMin = parseTime(current.end)
+  return minutesUntilEnd(nowMin, startMin, endMin)
+}
+
+/**
+ * Seconds left in the current window, for countdowns that tick every second.
+ * Window boundaries land on whole minutes, so the part of the current minute
+ * that has already elapsed is taken back off.
+ */
+export function getCurrentPrayerRemainingSeconds(
+  current: { start: string; end: string },
+  now = new Date(),
+): number {
+  const wholeMinutes = getCurrentPrayerRemainingMinutes(current, now)
+  return Math.max(0, wholeMinutes * 60 - now.getSeconds())
 }
 
 export function getLivePrayerInfo(now = new Date(), config: CityPrayerConfig = getCityPrayerConfig()): LivePrayerInfo {
@@ -130,6 +208,10 @@ export function getLivePrayerInfo(now = new Date(), config: CityPrayerConfig = g
       ? minutesUntil(nowMin, next.startMin)
       : minutesUntil(nowMin, (windows.find((w) => w.startMin > nowMin) ?? windows[0]).startMin)
 
+  const currentRemainingMins = current
+    ? minutesUntilEnd(nowMin, current.startMin, current.endMin)
+    : 0
+
   return {
     current: current
       ? {
@@ -137,6 +219,8 @@ export function getLivePrayerInfo(now = new Date(), config: CityPrayerConfig = g
           displayName: getPrayerDisplayName(current.name, now),
           start: current.start,
           end: current.end,
+          minutesRemaining: currentRemainingMins,
+          remaining: formatRemaining(currentRemainingMins),
         }
       : null,
     next: {
@@ -259,4 +343,8 @@ export function shouldShowZawalUnderCurrent(info: LivePrayerInfo) {
 
 export function shouldShowZawalUnderNext(info: LivePrayerInfo) {
   return info.next.name === 'Dhuhr' && info.current?.name !== 'Dhuhr'
+}
+
+export function shouldShowMorningNaflUnderCurrent(info: LivePrayerInfo) {
+  return shouldShowZawalUnderNext(info)
 }

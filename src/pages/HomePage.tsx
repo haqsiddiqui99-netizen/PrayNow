@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NearbyMosques } from '../components/NearbyMosques'
 import { UserMenu } from '../components/UserMenu'
-import { ISLAMIC_CALENDAR } from '../data/mockData'
+import { formatHijriDate } from '../utils/hijriDate'
 import { useWeatherHeader, type WeatherTheme } from '../hooks/useWeatherHeader'
 import { api } from '../services/api'
 import { mapApiCitySettings, setCityPrayerConfig } from '../config/cityPrayerConfig'
@@ -18,7 +18,6 @@ import './HomePage.css'
 import '../components/UserMenu.css'
 
 interface HomePageProps {
-  onFindMosques: () => void
   onSelectMosque: (mosque: Mosque) => void
   onNavigate: (screen: Screen) => void
 }
@@ -36,7 +35,7 @@ function weatherIcon(theme: WeatherTheme): string {
   }
 }
 
-export function HomePage({ onFindMosques, onSelectMosque, onNavigate }: HomePageProps) {
+export function HomePage({ onSelectMosque, onNavigate }: HomePageProps) {
   const [prayerInfo, setPrayerInfo] = useState<LivePrayerInfo>(getLivePrayerInfo)
 
   useEffect(() => {
@@ -119,13 +118,14 @@ export function HomePage({ onFindMosques, onSelectMosque, onNavigate }: HomePage
           </div>
         </div>
         <div className="status-bar-row status-bar-row--meta">
-          <span className="status-bar-hijri">{ISLAMIC_CALENDAR.hijriDate}</span>
+          <span className="status-bar-hijri">{formatHijriDate(new Date())}</span>
           <span className="status-bar-sep">·</span>
           <span className="status-bar-date">{currentDate}</span>
         </div>
       </header>
 
       <div className="home-body">
+        <div className="prayer-rainbow-frame">
         <div className="prayer-status card">
           <div className="prayer-status-main">
             {prayerInfo.current ? (
@@ -152,12 +152,19 @@ export function HomePage({ onFindMosques, onSelectMosque, onNavigate }: HomePage
                 <div className="prayer-block-rakats">
                   {formatPrayerRakats(getPrayerRakats(prayerInfo.current.name))}
                 </div>
-                <div className="prayer-block-times">
-                  {prayerInfo.current.start} — {prayerInfo.current.end}
-                  {prayerInfo.current.name === 'Fajr' && (
-                    <span className="prayer-end-note"> (Namaz ends)</span>
-                  )}
+                <div className="prayer-timing-pills">
+                  <div className="prayer-timing-pill">
+                    <span className="prayer-extra-label">Start</span>
+                    <span className="prayer-extra-value">{prayerInfo.current.start}</span>
+                  </div>
+                  <div className="prayer-timing-pill">
+                    <span className="prayer-extra-label">End</span>
+                    <span className="prayer-extra-value">{prayerInfo.current.end}</span>
+                  </div>
                 </div>
+                {prayerInfo.current.name === 'Fajr' && (
+                  <div className="prayer-end-note">Namaz ends at End time</div>
+                )}
               </div>
             ) : (
               <div className="prayer-block prayer-block--current">
@@ -262,10 +269,10 @@ export function HomePage({ onFindMosques, onSelectMosque, onNavigate }: HomePage
             </div>
           )}
         </div>
+        </div>
 
         <NearbyMosques
           onSelectMosque={onSelectMosque}
-          onViewAll={onFindMosques}
           onNeedLogin={() => onNavigate('login')}
         />
       </div>

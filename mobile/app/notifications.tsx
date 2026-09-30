@@ -10,7 +10,8 @@ import {
 } from 'react-native'
 import { useAuth } from '@/src/context/AuthContext'
 import { useInbox } from '@/src/context/InboxContext'
-import { colors, radius } from '@/src/constants/theme'
+import { radius } from '@/src/constants/theme'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 
 function formatWhen(iso: string) {
   try {
@@ -27,6 +28,8 @@ function formatWhen(iso: string) {
 }
 
 export default function NotificationsScreen() {
+  const styles = useStyles()
+  const { colors } = useTheme()
   const router = useRouter()
   const { user } = useAuth()
   const { notifications, loading, reload, markRead, markAllRead, unreadCount } = useInbox()
@@ -109,7 +112,7 @@ export default function NotificationsScreen() {
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   page: { flex: 1, backgroundColor: colors.surface0 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   toolbar: {
@@ -159,4 +162,4 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
-})
+}))

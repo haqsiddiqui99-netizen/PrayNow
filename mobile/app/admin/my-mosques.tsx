@@ -5,17 +5,19 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native'
-import { colors, radius } from '@/src/constants/theme'
+import { radius } from '@/src/constants/theme'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { fetchLiveAzanSessions, fetchManagerMosques } from '@/src/services/api'
 import type { Mosque } from '@/src/types'
 import { useAuth } from '@/src/context/AuthContext'
 import { isAppAdmin } from '@/src/utils/roles'
 
 export default function MyMosquesScreen() {
+  const styles = useStyles()
+  const { colors } = useTheme()
   const router = useRouter()
   const { user, logout } = useAuth()
   const [mosques, setMosques] = useState<Mosque[]>([])
@@ -131,7 +133,7 @@ export default function MyMosquesScreen() {
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   page: { flex: 1, backgroundColor: colors.surface0 },
   content: { padding: 16, paddingBottom: 32 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: colors.surface0 },
@@ -183,4 +185,4 @@ const styles = StyleSheet.create({
   },
   actionText: { color: '#fff', fontWeight: '800', fontSize: 12 },
   actionTextSecondary: { color: colors.primary },
-})
+}))

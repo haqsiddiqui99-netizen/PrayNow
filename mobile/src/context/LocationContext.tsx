@@ -1,11 +1,18 @@
 import * as Location from 'expo-location'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { resolveSupportedCity, type SupportedCity } from '@/src/constants/cities'
+import {
+  getSupportedCities,
+  resolveCityByPincode,
+  resolveSupportedCity,
+  type SupportedCity,
+} from '@/src/constants/cities'
 import { useCityPrayer } from '@/src/context/CityPrayerContext'
 import { LOCATION } from '@/src/data/mockData'
 import {
   buildSavedLocation,
+  isSameSavedLocation,
   loadSavedLocations,
+  removeSavedLocation as removeSavedLocationFromStorage,
   upsertSavedLocation,
   type SavedLocation,
 } from '@/src/services/savedLocations'
@@ -30,6 +37,7 @@ type LocationContextValue = {
   refresh: () => Promise<boolean>
   selectCity: (city: SupportedCity) => Promise<void>
   selectSavedLocation: (saved: SavedLocation) => Promise<void>
+  removeSavedLocation: (id: string) => Promise<void>
   searchAddress: (query: string) => Promise<boolean>
 }
 
@@ -56,14 +64,15 @@ function toUserLocation(input: {
 }
 
 async function persistLocation(loc: UserLocation) {
+  const supported = loc.supportedCity
   const saved = buildSavedLocation({
     label: loc.label,
-    city: loc.city,
-    region: loc.region,
-    country: loc.country,
-    lat: loc.lat,
-    lng: loc.lng,
-    supportedCityId: loc.supportedCity?.id,
+    city: supported?.name ?? loc.city,
+    region: supported?.name ?? loc.region,
+    country: supported?.country ?? loc.country,
+    lat: supported?.lat ?? loc.lat,
+    lng: supported?.lng ?? loc.lng,
+    supportedCityId: supported?.id,
   })
   return upsertSavedLocation(saved)
 }
@@ -77,6 +86,52 @@ const defaultLocation = toUserLocation({
   isLive: false,
 })
 
+/** Native GPS often fails indoors with "6000ms timeout exceeded" — keep UX quiet. */
+const GPS_TIMEOUT_MS = 15000
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out`)), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (err) => {
+        clearTimeout(timer)
+        reject(err)
+      },
+    )
+  })
+}
+
+function isTimeoutError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err)
+  return /timeout/i.test(msg)
+}
+
+async function readDevicePosition(): Promise<Location.LocationObject | null> {
+  const last = await Location.getLastKnownPositionAsync({
+    maxAge: 15 * 60_000,
+    requiredAccuracy: 1000,
+  }).catch(() => null)
+  if (last) return last
+
+  try {
+    return await withTimeout(
+      Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Low,
+        mayShowUserSettingsDialog: false,
+      }),
+      GPS_TIMEOUT_MS,
+      'Location',
+    )
+  } catch {
+    // Last resort: any cached fix, even stale
+    return Location.getLastKnownPositionAsync({ maxAge: 24 * 60 * 60_000 }).catch(() => null)
+  }
+}
+
 const LocationContext = createContext<LocationContextValue>({
   location: defaultLocation,
   savedLocations: [],
@@ -84,6 +139,7 @@ const LocationContext = createContext<LocationContextValue>({
   refresh: async () => false,
   selectCity: async () => {},
   selectSavedLocation: async () => {},
+  removeSavedLocation: async () => {},
   searchAddress: async () => false,
 })
 
@@ -92,6 +148,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
   const [location, setLocation] = useState<UserLocation>(defaultLocation)
   const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([])
   const [loading, setLoading] = useState(true)
+  const [hydrated, setHydrated] = useState(false)
 
   useEffect(() => {
     void (async () => {
@@ -99,6 +156,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       if (saved.length === 0) {
         const seeded = await persistLocation(defaultLocation)
         setSavedLocations(seeded)
+        setHydrated(true)
         return
       }
       setSavedLocations(saved)
@@ -113,6 +171,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
           isLive: false,
         }),
       )
+      setHydrated(true)
     })()
   }, [])
 
@@ -127,7 +186,9 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     try {
       const servicesEnabled = await Location.hasServicesEnabledAsync()
       if (!servicesEnabled) {
-        throw new Error('Turn on location services in your phone settings')
+        // Keep saved city — don't block the home screen
+        setLocation((prev) => ({ ...prev, isLive: false, error: undefined }))
+        return false
       }
 
       let permission = await Location.getForegroundPermissionsAsync()
@@ -135,23 +196,37 @@ export function LocationProvider({ children }: { children: ReactNode }) {
         permission = await Location.requestForegroundPermissionsAsync()
       }
       if (permission.status !== 'granted') {
-        throw new Error('Location permission denied')
+        setLocation((prev) => ({ ...prev, isLive: false, error: undefined }))
+        return false
       }
 
-      let pos = await Location.getLastKnownPositionAsync({ maxAge: 60_000 })
+      const pos = await readDevicePosition()
       if (!pos) {
-        pos = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        })
+        setLocation((prev) => ({ ...prev, isLive: false, error: undefined }))
+        return false
       }
 
-      const [geo] = await Location.reverseGeocodeAsync({
-        latitude: pos.coords.latitude,
-        longitude: pos.coords.longitude,
-      })
-      const city = geo?.city || geo?.subregion || geo?.district || LOCATION.city
-      const region = geo?.district || geo?.subregion || geo?.city || city
-      const country = geo?.country || LOCATION.country
+      let city = LOCATION.city
+      let region = LOCATION.city
+      let country = LOCATION.country
+      try {
+        const [geo] = await withTimeout(
+          Location.reverseGeocodeAsync({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          }),
+          8000,
+          'Geocode',
+        )
+        city = geo?.city || geo?.subregion || geo?.district || LOCATION.city
+        region = geo?.district || geo?.subregion || geo?.city || city
+        country = geo?.country || LOCATION.country
+      } catch {
+        // Keep coords with previous/default city labels if reverse geocode is slow
+        city = LOCATION.city
+        region = LOCATION.city
+        country = LOCATION.country
+      }
 
       await applyLocation(
         toUserLocation({
@@ -165,10 +240,11 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       )
       return true
     } catch (e) {
+      // Never surface raw "6000ms timeout exceeded" to the user
       setLocation((prev) => ({
         ...prev,
         isLive: false,
-        error: e instanceof Error ? e.message : 'Location unavailable',
+        error: isTimeoutError(e) ? undefined : e instanceof Error ? e.message : 'Location unavailable',
       }))
       return false
     } finally {
@@ -176,9 +252,11 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     }
   }, [applyLocation])
 
+  // Wait for saved location, then try GPS in background (failures stay silent)
   useEffect(() => {
+    if (!hydrated) return
     void refresh()
-  }, [refresh])
+  }, [hydrated, refresh])
 
   useEffect(() => {
     setLocation((prev) => ({
@@ -219,12 +297,92 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     [applyLocation],
   )
 
+  const removeSavedLocation = useCallback(
+    async (id: string) => {
+      const deleted = savedLocations.find((item) => item.id === id)
+      const next = await removeSavedLocationFromStorage(id)
+      setSavedLocations(next)
+      if (!deleted) return
+
+      const currentSaved = buildSavedLocation({
+        label: location.label,
+        city: location.supportedCity?.name ?? location.city,
+        region: location.supportedCity?.name ?? location.region,
+        country: location.supportedCity?.country ?? location.country,
+        lat: location.supportedCity?.lat ?? location.lat,
+        lng: location.supportedCity?.lng ?? location.lng,
+        supportedCityId: location.supportedCity?.id,
+      })
+
+      if (!isSameSavedLocation(deleted, currentSaved)) return
+
+      if (next.length > 0) {
+        const fallback = next[0]
+        setLocation(
+          toUserLocation({
+            lat: fallback.lat,
+            lng: fallback.lng,
+            city: fallback.city,
+            region: fallback.region,
+            country: fallback.country,
+            isLive: false,
+          }),
+        )
+      } else {
+        setLocation(defaultLocation)
+      }
+    },
+    [savedLocations, location],
+  )
+
   const searchAddress = useCallback(
     async (query: string): Promise<boolean> => {
       setLoading(true)
       try {
         const trimmed = query.trim()
         if (!trimmed) return false
+
+        const digitsOnly = trimmed.replace(/\D/g, '')
+        if (digitsOnly.length >= 3 && digitsOnly.length <= 6 && /^\d+$/.test(trimmed.replace(/\s/g, ''))) {
+          const byPin = resolveCityByPincode(digitsOnly)
+          if (byPin) {
+            await applyLocation(
+              toUserLocation({
+                lat: byPin.lat,
+                lng: byPin.lng,
+                city: byPin.name,
+                region: digitsOnly.length === 6 ? `PIN ${digitsOnly}` : byPin.name,
+                country: byPin.country,
+                isLive: false,
+              }),
+            )
+            return true
+          }
+        }
+
+        const needle = trimmed.toLowerCase()
+        const catalogHit =
+          getSupportedCities().find(
+            (city) =>
+              city.name.toLowerCase() === needle ||
+              city.id.replace(/-/g, ' ') === needle ||
+              city.aliases.some((alias) => alias === needle) ||
+              (city.pinCodes || []).includes(digitsOnly),
+          ) || resolveSupportedCity(trimmed, trimmed)
+
+        if (catalogHit) {
+          await applyLocation(
+            toUserLocation({
+              lat: catalogHit.lat,
+              lng: catalogHit.lng,
+              city: catalogHit.name,
+              region: catalogHit.name,
+              country: catalogHit.country,
+              isLive: false,
+            }),
+          )
+          return true
+        }
 
         const candidates = [trimmed, `${trimmed}, India`]
         let hit: Location.LocationGeocodedLocation | null = null
@@ -275,9 +433,10 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       refresh,
       selectCity,
       selectSavedLocation,
+      removeSavedLocation,
       searchAddress,
     }),
-    [location, savedLocations, loading, refresh, selectCity, selectSavedLocation, searchAddress],
+    [location, savedLocations, loading, refresh, selectCity, selectSavedLocation, removeSavedLocation, searchAddress],
   )
 
   return <LocationContext.Provider value={value}>{children}</LocationContext.Provider>

@@ -1,22 +1,25 @@
 import { useRouter } from 'expo-router'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
+import { useBottomTabBarHeight } from "expo-router/js-tabs"
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AppIcon } from '@/src/components/AppIcon'
 import { useLocation } from '@/src/hooks/useLocation'
 import { useQiblaCompass } from '@/src/hooks/useQiblaCompass'
-import { colors, shadows } from '@/src/constants/theme'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { formatBearingLabel, formatDistanceKm } from '@/src/utils/qibla'
 
 const COMPASS_SIZE = 280
 
 function Cardinal({ label, style, accent }: { label: string; style: object; accent?: boolean }) {
+  const styles = useStyles()
   return (
     <Text style={[styles.cardinal, accent && styles.cardinalAccent, style]}>{label}</Text>
   )
 }
 
 export default function QiblaScreen() {
+  const styles = useStyles()
+  const { colors } = useTheme()
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const tabBarHeight = useBottomTabBarHeight()
@@ -109,7 +112,7 @@ export default function QiblaScreen() {
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, shadows }) => ({
   page: { flex: 1, backgroundColor: colors.surface0 },
   content: { paddingHorizontal: 20, alignItems: 'center' },
   headerRow: { width: '100%', marginBottom: 8 },
@@ -196,7 +199,7 @@ const styles = StyleSheet.create({
   },
   compassOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.82)',
+    backgroundColor: colors.surfaceScrim,
     borderRadius: COMPASS_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -256,4 +259,4 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   retryText: { color: '#fff', fontWeight: '700' },
-})
+}))

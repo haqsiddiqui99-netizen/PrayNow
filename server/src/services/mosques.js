@@ -34,6 +34,33 @@ export async function fetchMosqueById(client, id) {
   return mapMosqueRow(rows[0], timingRows, night)
 }
 
+function parseStaffList(raw, fallback = null) {
+  if (raw) {
+    try {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((person) => ({
+            name: String(person?.name || '').trim(),
+            mobile: String(person?.mobile || '').trim(),
+            photo: String(person?.photo || '').trim(),
+          }))
+          .filter((person) => person.name)
+      }
+    } catch {
+      // fall through
+    }
+  }
+  if (fallback?.name) {
+    return [{
+      name: String(fallback.name).trim(),
+      mobile: String(fallback.mobile || '').trim(),
+      photo: String(fallback.photo || '').trim(),
+    }]
+  }
+  return []
+}
+
 function parseJumaSessions(row) {
   if (row.juma_sessions) {
     try {
@@ -68,6 +95,18 @@ function mapMosqueRow(row, timingRows = [], night = null) {
     }
   }
   const sessions = parseJumaSessions(row)
+  const imamDetails = {
+    name: row.imam || '',
+    mobile: row.imam_mobile || row.phone || '',
+    photo: row.imam_photo || '',
+  }
+  const moazzinDetails = {
+    name: row.moazzin_name || '',
+    mobile: row.moazzin_mobile || '',
+    photo: row.moazzin_photo || '',
+  }
+  const imams = parseStaffList(row.imams, imamDetails.name ? imamDetails : null)
+  const moazzins = parseStaffList(row.moazzins, moazzinDetails.name ? moazzinDetails : null)
   return {
     id: row.legacy_id || row.id,
     dbId: row.id,
@@ -79,17 +118,11 @@ function mapMosqueRow(row, timingRows = [], night = null) {
     lat: row.lat,
     lng: row.lng,
     sect: row.sect || '',
-    imam: row.imam || '',
-    imamDetails: {
-      name: row.imam || '',
-      mobile: row.imam_mobile || '',
-      photo: row.imam_photo || '',
-    },
-    moazzinDetails: {
-      name: row.moazzin_name || '',
-      mobile: row.moazzin_mobile || '',
-      photo: row.moazzin_photo || '',
-    },
+    imam: imams[0]?.name || row.imam || '',
+    imamDetails: imams[0] || imamDetails,
+    imams,
+    moazzinDetails: moazzins[0] || moazzinDetails,
+    moazzins,
     jumaTimings: {
       azan: sessions[0]?.azan || '',
       khutba: sessions[0]?.khutba || '',
@@ -97,19 +130,19 @@ function mapMosqueRow(row, timingRows = [], night = null) {
       sessions,
     },
     sermonLanguage: row.sermon_language || '',
-    capacity: row.capacity ?? 500,
+    capacity: row.capacity != null ? Number(row.capacity) : 0,
     facilities: row.facilities || [],
     events: row.events || [],
-    photos: row.photos?.length ? row.photos : ['🕌'],
+    photos: Array.isArray(row.photos) ? row.photos : [],
     isActive: row.is_active,
     timings,
     nightTimings: {
-      tahajjud: { start: night?.tahajjud_start || '12:30 AM', end: night?.tahajjud_end || '4:40 AM' },
-      sehri: { start: night?.sehri_start || '3:10 AM', end: night?.sehri_end || '4:50 AM' },
+      tahajjud: { start: night?.tahajjud_start || '', end: night?.tahajjud_end || '' },
+      sehri: { start: night?.sehri_start || '', end: night?.sehri_end || '' },
     },
     distance: 0,
-    rating: 4.5,
-    reviewCount: 0,
+    rating: row.rating != null ? Number(row.rating) : 0,
+    reviewCount: row.review_count != null ? Number(row.review_count) : 0,
     travelMinutes: 0,
     arrivalStatus: 'early',
     arrivalMessage: '',
@@ -120,6 +153,18 @@ function mapMosqueRow(row, timingRows = [], night = null) {
 export function mosqueFieldsFromBody(body) {
   const imam = body.imamDetails || {}
   const moazzin = body.moazzinDetails || {}
+  const imams = parseStaffList(
+    body.imams,
+    imam.name || body.imam
+      ? { name: imam.name || body.imam || '', mobile: imam.mobile || '', photo: imam.photo || '' }
+      : null,
+  )
+  const moazzins = parseStaffList(
+    body.moazzins,
+    moazzin.name ? moazzin : null,
+  )
+  const leadImam = imams[0] || { name: imam.name || body.imam || '', mobile: imam.mobile || '', photo: imam.photo || '' }
+  const leadMoazzin = moazzins[0] || { name: moazzin.name || '', mobile: moazzin.mobile || '', photo: moazzin.photo || '' }
   const juma = body.jumaTimings || {}
   const sessions = Array.isArray(juma.sessions) && juma.sessions.length > 0
     ? juma.sessions.map((s) => ({
@@ -137,17 +182,19 @@ export function mosqueFieldsFromBody(body) {
     lat: body.lat,
     lng: body.lng,
     sect: body.sect || null,
-    imam: imam.name || body.imam || null,
-    imam_mobile: imam.mobile || null,
-    imam_photo: imam.photo || null,
-    moazzin_name: moazzin.name || null,
-    moazzin_mobile: moazzin.mobile || null,
-    moazzin_photo: moazzin.photo || null,
+    imam: leadImam.name || null,
+    imam_mobile: leadImam.mobile || null,
+    imam_photo: leadImam.photo || null,
+    moazzin_name: leadMoazzin.name || null,
+    moazzin_mobile: leadMoazzin.mobile || null,
+    moazzin_photo: leadMoazzin.photo || null,
+    imams: JSON.stringify(imams),
+    moazzins: JSON.stringify(moazzins),
     juma_khutba: sessions[0]?.khutba || null,
     juma_namaz: sessions[0]?.namaz || null,
     juma_sessions: JSON.stringify(sessions),
     sermon_language: body.sermonLanguage || null,
-    capacity: body.capacity != null ? Number(body.capacity) : null,
+    capacity: body.capacity != null ? Number(body.capacity) : 0,
     facilities: body.facilities || [],
     events: body.events || [],
     photos: body.photos || [],

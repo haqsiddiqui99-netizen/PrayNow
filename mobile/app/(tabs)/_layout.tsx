@@ -1,35 +1,35 @@
 import { Redirect, Tabs } from 'expo-router'
-import { ActivityIndicator, StyleSheet, View } from 'react-native'
+import { ActivityIndicator, Platform, View, type ColorValue } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { AppIcon } from '@/src/components/AppIcon'
-import { BlurredTabBarBackground } from '@/src/components/BlurredTabBarBackground'
+import { TabBarBackground } from '@/src/components/TabBarBackground'
 import { SeparatedTabBarButton } from '@/src/components/SeparatedTabBarButton'
+import { TabBarIcon, type TabBarIconName } from '@/src/components/TabBarIcon'
 import { useAuth } from '@/src/context/AuthContext'
-import { colors } from '@/src/constants/theme'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { TAB_BAR_HEIGHT, tabBarBottomPadding } from '@/src/constants/layout'
-import type { AppIconName } from '@/src/constants/appIcons'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 
-const TAB_ICON_SIZE = 28
+/** Icon size is fixed so the slim tab bar keeps icon + label on one line. */
+const TAB_ICON_SIZE = 21
 
-function TabImageIcon({ name, focused }: { name: AppIconName; focused: boolean }) {
-  return (
-    <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-      <AppIcon name={name} size={TAB_ICON_SIZE} variant="tab" style={{ opacity: focused ? 1 : 0.42 }} />
-    </View>
-  )
-}
-
-function MoreTabIcon({ focused }: { focused: boolean }) {
-  return (
-    <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-      <AppIcon name="more" size={TAB_ICON_SIZE} variant="tab" style={{ opacity: focused ? 1 : 0.42 }} />
-    </View>
-  )
+function TabImageIcon({
+  name,
+  focused,
+  color,
+}: {
+  name: TabBarIconName
+  focused: boolean
+  color: ColorValue
+}) {
+  return <TabBarIcon name={name} focused={focused} color={color} size={TAB_ICON_SIZE} />
 }
 
 export default function TabLayout() {
+  const styles = useStyles()
+  const { colors } = useTheme()
   const insets = useSafeAreaInsets()
   const { isReady, isAuthenticated } = useAuth()
+  const { t } = useLanguage()
   const bottomPad = tabBarBottomPadding(insets.bottom)
 
   if (!isReady) {
@@ -48,12 +48,17 @@ export default function TabLayout() {
     <Tabs
       initialRouteName="index"
       screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarShowLabel: false,
+        tabBarActiveTintColor: colors.tabActive,
+        tabBarInactiveTintColor: colors.tabInactive,
+        tabBarActiveBackgroundColor: 'transparent',
+        tabBarInactiveBackgroundColor: 'transparent',
+        tabBarShowLabel: true,
+        tabBarLabelPosition: 'below-icon',
+        tabBarLabelStyle: styles.tabLabel,
+        tabBarIconStyle: styles.tabIcon,
         headerShown: false,
         sceneStyle: { backgroundColor: colors.surface0 },
-        tabBarBackground: () => <BlurredTabBarBackground />,
+        tabBarBackground: () => <TabBarBackground />,
         tabBarButton: (props) => <SeparatedTabBarButton {...props} />,
         tabBarStyle: {
           position: 'absolute',
@@ -63,51 +68,67 @@ export default function TabLayout() {
           backgroundColor: 'transparent',
           borderTopWidth: 0,
           elevation: 0,
-          shadowOpacity: 0,
+          // `shadow*` props are deprecated on web; `boxShadow` is the replacement.
+          ...(Platform.OS === 'web' ? { boxShadow: 'none' } : { shadowOpacity: 0 }),
           height: TAB_BAR_HEIGHT + bottomPad,
-          paddingTop: 6,
+          paddingTop: 0,
           paddingBottom: bottomPad,
-          paddingHorizontal: 6,
+          paddingHorizontal: 0,
         },
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarAccessibilityLabel: 'Home',
-          tabBarIcon: ({ focused }) => <TabImageIcon name="home" focused={focused} />,
+          title: t('tabs.home'),
+          tabBarLabel: t('tabs.home'),
+          tabBarAccessibilityLabel: t('tabs.home'),
+          tabBarIcon: ({ focused, color }) => (
+            <TabImageIcon name="home" focused={focused} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="chat"
         options={{
-          title: 'AI Guide',
-          tabBarAccessibilityLabel: 'AI Guide',
-          tabBarIcon: ({ focused }) => <TabImageIcon name="ai" focused={focused} />,
+          title: t('screens.aiTitle'),
+          tabBarLabel: t('tabs.ai'),
+          tabBarAccessibilityLabel: t('screens.aiTitle'),
+          tabBarIcon: ({ focused, color }) => (
+            <TabImageIcon name="ai" focused={focused} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="mosques"
         options={{
-          title: 'Mosques',
-          tabBarAccessibilityLabel: 'Mosque',
-          tabBarIcon: ({ focused }) => <TabImageIcon name="mosque" focused={focused} />,
+          title: t('screens.mosquesTitle'),
+          tabBarLabel: t('tabs.mosques'),
+          tabBarAccessibilityLabel: t('screens.mosquesTitle'),
+          tabBarIcon: ({ focused, color }) => (
+            <TabImageIcon name="mosque" focused={focused} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="live-azan"
         options={{
-          title: 'Live Azan',
-          tabBarAccessibilityLabel: 'Azan',
-          tabBarIcon: ({ focused }) => <TabImageIcon name="azan" focused={focused} />,
+          title: t('screens.azanTitle'),
+          tabBarLabel: t('tabs.azan'),
+          tabBarAccessibilityLabel: t('screens.azanTitle'),
+          tabBarIcon: ({ focused, color }) => (
+            <TabImageIcon name="azan" focused={focused} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="more"
         options={{
-          title: 'More',
-          tabBarAccessibilityLabel: 'More',
-          tabBarIcon: ({ focused }) => <MoreTabIcon focused={focused} />,
+          title: t('screens.moreTitle'),
+          tabBarLabel: t('tabs.more'),
+          tabBarAccessibilityLabel: t('screens.moreTitle'),
+          tabBarIcon: ({ focused, color }) => (
+            <TabImageIcon name="more" focused={focused} color={color} />
+          ),
         }}
       />
       <Tabs.Screen name="hadith" options={{ href: null }} />
@@ -116,12 +137,16 @@ export default function TabLayout() {
   )
 }
 
-const styles = StyleSheet.create({
-  iconWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
+const useStyles = makeStyles(() => ({
+  tabIcon: {
+    marginTop: 0,
+    marginBottom: 0,
   },
-  iconWrapActive: {
-    transform: [{ scale: 1.06 }],
+  tabLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 1,
+    marginBottom: 0,
+    letterSpacing: 0.1,
   },
-})
+}))

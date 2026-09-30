@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Platform, StyleSheet, Text, View } from 'react-native'
 import MapView, { Marker, PROVIDER_GOOGLE, type Region } from 'react-native-maps'
 import { GoogleMapsButton } from '@/src/components/GoogleMapsButton'
-import { colors, radius, shadows } from '@/src/constants/theme'
+import { radius } from '@/src/constants/theme'
+import { useLanguage } from '@/src/context/LanguageContext'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import type { Mosque } from '@/src/types'
 
 type Props = {
@@ -45,6 +47,9 @@ export function NearbyMosquesMap({
   onSelectMosque,
   onOpenInGoogleMaps,
 }: Props) {
+  const styles = useStyles()
+  const { colors } = useTheme()
+  const { placeName } = useLanguage()
   const mapRef = useRef<MapView>(null)
 
   const region = useMemo(
@@ -88,9 +93,9 @@ export function NearbyMosquesMap({
             <Marker
               key={m.id}
               coordinate={{ latitude: m.lat, longitude: m.lng }}
-              title={m.name}
-              description={m.area || m.address}
-              pinColor={selected ? colors.accent : colors.primary}
+              title={placeName(m.name)}
+              description={placeName(m.area || m.address)}
+              pinColor={selected ? colors.accent : colors.headerBg}
               onPress={() => onSelectMosque(m)}
             />
           )
@@ -108,7 +113,7 @@ export function NearbyMosquesMap({
       ) : null}
 
       {pinMosques.length === 0 ? (
-        <View style={styles.emptyOverlay} pointerEvents="none">
+        <View style={[styles.emptyOverlay, styles.noPointerEvents]}>
           <Text style={styles.emptyText}>No mosques to show on the map</Text>
         </View>
       ) : null}
@@ -116,7 +121,7 @@ export function NearbyMosquesMap({
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, shadows }) => ({
   wrap: {
     height: 320,
     borderRadius: radius.lg,
@@ -136,11 +141,12 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.72)',
+    backgroundColor: colors.surfaceScrim,
   },
   emptyText: {
     color: colors.textSecondary,
     fontWeight: '600',
     fontSize: 13,
   },
-})
+  noPointerEvents: { pointerEvents: 'none' },
+}))

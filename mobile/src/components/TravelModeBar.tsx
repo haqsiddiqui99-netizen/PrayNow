@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { colors, radius } from '@/src/constants/theme'
+import { Pressable, Text, View } from 'react-native'
+import { radius } from '@/src/constants/theme'
+import { makeStyles } from '@/src/context/ThemeContext'
 import type { TravelMode } from '@/src/types'
 import { TRAVEL_MODES } from '@/src/utils/travelTime'
 
@@ -12,6 +13,8 @@ export function TravelModeBar({
   onChange: (mode: TravelMode) => void
   compact?: boolean
 }) {
+  const styles = useStyles()
+
   if (compact) {
     return (
       <View style={styles.compactBar}>
@@ -49,7 +52,7 @@ export function TravelModeBar({
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   compactBar: {
     flexDirection: 'row',
     gap: 4,
@@ -66,7 +69,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  compactChipActive: { backgroundColor: colors.primary },
+  compactChipActive: { backgroundColor: colors.selectedBg },
   compactIcon: { fontSize: 13 },
   bar: {
     flexDirection: 'row',
@@ -88,8 +91,8 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: radius.sm,
   },
-  chipActive: { backgroundColor: colors.primary },
+  chipActive: { backgroundColor: colors.selectedBg },
   icon: { fontSize: 14 },
   text: { fontSize: 11, color: colors.textSecondary, fontWeight: '700' },
-  textActive: { color: '#fff' },
-})
+  textActive: { color: colors.selectedText },
+}))

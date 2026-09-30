@@ -116,13 +116,18 @@ export function AdminCityPanel({ onMessage }: { onMessage: (msg: string) => void
     }
   }
 
-  const generateYear = async () => {
+  const generateYear = async (source: 'aladhan' | 'defaults' = 'aladhan') => {
     setBusyYear(true)
     onMessage('')
     try {
-      const res = await api.admin.generateCityYear(year, settings.city)
+      const city = settings.city?.trim() || 'Delhi'
+      const res = await api.admin.generateCityYear(year, city, source)
       setYearDaysLoaded(res.upserted)
-      onMessage(`Generated ${res.upserted} days for ${res.city} ${res.year} from city defaults`)
+      const via =
+        res.source === 'aladhan'
+          ? `Aladhan (method ${res.method ?? 1}, ${res.lat}, ${res.lng})`
+          : 'city defaults'
+      onMessage(`Generated ${res.upserted} days for ${res.city} ${res.year} via ${via}`)
     } catch (e) {
       onMessage(e instanceof Error ? e.message : 'Generate failed')
     } finally {
@@ -282,7 +287,8 @@ export function AdminCityPanel({ onMessage }: { onMessage: (msg: string) => void
 
       <h3 style={{ marginTop: 24 }}>365-day calendar</h3>
       <p className="admin-timings-note">
-        Import a full-year CSV (one row per date), or generate a starter year from the defaults above, then replace with real Delhi times.
+        Prefer <strong>Generate from Aladhan</strong> for Tier-1 cities (Delhi, Mumbai, Navi Mumbai, Thane, Hyderabad,
+        Kolkata, Bengaluru, Chennai, Lucknow, Kanpur, Patna, Ahmedabad). CSV can still override months.
       </p>
       <div className="admin-grid">
         <label>
@@ -303,7 +309,20 @@ export function AdminCityPanel({ onMessage }: { onMessage: (msg: string) => void
         </label>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-        <button type="button" className="btn-outline" disabled={busyYear} onClick={() => void generateYear()}>
+        <button
+          type="button"
+          className="btn-accent"
+          disabled={busyYear}
+          onClick={() => void generateYear('aladhan')}
+        >
+          {busyYear ? 'Working…' : `Generate ${year} from Aladhan`}
+        </button>
+        <button
+          type="button"
+          className="btn-outline"
+          disabled={busyYear}
+          onClick={() => void generateYear('defaults')}
+        >
           {busyYear ? 'Working…' : `Generate ${year} from defaults`}
         </button>
         <button type="button" className="btn-outline" onClick={downloadTemplate}>

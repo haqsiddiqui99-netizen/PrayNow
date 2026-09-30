@@ -178,11 +178,24 @@ export const api = {
         '/api/admin/city/days/import-csv',
         { method: 'POST', body: JSON.stringify({ csv, city }) },
       ),
-    generateCityYear: (year = new Date().getFullYear(), city?: string) =>
-      request<{ ok: boolean; upserted: number; city: string; year: number }>(
-        '/api/admin/city/days/generate-year',
-        { method: 'POST', body: JSON.stringify({ year, city }) },
-      ),
+    generateCityYear: (
+      year = new Date().getFullYear(),
+      city?: string,
+      source: 'aladhan' | 'defaults' = 'aladhan',
+    ) =>
+      request<{
+        ok: boolean
+        upserted: number
+        city: string
+        year: number
+        source?: string
+        method?: number
+        lat?: number
+        lng?: number
+      }>('/api/admin/city/days/generate-year', {
+        method: 'POST',
+        body: JSON.stringify({ year, city, source }),
+      }),
     startAzan: (mosqueId: string, prayerName?: string) =>
       request<{ session: { id: string; channel: string; status: string }; agora: import('./agoraClient').AgoraCredentials }>(
         `/api/manager/mosques/${mosqueId}/azan/start`,

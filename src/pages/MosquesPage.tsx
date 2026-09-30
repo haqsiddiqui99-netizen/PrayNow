@@ -7,10 +7,17 @@ import { useMosques } from '../hooks/useMosques'
 import type { Mosque } from '../types'
 import { MOSQUE_SORT_OPTIONS, sortMosques, type MosqueSortMode } from '../utils/mosqueSort'
 import {
+  CITY_RADIUS_KM,
   DEFAULT_MOSQUE_RADIUS_KM,
   MOSQUE_RADIUS_OPTIONS,
   type MosqueRadiusKm,
 } from '../constants/mosqueRadius'
+
+function radiusChipLabel(r: MosqueRadiusKm): string {
+  if (r >= CITY_RADIUS_KM) return 'City'
+  if (r < 1) return '500 m'
+  return `${r} km`
+}
 import './MosquesPage.css'
 import '../components/MosqueFacilitiesLine.css'
 
@@ -120,7 +127,7 @@ export function MosquesPage({ onSelectMosque, onNeedLogin }: MosquesPageProps) {
                 className={`chip chip--compact ${radius === r ? 'active' : ''}`}
                 onClick={() => setRadius(r)}
               >
-                {r} km
+                {radiusChipLabel(r)}
               </button>
             ))}
           </div>
@@ -144,7 +151,7 @@ export function MosquesPage({ onSelectMosque, onNeedLogin }: MosquesPageProps) {
         {filtered.length === 0 ? (
           <div className="empty-state empty-state--compact">
             <span>🕌</span>
-            <p>No mosques within {radius} km. Try a larger radius.</p>
+            <p>No mosques for this radius. Try a larger range.</p>
           </div>
         ) : (
           filtered.map((mosque) => (

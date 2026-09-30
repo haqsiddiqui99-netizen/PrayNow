@@ -1,21 +1,30 @@
-import { useLocalSearchParams } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { FacilitiesLine } from '@/src/components/FacilitiesLine'
-import { GoogleMapsButton } from '@/src/components/GoogleMapsButton'
-import { MosqueTimingsTable } from '@/src/components/MosqueTimingsGrid'
-import { colors, radius, shadows } from '@/src/constants/theme'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { MosqueCard } from '@/src/components/MosqueCard'
+import { getOtherMosqueEvents, MosqueFridaySection } from '@/src/components/MosqueFridaySection'
+import { MosqueStaffSection } from '@/src/components/MosqueStaffSection'
+import { MosqueTimingsGrid } from '@/src/components/MosqueTimingsGrid'
+import { radius } from '@/src/constants/theme'
+import { useLanguage } from '@/src/context/LanguageContext'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { fetchMosques } from '@/src/services/api'
 import type { Mosque } from '@/src/types'
 import { getCurrentPrayerForMosques } from '@/src/utils/prayerSchedule'
-import { formatCapacity } from '@/src/utils/mosqueSort'
 
 export default function MosqueDetailScreen() {
+  const styles = useStyles()
+  const { colors } = useTheme()
   const { id } = useLocalSearchParams<{ id: string }>()
+  const router = useRouter()
+  const insets = useSafeAreaInsets()
+  const { t } = useLanguage()
   const [mosque, setMosque] = useState<Mosque | null>(null)
   const [loading, setLoading] = useState(true)
   const currentPrayer = getCurrentPrayerForMosques()
+  const otherEvents = mosque ? getOtherMosqueEvents(mosque.events) : []
 
   useEffect(() => {
     void (async () => {
@@ -36,140 +45,99 @@ export default function MosqueDetailScreen() {
   if (!mosque) {
     return (
       <View style={styles.center}>
-        <Text style={styles.notFound}>Mosque not found</Text>
+        <Text style={styles.notFound}>{t('detail.notFound')}</Text>
       </View>
     )
   }
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <View style={styles.hero}>
-        <Ionicons name="moon" size={48} color="#fff" />
-        <Text style={styles.name}>{mosque.name}</Text>
-        <Text style={styles.address}>{mosque.address}</Text>
-        <View style={styles.heroMeta}>
-          <View style={styles.metaChip}>
-            <Ionicons name="star" size={11} color="#f59e0b" />
-            <Text style={styles.metaChipText}>{mosque.rating.toFixed(1)}</Text>
-          </View>
-          <View style={styles.metaChip}>
-            <Ionicons name="location-outline" size={11} color="#fff" />
-            <Text style={styles.metaChipText}>{mosque.distance} km away</Text>
-          </View>
-          <View style={styles.metaChip}>
-            <Ionicons name="people-outline" size={11} color="#fff" />
-            <Text style={styles.metaChipText}>{formatCapacity(mosque.capacity)} capacity</Text>
-          </View>
-          <View style={styles.metaChip}>
-            <Text style={styles.metaChipText}>{mosque.sect}</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.sectionLabel}>About</Text>
-        <View style={styles.detailRow}>
-          <Ionicons name="people-outline" size={15} color={colors.textSecondary} />
-          <Text style={styles.detailLine}>
-            Total capacity: {mosque.capacity.toLocaleString()} worshippers
+    <View style={styles.page}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <Pressable style={styles.backRow} onPress={() => router.back()} hitSlop={8}>
+          <Ionicons name="chevron-back" size={22} color="#fff" />
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {t('detail.title')}
           </Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Ionicons name="business-outline" size={15} color={colors.textSecondary} />
-          <Text style={styles.detailLine}>{mosque.area}</Text>
-        </View>
-        {mosque.phone ? (
-          <Pressable
-            style={styles.detailRow}
-            onPress={() => void Linking.openURL(`tel:${mosque.phone.replace(/\s/g, '')}`)}>
-            <Ionicons name="call" size={15} color={colors.primary} />
-            <Text style={[styles.detailLine, styles.phoneLine]}>{mosque.phone}</Text>
-          </Pressable>
-        ) : null}
-        {mosque.imam ? (
-          <View style={styles.detailRow}>
-            <Ionicons name="person-outline" size={15} color={colors.textSecondary} />
-            <Text style={styles.detailLine}>Imam: {mosque.imam}</Text>
-          </View>
-        ) : null}
-        {mosque.sermonLanguage ? (
-          <View style={styles.detailRow}>
-            <Ionicons name="chatbubble-ellipses-outline" size={15} color={colors.textSecondary} />
-            <Text style={styles.detailLine}>Khutbah: {mosque.sermonLanguage}</Text>
-          </View>
-        ) : null}
-        <FacilitiesLine facilities={mosque.facilities} max={8} />
+        </Pressable>
       </View>
 
-      <Text style={styles.sectionTitle}>Prayer Times</Text>
-      <Text style={styles.sectionHint}>Azan and Jamat for all five daily prayers</Text>
-      <MosqueTimingsTable mosque={mosque} currentPrayer={currentPrayer?.name ?? null} />
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+        <MosqueCard
+          mosque={mosque}
+          travelMode="driving"
+          homeCompact
+          static
+          showContact
+          hideStaff
+        />
 
-      {mosque.events.length > 0 && (
-        <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Events</Text>
-          {mosque.events.map((event) => (
-            <View key={event} style={styles.eventRow}>
-              <Ionicons name="calendar-outline" size={14} color={colors.textMuted} />
-              <Text style={styles.eventItem}>{event}</Text>
-            </View>
-          ))}
+        <MosqueStaffSection mosque={mosque} />
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('detail.allTimes')}</Text>
+          <Text style={styles.sectionHint}>{t('detail.allTimesHint')}</Text>
+          <MosqueTimingsGrid mosque={mosque} currentPrayer={currentPrayer?.name ?? null} compact />
+          <MosqueFridaySection mosque={mosque} />
         </View>
-      )}
 
-      <GoogleMapsButton mosque={mosque} variant="button" style={styles.mapsBtn} />
-    </ScrollView>
+        {otherEvents.length > 0 ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>{t('detail.events')}</Text>
+            {otherEvents.map((event) => (
+              <View key={event} style={styles.eventRow}>
+                <Ionicons name="calendar-outline" size={14} color={colors.textMuted} />
+                <Text style={styles.eventItem}>{event}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+      </ScrollView>
+    </View>
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, shadows }) => ({
   page: { flex: 1, backgroundColor: colors.surface0 },
-  content: { paddingBottom: 32 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  scroll: { flex: 1 },
+  content: { padding: 16, paddingBottom: 32, gap: 14 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface0 },
   notFound: { color: colors.textSecondary, fontWeight: '600' },
-  hero: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 24,
-    alignItems: 'center',
+  header: {
+    backgroundColor: colors.headerBg,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
-  name: {
-    marginTop: 12,
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#fff',
-    textAlign: 'center',
-    letterSpacing: -0.3,
-  },
-  address: {
-    marginTop: 6,
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.9)',
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  heroMeta: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 14,
-  },
-  metaChip: {
+  backRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: radius.pill,
+    minHeight: 40,
   },
-  metaChipText: { fontSize: 11, fontWeight: '700', color: '#fff' },
+  headerTitle: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: -0.3,
+  },
+  section: {
+    gap: 6,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  sectionHint: {
+    fontSize: 12,
+    color: colors.textMuted,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
   card: {
     backgroundColor: colors.surface2,
-    marginHorizontal: 16,
-    marginTop: 14,
     borderRadius: radius.lg,
     padding: 14,
     borderWidth: 1,
@@ -179,35 +147,11 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 11,
     fontWeight: '800',
-    color: colors.primary,
+    color: colors.pageAccent,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 10,
   },
-  sectionTitle: {
-    marginHorizontal: 16,
-    marginTop: 18,
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  sectionHint: {
-    marginHorizontal: 16,
-    marginTop: 4,
-    marginBottom: 8,
-    fontSize: 12,
-    color: colors.textMuted,
-    fontWeight: '500',
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  detailLine: { flex: 1, fontSize: 13, color: colors.textSecondary, fontWeight: '600' },
-  phoneLine: { color: colors.primary },
   eventRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   eventItem: { flex: 1, fontSize: 13, color: colors.textSecondary, fontWeight: '500' },
-  mapsBtn: { marginHorizontal: 16, marginTop: 16 },
-})
+}))

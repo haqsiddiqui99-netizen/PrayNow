@@ -1,8 +1,17 @@
 import { Router } from 'express'
 import { randomUUID } from 'node:crypto'
 import { getPool } from '../db/pool.js'
-import { authMiddleware } from '../middleware/auth.js'
+import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js'
 import { resolveMosqueDbId } from '../services/mosques.js'
+import {
+  MAX_PHOTOS,
+  MAX_PHOTO_BYTES,
+  fetchPhotoWithStatus,
+  insertMosqueRequest,
+  isValidationError,
+  listRequestsForUser,
+  normalizeRequestInput,
+} from '../services/mosqueRequests.js'
 
 const router = Router()
 const pool = getPool()
@@ -155,6 +164,55 @@ router.post('/me/notifications/read-all', authMiddleware, async (req, res) => {
     res.json({ ok: true })
   } catch (err) {
     res.status(500).json({ error: err.message || 'Failed' })
+  }
+})
+
+// --- User-submitted "please add this mosque" requests ---
+
+router.get('/me/mosque-requests', authMiddleware, async (req, res) => {
+  try {
+    const requests = await withClient((client) => listRequestsForUser(client, req.user.sub))
+    res.json({ requests, limits: { maxPhotos: MAX_PHOTOS, maxPhotoBytes: MAX_PHOTO_BYTES } })
+  } catch (err) {
+    console.error('mosque requests list failed', err)
+    res.status(500).json({ error: err.message || 'Failed to load your requests' })
+  }
+})
+
+router.post('/me/mosque-requests', authMiddleware, async (req, res) => {
+  let input
+  try {
+    input = normalizeRequestInput(req.body || {})
+  } catch (err) {
+    if (isValidationError(err)) return res.status(400).json({ error: err.message })
+    throw err
+  }
+  try {
+    const id = await withClient((client) => insertMosqueRequest(client, req.user.sub, input))
+    res.status(201).json({ ok: true, id, status: 'pending' })
+  } catch (err) {
+    console.error('mosque request submit failed', err)
+    res.status(500).json({ error: err.message || 'Failed to submit request' })
+  }
+})
+
+/**
+ * Photos of approved requests are public because they end up on the mosque
+ * profile; anything still pending or rejected stays visible to admins only.
+ */
+router.get('/mosque-requests/photos/:photoId', optionalAuthMiddleware, async (req, res) => {
+  try {
+    const photo = await withClient((client) => fetchPhotoWithStatus(client, req.params.photoId))
+    if (!photo) return res.status(404).json({ error: 'Photo not found' })
+    if (photo.status !== 'approved' && req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+    res.setHeader('Content-Type', photo.content_type || 'image/jpeg')
+    res.setHeader('Cache-Control', 'public, max-age=86400')
+    res.send(photo.data)
+  } catch (err) {
+    console.error('mosque request photo failed', err)
+    res.status(500).json({ error: err.message || 'Failed to load photo' })
   }
 })
 

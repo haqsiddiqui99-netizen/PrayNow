@@ -1,102 +1,51 @@
 import { useFocusEffect, useLocalSearchParams } from 'expo-router'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native'
-import { colors, radius } from '@/src/constants/theme'
-import { fetchManagerMosques, startMosqueAzan, stopMosqueAzan } from '@/src/services/api'
-import { isMosqueLive, refreshLiveSessions, subscribeLiveSessions } from '@/src/store/liveAzanSessions'
+import { radius } from '@/src/constants/theme'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
+import { useAzanBroadcast } from '@/src/hooks/useAzanBroadcast'
+import { fetchManagerMosques } from '@/src/services/api'
+import { subscribeLiveSessions } from '@/src/store/liveAzanSessions'
 import type { Mosque, PrayerName } from '@/src/types'
 
 const PRAYERS: PrayerName[] = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']
 
 export default function AzanDashboardScreen() {
+  const styles = useStyles()
+  const { colors } = useTheme()
   const { id } = useLocalSearchParams<{ id: string }>()
   const [mosque, setMosque] = useState<Mosque | null>(null)
-  const [live, setLive] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [hint, setHint] = useState('')
-  const [elapsed, setElapsed] = useState(0)
-  const [prayer, setPrayer] = useState<PrayerName | undefined>(undefined)
+  const broadcast = useAzanBroadcast(id ? String(id) : undefined)
 
   const load = useCallback(async () => {
-    setError('')
+    broadcast.setError('')
     try {
       const list = await fetchManagerMosques()
       const found = list.find((m) => String(m.id) === String(id)) ?? null
       setMosque(found)
-      await refreshLiveSessions()
-      setLive(isMosqueLive(String(id)))
+      await broadcast.syncLive()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load')
+      broadcast.setError(e instanceof Error ? e.message : 'Failed to load')
     } finally {
       setLoading(false)
     }
-  }, [id])
+  }, [broadcast.setError, broadcast.syncLive, id])
 
   useFocusEffect(
     useCallback(() => {
       setLoading(true)
       void load()
-      return subscribeLiveSessions(() => setLive(isMosqueLive(String(id))))
-    }, [load, id]),
+      return subscribeLiveSessions(() => void broadcast.syncLive())
+    }, [broadcast.syncLive, load]),
   )
-
-  useEffect(() => {
-    if (!live) {
-      setElapsed(0)
-      return
-    }
-    const started = Date.now()
-    const t = setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000)
-    return () => clearInterval(t)
-  }, [live])
-
-  const onStart = async () => {
-    if (!mosque) return
-    setBusy(true)
-    setError('')
-    setHint('')
-    try {
-      const result = await startMosqueAzan(mosque.id, prayer)
-      await refreshLiveSessions()
-      setLive(true)
-      if (!result.agora?.configured) {
-        setHint(
-          'Azan is marked LIVE for all app users. Mic streaming needs AGORA_APP_ID + a native build later — LIVE status works now.',
-        )
-      } else {
-        setHint('Azan is live. Keep this screen open while broadcasting.')
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not start azan')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const onStop = async () => {
-    if (!mosque) return
-    setBusy(true)
-    setError('')
-    try {
-      await stopMosqueAzan(mosque.id)
-      await refreshLiveSessions()
-      setLive(false)
-      setHint('Azan stopped. Mosque shows Offline again.')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not stop azan')
-    } finally {
-      setBusy(false)
-    }
-  }
 
   if (loading) {
     return (
@@ -114,8 +63,8 @@ export default function AzanDashboardScreen() {
     )
   }
 
-  const mm = String(Math.floor(elapsed / 60)).padStart(2, '0')
-  const ss = String(elapsed % 60).padStart(2, '0')
+  const mm = String(Math.floor(broadcast.elapsed / 60)).padStart(2, '0')
+  const ss = String(broadcast.elapsed % 60).padStart(2, '0')
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
@@ -123,53 +72,76 @@ export default function AzanDashboardScreen() {
       <Text style={styles.title}>{mosque.name}</Text>
       <Text style={styles.sub}>{mosque.area}</Text>
 
-      <View style={[styles.statusCard, live && styles.statusLive]}>
+      <View style={[styles.statusCard, broadcast.live && styles.statusLive]}>
         <View style={styles.statusRow}>
-          <View style={[styles.dot, live && styles.dotOn]} />
+          <View style={[styles.dot, broadcast.live && styles.dotOn]} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.statusTitle}>{live ? 'ON AIR' : 'Offline'}</Text>
+            <Text style={styles.statusTitle}>{broadcast.live ? 'ON AIR' : 'Offline'}</Text>
             <Text style={styles.statusMeta}>
-              {live ? `Broadcasting · ${mm}:${ss}` : 'Not broadcasting — start when azan begins'}
+              {broadcast.live
+                ? `Broadcasting · ${mm}:${ss}`
+                : 'Not broadcasting — start when azan begins'}
             </Text>
           </View>
         </View>
       </View>
 
-      {!live ? (
+      {!broadcast.nativeAgora ? (
+        <Pressable
+          style={styles.devHint}
+          onPress={() =>
+            Alert.alert(
+              'Dev build required',
+              'Expo Go cannot access the Agora mic module. Build a dev APK with npm run eas:preview, or broadcast from the web admin.',
+            )
+          }>
+          <Text style={styles.devHintText}>
+            Expo Go: LIVE badge only. Dev build or web admin needed for mic audio.
+          </Text>
+        </Pressable>
+      ) : null}
+
+      {!broadcast.live ? (
         <>
           <Text style={styles.label}>Prayer (optional)</Text>
           <View style={styles.prayerRow}>
             {PRAYERS.map((p) => {
-              const on = prayer === p
+              const on = broadcast.prayer === p
               return (
                 <Pressable
                   key={p}
                   style={[styles.prayerChip, on && styles.prayerChipOn]}
-                  onPress={() => setPrayer(on ? undefined : p)}>
+                  onPress={() => broadcast.setPrayer(on ? undefined : p)}>
                   <Text style={[styles.prayerChipText, on && styles.prayerChipTextOn]}>{p}</Text>
                 </Pressable>
               )
             })}
           </View>
 
-          <Pressable style={[styles.btn, styles.btnStart]} disabled={busy} onPress={() => void onStart()}>
-            <Text style={styles.btnText}>{busy ? 'Starting…' : 'Start Azan (go LIVE)'}</Text>
+          <Pressable
+            style={[styles.btn, styles.btnStart]}
+            disabled={broadcast.busy}
+            onPress={() => void broadcast.onStart()}>
+            <Text style={styles.btnText}>{broadcast.busy ? 'Starting…' : 'Start Azan (go LIVE)'}</Text>
           </Pressable>
         </>
       ) : (
-        <Pressable style={[styles.btn, styles.btnStop]} disabled={busy} onPress={() => void onStop()}>
-          <Text style={styles.btnText}>{busy ? 'Stopping…' : 'Stop Azan'}</Text>
+        <Pressable
+          style={[styles.btn, styles.btnStop]}
+          disabled={broadcast.busy}
+          onPress={() => void broadcast.onStop()}>
+          <Text style={styles.btnText}>{broadcast.busy ? 'Stopping…' : 'Stop Azan'}</Text>
         </Pressable>
       )}
 
-      {hint ? <Text style={styles.hint}>{hint}</Text> : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {broadcast.hint ? <Text style={styles.hint}>{broadcast.hint}</Text> : null}
+      {broadcast.error ? <Text style={styles.error}>{broadcast.error}</Text> : null}
 
       <View style={styles.help}>
         <Text style={styles.helpTitle}>How this works</Text>
         <Text style={styles.helpText}>
           1. When azan starts at the mosque, tap Start Azan.{'\n'}
-          2. All users see a LIVE badge on this mosque.{'\n'}
+          2. Your mic streams to all app users via Agora.{'\n'}
           3. Tap Stop Azan when finished.
         </Text>
       </View>
@@ -177,7 +149,7 @@ export default function AzanDashboardScreen() {
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   page: { flex: 1, backgroundColor: colors.surface0 },
   content: { padding: 16, paddingBottom: 40 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
@@ -199,12 +171,21 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
   },
-  statusLive: { borderColor: colors.success, backgroundColor: '#f0fdf4' },
+  statusLive: { borderColor: colors.success, backgroundColor: colors.successBg },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   dot: { width: 14, height: 14, borderRadius: 7, backgroundColor: colors.textMuted },
   dotOn: { backgroundColor: colors.success },
   statusTitle: { fontWeight: '800', fontSize: 16 },
   statusMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  devHint: {
+    marginBottom: 12,
+    padding: 10,
+    borderRadius: radius.sm,
+    backgroundColor: colors.warningBg,
+    borderWidth: 1,
+    borderColor: colors.warningBorder,
+  },
+  devHintText: { fontSize: 12, color: colors.warningText, lineHeight: 17 },
   label: { fontSize: 12, fontWeight: '700', color: colors.textMuted, marginBottom: 8 },
   prayerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   prayerChip: {
@@ -234,4 +215,4 @@ const styles = StyleSheet.create({
   },
   helpTitle: { fontWeight: '800', fontSize: 13, marginBottom: 6 },
   helpText: { fontSize: 12, color: colors.textSecondary, lineHeight: 18 },
-})
+}))

@@ -10,7 +10,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native'
-import { colors } from '@/src/constants/theme'
+import { makeStyles } from '@/src/context/ThemeContext'
 import {
   formatClockTime,
   HOURS_12,
@@ -64,6 +64,7 @@ function WheelColumn<T extends string | number>({
   width?: number
   loop?: boolean
 }) {
+  const styles = useStyles()
   const ref = useRef<ScrollView>(null)
   const ready = useRef(false)
   const lastEmitted = useRef<T>(selected)
@@ -152,7 +153,7 @@ function WheelColumn<T extends string | number>({
         onScrollEndDrag={onDragEnd}
         contentContainerStyle={{ paddingVertical: PAD }}>
         {items.map((item, i) => (
-          <View key={`${String(item)}-${i}`} style={styles.wheelItem} pointerEvents="none">
+          <View key={`${String(item)}-${i}`} style={[styles.wheelItem, styles.noPointerEvents]}>
             <Text style={styles.wheelText}>{format(item)}</Text>
           </View>
         ))}
@@ -172,6 +173,7 @@ export function TimePickerField({
   layout = 'half',
   hideLabel = false,
 }: Props) {
+  const styles = useStyles()
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<ClockParts>(() => parseClockTime(value))
   const [pickerKey, setPickerKey] = useState(0)
@@ -224,10 +226,10 @@ export function TimePickerField({
             </View>
 
             <View style={styles.pickerCard}>
-              <View style={styles.fadeTop} pointerEvents="none" />
-              <View style={styles.fadeBottom} pointerEvents="none" />
-              <View style={styles.hairlineTop} pointerEvents="none" />
-              <View style={styles.hairlineBottom} pointerEvents="none" />
+              <View style={[styles.fadeTop, styles.noPointerEvents]} />
+              <View style={[styles.fadeBottom, styles.noPointerEvents]} />
+              <View style={[styles.hairlineTop, styles.noPointerEvents]} />
+              <View style={[styles.hairlineBottom, styles.noPointerEvents]} />
               <View style={styles.wheels} key={pickerKey}>
                 <WheelColumn
                   data={HOURS_12}
@@ -260,7 +262,7 @@ export function TimePickerField({
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   field: { width: '47%', flexGrow: 1 },
   fieldThird: { width: '31%', flexGrow: 1, flexBasis: '30%' },
   fieldInline: { width: undefined, flex: 1, flexGrow: 1, flexBasis: 0, minWidth: 0 },
@@ -381,4 +383,5 @@ const styles = StyleSheet.create({
     color: '#000',
     fontVariant: ['tabular-nums'],
   },
-})
+  noPointerEvents: { pointerEvents: 'none' },
+}))

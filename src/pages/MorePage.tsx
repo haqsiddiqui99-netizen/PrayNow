@@ -1,4 +1,5 @@
-import { DAILY_VERSE, ISLAMIC_CALENDAR } from '../data/mockData'
+import { DAILY_VERSE } from '../data/mockData'
+import { formatHijriDate } from '../utils/hijriDate'
 import type { Screen } from '../types'
 import './MorePage.css'
 
@@ -12,7 +13,7 @@ const MENU_ITEMS: { screen: Screen; icon: string; label: string; desc: string }[
   { screen: 'admin-login', icon: '🔐', label: 'Admin Portal', desc: 'Manage mosques & timings' },
   { screen: 'qibla', icon: '🧭', label: 'Qibla Direction', desc: 'Find direction to the Kaaba' },
   { screen: 'tracker', icon: '✅', label: 'Prayer Tracker', desc: 'Track your daily prayers' },
-  { screen: 'calendar', icon: '📅', label: 'Islamic Calendar', desc: ISLAMIC_CALENDAR.hijriDate },
+  { screen: 'calendar', icon: '📅', label: 'Islamic Calendar', desc: formatHijriDate(new Date()) },
   { screen: 'restaurants', icon: '🍽️', label: 'Halal Restaurants', desc: 'Find halal food nearby' },
 ]
 

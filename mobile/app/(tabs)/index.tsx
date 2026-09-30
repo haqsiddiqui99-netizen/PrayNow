@@ -1,43 +1,48 @@
+import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Animated,
+  Dimensions,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native'
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
-import { useNavigation } from '@react-navigation/native'
+import { useBottomTabBarHeight } from "expo-router/js-tabs"
+import { useNavigation } from "expo-router/react-navigation"
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { AppHeader, APP_HEADER_CONTENT_HEIGHT } from '@/src/components/AppHeader'
 import { CityPickerSheet } from '@/src/components/CityPickerSheet'
 import { CityUnavailableBanner } from '@/src/components/CityUnavailableBanner'
 import { MosqueCard } from '@/src/components/MosqueCard'
-import { MosqueFilterSheet } from '@/src/components/MosqueFilterSheet'
+import { MosqueFilterSheet, type FilterDropdownAnchor } from '@/src/components/MosqueFilterSheet'
 import { MosquePeekOverlay } from '@/src/components/MosquePeekOverlay'
 import { MosqueRadiusChips } from '@/src/components/MosqueRadiusChips'
-import { PrayerStatusCard } from '@/src/components/PrayerStatusCard'
-import { UserMenu } from '@/src/components/UserMenu'
-import { InboxBellButton } from '@/src/components/InboxBellButton'
-import { colors, radius } from '@/src/constants/theme'
+import { MosqueSortBar } from '@/src/components/MosqueSortBar'
+import { HomePrayerCard } from '@/src/components/HomePrayerCard'
+import { radius } from '@/src/constants/theme'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import {
+  CITY_RADIUS_KM,
   DEFAULT_MOSQUE_RADIUS_KM,
-  formatNearbyMosqueHeading,
   filterMosquesByRadius,
   HOME_NEARBY_PREVIEW_LIMIT,
   type MosqueRadiusKm,
 } from '@/src/constants/mosqueRadius'
 import { useAuth } from '@/src/context/AuthContext'
 import { useCityPrayer } from '@/src/context/CityPrayerContext'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { HomeMosqueAdminPanel } from '@/src/components/HomeMosqueAdminPanel'
-import { ISLAMIC_CALENDAR } from '@/src/data/mockData'
+import { formatHijriDate } from '@/src/utils/hijriDate'
 import { useLocation } from '@/src/hooks/useLocation'
 import { useMosques } from '@/src/hooks/useMosques'
 import type { Mosque } from '@/src/types'
-import { getLivePrayerInfo, getPrayerStatusExtras } from '@/src/utils/prayerSchedule'
+import { getLivePrayerInfo } from '@/src/utils/prayerSchedule'
 import {
   filterMosquesBySect,
   sortMosques,
@@ -48,17 +53,12 @@ import { canManageMosques } from '@/src/utils/roles'
 
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView)
 
-const HEADER_HEIGHT = 96
-
-function formatClock(date: Date) {
-  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-}
-
-function formatShortDate(date: Date) {
-  return date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
-}
+/** Home keeps the three sorts people actually use; the Mosques tab has them all. */
+const HOME_SORT_MODES: ReadonlyArray<MosqueSortMode> = ['nearest', 'early-namaz', 'capacity-high']
 
 export default function HomeScreen() {
+  const styles = useStyles()
+  const { colors } = useTheme()
   const router = useRouter()
   const navigation = useNavigation()
   const insets = useSafeAreaInsets()
@@ -66,63 +66,66 @@ export default function HomeScreen() {
   const scrollRef = useRef<ScrollView>(null)
   const scrollY = useRef(new Animated.Value(0)).current
   const { user } = useAuth()
+  const { t, formatRadius, placeName } = useLanguage()
   const { config: cityPrayer, reload: reloadCityPrayer } = useCityPrayer()
-  const { location, loading: locLoading, refresh: refreshLoc, selectSavedLocation, searchAddress, savedLocations } = useLocation()
+  const {
+    location,
+    loading: locLoading,
+    refresh: refreshLoc,
+    selectCity,
+    selectSavedLocation,
+    removeSavedLocation,
+    searchAddress,
+    savedLocations,
+  } = useLocation()
   const { mosques, loading, reload, citySupported, detectedCity, supportedCity } = useMosques(location)
   const [prayerInfo, setPrayerInfo] = useState(() => getLivePrayerInfo(new Date(), cityPrayer))
   const [sortMode, setSortMode] = useState<MosqueSortMode>('nearest')
   const [sectFilter, setSectFilter] = useState<MosqueSectFilter>('all')
   const [radiusKm, setRadiusKm] = useState<MosqueRadiusKm>(DEFAULT_MOSQUE_RADIUS_KM)
   const [filterOpen, setFilterOpen] = useState(false)
+  const [filterAnchor, setFilterAnchor] = useState<FilterDropdownAnchor | null>(null)
+  const filterBtnRef = useRef<View>(null)
   const [cityPickerOpen, setCityPickerOpen] = useState(false)
   const [peekMosque, setPeekMosque] = useState<Mosque | null>(null)
   const [now, setNow] = useState(new Date())
-  const [nearbyOffsetY, setNearbyOffsetY] = useState(0)
-  const [nearbyPinned, setNearbyPinned] = useState(false)
+  const [mosqueSearch, setMosqueSearch] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
+  const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState<number | null>(null)
 
-  const headerHeight = HEADER_HEIGHT + insets.top
-  const pinStart = Math.max(0, nearbyOffsetY - headerHeight)
+  const headerHeight = measuredHeaderHeight ?? APP_HEADER_CONTENT_HEIGHT + insets.top
 
-  const scrollNearbyOpacity = scrollY.interpolate({
-    inputRange: [Math.max(0, pinStart - 1), pinStart],
-    outputRange: [1, 0],
+  const headerTranslateY = scrollY.interpolate({
+    inputRange: [0, Math.max(headerHeight, 1)],
+    outputRange: [0, -headerHeight],
     extrapolate: 'clamp',
   })
-
-  const pinnedOpacity = scrollY.interpolate({
-    inputRange: [pinStart, pinStart + 1],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  })
-
-  const pinnedTranslateY = scrollY.interpolate({
-    inputRange: [pinStart, pinStart + 1],
-    outputRange: [-4, 0],
-    extrapolate: 'clamp',
-  })
-
-  useEffect(() => {
-    const id = scrollY.addListener(({ value }) => {
-      setNearbyPinned(value >= pinStart)
-    })
-    return () => scrollY.removeListener(id)
-  }, [scrollY, pinStart])
 
   useEffect(() => {
     setPrayerInfo(getLivePrayerInfo(new Date(), cityPrayer))
   }, [cityPrayer])
 
-  const refreshHome = useCallback(async () => {
-    scrollRef.current?.scrollTo({ y: 0, animated: true })
-    const current = new Date()
-    setNow(current)
-    setPrayerInfo(getLivePrayerInfo(current, cityPrayer))
-    await Promise.all([reload(), reloadCityPrayer()])
-  }, [cityPrayer, reload, reloadCityPrayer])
+  const refreshHome = useCallback(
+    async (options?: { scrollToTop?: boolean }) => {
+      if (options?.scrollToTop) {
+        scrollRef.current?.scrollTo({ y: 0, animated: true })
+      }
+      setRefreshing(true)
+      const current = new Date()
+      setNow(current)
+      setPrayerInfo(getLivePrayerInfo(current, cityPrayer))
+      try {
+        await Promise.all([reload(), reloadCityPrayer(), refreshLoc()])
+      } finally {
+        setRefreshing(false)
+      }
+    },
+    [cityPrayer, reload, reloadCityPrayer, refreshLoc],
+  )
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('tabPress', () => {
-      void refreshHome()
+      void refreshHome({ scrollToTop: true })
     })
     return unsubscribe
   }, [navigation, refreshHome])
@@ -141,14 +144,26 @@ export default function HomeScreen() {
   }, [cityPrayer])
 
   const filtered = filterMosquesBySect(mosques, sectFilter)
-  const nearbyAll = filterMosquesByRadius(sortMosques(filtered, sortMode), radiusKm)
-  const nearby = nearbyAll.slice(0, HOME_NEARBY_PREVIEW_LIMIT)
+  const nearbyByRadius = filterMosquesByRadius(sortMosques(filtered, sortMode), radiusKm)
+  const searchQuery = mosqueSearch.trim().toLowerCase()
+  const nearbyAll = searchQuery
+    ? nearbyByRadius.filter((m) => {
+        const latin = `${m.name} ${m.area} ${m.address}`
+        // Match either script, so typing "Jama" or "जामा" both work.
+        const haystack = `${latin} ${placeName(latin)}`.toLowerCase()
+        return haystack.includes(searchQuery)
+      })
+    : nearbyByRadius
+  // Distance chips keep a short home preview; search / Within City lists every match in range.
+  const nearby =
+    searchQuery || radiusKm >= CITY_RADIUS_KM
+      ? nearbyAll
+      : nearbyAll.slice(0, HOME_NEARBY_PREVIEW_LIMIT)
   const nearbyTotal = nearbyAll.length
-  const extras = getPrayerStatusExtras(now, cityPrayer)
   const activeFilterCount =
-    (sortMode !== 'nearest' ? 1 : 0) + (sectFilter !== 'all' ? 1 : 0) + (radiusKm !== DEFAULT_MOSQUE_RADIUS_KM ? 1 : 0)
+    (sectFilter !== 'all' ? 1 : 0) + (radiusKm !== DEFAULT_MOSQUE_RADIUS_KM ? 1 : 0)
   const locationLine = locLoading
-    ? 'Updating…'
+    ? t('common.updating')
     : location.region && location.region !== location.city
       ? `${location.region}, ${location.city}`
       : location.label
@@ -160,43 +175,63 @@ export default function HomeScreen() {
       Math.abs(item.lng - location.lng) < 0.02,
   )?.id ?? savedLocations[0]?.id ?? null
 
-  const greetingName = user?.name?.trim().split(/\s+/)[0] ?? 'Guest'
+  const greetingName = user?.name?.trim().split(/\s+/)[0] ?? t('common.guest')
 
-  const nearbyHeading = formatNearbyMosqueHeading({
-    count: nearbyTotal,
-    radiusKm,
-    loading,
-    citySupported,
-    locLoading,
-  })
-  const sunsetTime = cityPrayer.prayerSchedule.find((p) => p.name === 'Maghrib')?.start
+  const headerLocationText = locLoading ? t('common.updating') : locationLine
 
-  const nearbyFilters = (
-    <>
-      <View style={styles.sectionHeader}>
-        <View style={styles.sectionHeaderLeft}>
-          <Text style={styles.sectionTitle}>{nearbyHeading}</Text>
+  const radiusScope =
+    radiusKm >= CITY_RADIUS_KM
+      ? t('mosques.inCity')
+      : t('mosques.within', { radius: formatRadius(radiusKm) })
+
+  const nearbyCountText = loading ? t('common.updating') : `${nearbyTotal} · ${radiusScope}`
+
+  const openFilter = () => {
+    const node = filterBtnRef.current
+    if (!node) {
+      setFilterAnchor(null)
+      setFilterOpen(true)
+      return
+    }
+    node.measureInWindow((x, y, width, height) => {
+      const screenW = Dimensions.get('window').width
+      setFilterAnchor({ top: y + height + 6, right: Math.max(12, screenW - x - width) })
+      setFilterOpen(true)
+    })
+  }
+
+  const filterButton = (
+    <Pressable
+      ref={filterBtnRef}
+      style={styles.filterBtn}
+      onPress={openFilter}
+      hitSlop={6}>
+      <Ionicons name="options-outline" size={12} color={colors.primary} />
+      <Text style={styles.filterBtnText}>{t('common.filter')}</Text>
+      {activeFilterCount > 0 && (
+        <View style={styles.filterBadge}>
+          <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
         </View>
-        <View style={styles.sectionHeaderRight}>
-          <Pressable style={styles.filterBtn} onPress={() => setFilterOpen(true)} hitSlop={8}>
-            <Text style={styles.filterBtnIcon}>⏷</Text>
-            <Text style={styles.filterBtnText}>Filter</Text>
-            {activeFilterCount > 0 && (
-              <View style={styles.filterBadge}>
-                <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
-              </View>
-            )}
-          </Pressable>
-          <Pressable onPress={() => router.push('/(tabs)/mosques')} hitSlop={8}>
-            <Text style={styles.link}>View all</Text>
-          </Pressable>
-        </View>
-      </View>
+      )}
+    </Pressable>
+  )
 
-      <View style={styles.radiusRow}>
-        <MosqueRadiusChips value={radiusKm} onChange={setRadiusKm} />
+  const nearbyRadius = (
+    <MosqueRadiusChips value={radiusKm} onChange={setRadiusKm} compact fullWidth />
+  )
+
+  const nearbySort = (
+    <View style={styles.sortRow}>
+      <View style={styles.sortScroll}>
+        <MosqueSortBar
+          value={sortMode}
+          onChange={setSortMode}
+          compact
+          modes={HOME_SORT_MODES}
+        />
       </View>
-    </>
+      {filterButton}
+    </View>
   )
 
   return (
@@ -206,23 +241,31 @@ export default function HomeScreen() {
         style={styles.scroll}
         contentContainerStyle={{ paddingBottom: tabBarHeight + 12 }}
         scrollEventThrottle={16}
+        alwaysBounceVertical
+        overScrollMode="always"
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-          useNativeDriver: false,
+          useNativeDriver: true,
         })}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={() => { void refreshHome() }} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              void refreshHome()
+            }}
+            tintColor={colors.primary}
+            colors={[colors.primary, colors.primaryLight]}
+            progressViewOffset={Platform.OS === 'android' ? headerHeight : 0}
+            progressBackgroundColor={colors.surface2}
+          />
         }>
         <View style={{ height: headerHeight }} />
 
         <View style={styles.section}>
-          <PrayerStatusCard
+          <HomePrayerCard
             info={prayerInfo}
-            extras={extras}
-            zawal={cityPrayer.zawal}
-            sunsetTime={sunsetTime}
-            hijriDate={ISLAMIC_CALENDAR.hijriDate}
-            englishDate={formatShortDate(now)}
-            compact
+            config={cityPrayer}
+            hijriDate={formatHijriDate(now)}
+            now={now}
           />
         </View>
 
@@ -232,22 +275,51 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
-        <Animated.View
-          style={[styles.stickyNearby, { opacity: scrollNearbyOpacity }]}
-          onLayout={(e) => setNearbyOffsetY(e.nativeEvent.layout.y)}>
-          {nearbyFilters}
-        </Animated.View>
-
         <View style={[styles.section, styles.mosqueList]}>
           {!citySupported && !locLoading && (
             <CityUnavailableBanner detectedCity={detectedCity} country={location.country} />
           )}
-          {!loading && nearby.length > 0 && (
-            <Text style={styles.peekHint}>Hold a mosque to preview · tap for full details</Text>
-          )}
+          <View style={styles.nearbyHeadingRow}>
+            <Text style={styles.nearbyTitle} numberOfLines={1}>
+              {t('home.nearby')}
+            </Text>
+            <Text style={styles.nearbyCount} numberOfLines={1}>
+              {nearbyCountText}
+            </Text>
+          </View>
+          {nearbyRadius}
+          <View style={styles.searchWrap}>
+            <Ionicons name="search" size={15} color={colors.textMuted} style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={
+                radiusKm >= CITY_RADIUS_KM
+                  ? t('home.searchInCity')
+                  : t('home.searchInRange')
+              }
+              placeholderTextColor={colors.textMuted}
+              value={mosqueSearch}
+              onChangeText={setMosqueSearch}
+              returnKeyType="search"
+              autoCorrect={false}
+              autoCapitalize="none"
+              clearButtonMode="while-editing"
+            />
+            {mosqueSearch.length > 0 ? (
+              <Pressable onPress={() => setMosqueSearch('')} hitSlop={8} accessibilityLabel="Clear search">
+                <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+              </Pressable>
+            ) : null}
+          </View>
+          {nearbySort}
+          {!loading && nearby.length > 0 && !searchQuery ? (
+            <Text style={styles.peekHint}>{t('home.peekHint')}</Text>
+          ) : null}
           {!loading && citySupported && nearbyTotal === 0 && (
             <Text style={styles.emptyNearby}>
-              Try a larger radius or open View all to browse every mosque in {supportedCity?.name ?? 'your city'}.
+              {searchQuery
+                ? t('mosques.emptySearch', { query: mosqueSearch.trim() })
+                : t('mosques.emptyHint', { city: supportedCity?.name ?? '' })}
             </Text>
           )}
           {loading && nearbyTotal === 0 ? (
@@ -261,7 +333,6 @@ export default function HomeScreen() {
                 homeCompact
                 isPeekActive={peekMosque?.id === m.id}
                 onPeek={() => setPeekMosque(m)}
-                onPress={() => router.push(`/mosque/${m.id}`)}
               />
             ))
           )}
@@ -279,8 +350,11 @@ export default function HomeScreen() {
       <CityPickerSheet
         visible={cityPickerOpen}
         selectedLocationId={selectedLocationId}
+        selectedCityName={location.supportedCity?.name ?? location.city}
         savedLocations={savedLocations}
+        onSelectCity={selectCity}
         onSelectSavedLocation={selectSavedLocation}
+        onRemoveSavedLocation={removeSavedLocation}
         onSearchAddress={searchAddress}
         searching={locLoading}
         onUseCurrentLocation={refreshLoc}
@@ -289,230 +363,87 @@ export default function HomeScreen() {
 
       <MosqueFilterSheet
         visible={filterOpen}
-        sortMode={sortMode}
+        anchor={filterAnchor}
         sectFilter={sectFilter}
-        onChangeSort={setSortMode}
         onChangeSect={setSectFilter}
-        onClearAll={() => {
-          setSortMode('nearest')
-          setSectFilter('all')
-        }}
+        onClearAll={() => setSectFilter('all')}
         onClose={() => setFilterOpen(false)}
       />
 
       <Animated.View
-        pointerEvents={nearbyPinned ? 'auto' : 'none'}
         style={[
-          styles.pinnedNearby,
-          {
-            top: headerHeight,
-            opacity: pinnedOpacity,
-            transform: [{ translateY: pinnedTranslateY }],
-          },
+          styles.headerWrap,
+          styles.boxNonePointerEvents,
+          { transform: [{ translateY: headerTranslateY }] },
         ]}>
-        {nearbyFilters}
+        <AppHeader
+          greetingName={greetingName}
+          locationText={headerLocationText}
+          onPressLocation={() => setCityPickerOpen(true)}
+          topInset={insets.top}
+          onMeasureHeight={setMeasuredHeaderHeight}
+        />
       </Animated.View>
-
-      <View
-        pointerEvents="box-none"
-        style={[styles.solidHeader, { height: headerHeight, paddingTop: insets.top + 8 }]}>
-        <View style={styles.headerBackdropSolid} />
-
-        <View style={styles.heroInner}>
-          <View style={styles.topRow}>
-            <View style={styles.headerLeft}>
-              <Text style={styles.brandTitle} numberOfLines={1}>
-                PrayNow
-              </Text>
-              <View style={styles.userRow}>
-                <UserMenu tone="dark" />
-                <InboxBellButton tone="dark" />
-                <Text style={styles.userGreeting} numberOfLines={1}>
-                  Hi {greetingName}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.headerRight}>
-              <View style={styles.locationRow}>
-                <Text style={styles.heroLocation} numberOfLines={1}>
-                  {locationLine}
-                </Text>
-                <Pressable
-                  style={styles.locationSearchBtn}
-                  onPress={() => setCityPickerOpen(true)}
-                  hitSlop={8}
-                  accessibilityLabel="Change location">
-                  <Text style={styles.locationSearchIcon}>⌕</Text>
-                </Pressable>
-              </View>
-
-              <Text style={styles.heroTime}>{formatClock(now)}</Text>
-            </View>
-          </View>
-        </View>
-      </View>
     </View>
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   page: { flex: 1, backgroundColor: colors.surface0 },
-  solidHeader: {
+  headerWrap: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.surface0,
     zIndex: 12,
-    overflow: 'hidden',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
   },
-  headerBackdropSolid: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.surface0,
-  },
-  pinnedNearby: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    zIndex: 11,
-    backgroundColor: colors.surface0,
-    paddingBottom: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  heroInner: {
-    paddingHorizontal: 16,
-    paddingBottom: 6,
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
+  boxNonePointerEvents: { pointerEvents: 'box-none' },
   scroll: { flex: 1 },
-  topRow: {
+  section: { paddingHorizontal: 10, marginTop: 4 },
+  nearbyHeadingRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
-    minHeight: 58,
-  },
-  headerLeft: {
-    alignItems: 'flex-start',
-    gap: 5,
-    flexShrink: 0,
-    maxWidth: '46%',
-  },
-  userRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
-    maxWidth: '100%',
+    marginBottom: 6,
   },
-  userGreeting: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    flexShrink: 1,
-  },
-  brandTitle: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: -0.5,
-    lineHeight: 22,
-  },
-  headerRight: {
-    flex: 1,
-    alignItems: 'flex-end',
-    minWidth: 0,
-    gap: 4,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 8,
-    maxWidth: '100%',
-  },
-  heroTime: { color: colors.textPrimary, fontWeight: '800', fontSize: 18, textAlign: 'right' },
-  heroLocation: {
-    flexShrink: 1,
-    color: colors.textPrimary,
-    fontWeight: '700',
-    fontSize: 15,
-    textAlign: 'right',
-  },
-  locationSearchBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.surface2,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  locationSearchIcon: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.primary,
-    marginTop: -1,
-  },
-  section: { paddingHorizontal: 16, marginTop: 8 },
-  stickyNearby: {
-    backgroundColor: colors.surface0,
-    paddingBottom: 8,
-    marginTop: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    gap: 8,
-  },
-  sectionHeaderLeft: { flex: 1, minWidth: 0 },
-  sectionHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
+  nearbyTitle: { flexShrink: 1, fontSize: 14, fontWeight: '800', color: colors.textPrimary },
+  nearbyCount: { flexShrink: 0, fontSize: 11, fontWeight: '700', color: colors.textSecondary },
+
   filterBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    gap: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: radius.pill,
     backgroundColor: colors.surface2,
     borderWidth: 1,
     borderColor: colors.border,
+    flexShrink: 0,
+    alignSelf: 'center',
   },
-  filterBtnIcon: { fontSize: 10, color: colors.primary, fontWeight: '800' },
-  filterBtnText: { fontSize: 12, fontWeight: '700', color: colors.primary },
+  filterBtnText: { fontSize: 10, fontWeight: '700', color: colors.primary },
   filterBadge: {
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
+    minWidth: 14,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 3,
   },
-  filterBadgeText: { fontSize: 9, fontWeight: '800', color: '#fff' },
-  radiusRow: {
-    paddingHorizontal: 16,
-    marginTop: 2,
+  filterBadgeText: { fontSize: 8, fontWeight: '800', color: '#fff' },
+  sortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 0,
+    marginBottom: 4,
+  },
+  sortScroll: {
+    flex: 1,
+    minWidth: 0,
   },
   emptyNearby: {
     fontSize: 13,
@@ -522,14 +453,29 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 8,
   },
-  sectionTitle: { fontSize: 15, fontWeight: '800' },
-  link: { color: colors.primary, fontWeight: '700', fontSize: 12 },
-  mosqueList: { paddingTop: 2 },
+  mosqueList: { paddingTop: 4, marginTop: 2 },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface2,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 10,
+    marginBottom: 6,
+  },
+  searchIcon: { marginRight: 6 },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: colors.textPrimary,
+  },
   peekHint: {
     fontSize: 11,
     fontWeight: '600',
     color: colors.textMuted,
-    marginBottom: 10,
+    marginBottom: 8,
     lineHeight: 16,
   },
-})
+}))

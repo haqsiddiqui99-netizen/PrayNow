@@ -74,6 +74,25 @@ Find your IP: `ipconfig` → IPv4 Address.
 
 Restart Expo after changing `.env`.
 
+## Live Azan (Agora)
+
+Real-time azan uses Agora RTC. Keys live in `server/.env` only (`AGORA_APP_ID`, `AGORA_APP_CERTIFICATE`).
+
+| Platform | Broadcast mic | Listen |
+|----------|---------------|--------|
+| **Web admin** | Yes (browser) | Live Azan page |
+| **Expo Go** | LIVE badge only | Not supported |
+| **Dev / EAS build** | Yes (`react-native-agora`) | Yes |
+
+Build a dev APK with native Agora (required for mobile mic/audio):
+
+```bash
+cd mobile
+npm run eas:development
+```
+
+Preview APK for mosque admins: `npm run eas:preview`.
+
 ## Scripts
 
 | Command | Purpose |

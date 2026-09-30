@@ -60,7 +60,6 @@ export default function App() {
       case 'home':
         return (
           <HomePage
-            onFindMosques={() => setScreen('mosques')}
             onSelectMosque={(mosque) => handleSelectMosque(mosque, 'home')}
             onNavigate={setScreen}
           />

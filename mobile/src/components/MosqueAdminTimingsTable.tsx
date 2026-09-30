@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { colors, timingTextStyle } from '@/src/constants/theme'
+import { timingTextStyle } from '@/src/constants/theme'
+import { makeStyles } from '@/src/context/ThemeContext'
 import type { Mosque, PrayerName } from '@/src/types'
 import { getJumaSessions } from '@/src/utils/jumaTimings'
 
@@ -16,6 +17,7 @@ type Props = {
  * Mosque admin prayer chart: daily Azan+Jamat, plus a separate Juma section (Azan/Khutba/Jamat).
  */
 export function MosqueAdminTimingsTable({ mosque, showHeader = true }: Props) {
+  const styles = useStyles()
   const router = useRouter()
   const editPath = `/admin/mosque/${mosque.id}/timings` as const
   const jumaSessions = getJumaSessions(
@@ -79,7 +81,7 @@ export function MosqueAdminTimingsTable({ mosque, showHeader = true }: Props) {
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   wrap: { gap: 10 },
   timingsHead: {
     flexDirection: 'row',
@@ -136,9 +138,9 @@ const styles = StyleSheet.create({
   },
   rowLast: { borderBottomWidth: 0 },
   rowAlt: { backgroundColor: 'rgba(148,163,184,0.08)' },
-  cell: { flex: 1, ...timingTextStyle, fontSize: 11 },
+  cell: { flex: 1, ...timingTextStyle(colors), fontSize: 11 },
   prayerCol: { flex: 1.15 },
-  timeCell: { textAlign: 'center', ...timingTextStyle, fontSize: 11 },
+  timeCell: { textAlign: 'center', ...timingTextStyle(colors), fontSize: 11 },
   head: {
     color: colors.primary,
     fontWeight: '800',
@@ -157,4 +159,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface0,
   },
   editFullText: { color: colors.primary, fontWeight: '800', fontSize: 13 },
-})
+}))

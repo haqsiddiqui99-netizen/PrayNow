@@ -99,13 +99,13 @@ export function LiveAzanPage() {
   }, [])
 
   const togglePlay = () => {
-    if (!active?.streamUrl) return
+    if (!active || active.status !== 'live') return
     setPlaying((p) => !p)
   }
 
   const selectFeed = (feed: LiveAzanFeed) => {
     setSelected(feed)
-    if (feed.status === 'live' && feed.streamUrl) setPlaying(true)
+    if (feed.status === 'live') setPlaying(true)
     else setPlaying(false)
   }
 
@@ -151,7 +151,7 @@ export function LiveAzanPage() {
                     type="button"
                     className={`live-azan-play${playing ? ' live-azan-play--active' : ''}`}
                     onClick={togglePlay}
-                    disabled={!active.streamUrl || active.status !== 'live'}
+                    disabled={active.status !== 'live'}
                     aria-label={playing ? 'Pause azan' : 'Play live azan'}
                   >
                     {playing ? '⏸' : '▶'}

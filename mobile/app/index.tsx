@@ -1,9 +1,11 @@
 import { Redirect } from 'expo-router'
-import { ActivityIndicator, StyleSheet, View } from 'react-native'
+import { ActivityIndicator, View } from 'react-native'
 import { useAuth } from '@/src/context/AuthContext'
-import { colors } from '@/src/constants/theme'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 
 export default function IndexScreen() {
+  const styles = useStyles()
+  const { colors } = useTheme()
   const { isReady, isAuthenticated } = useAuth()
 
   if (!isReady) {
@@ -21,11 +23,11 @@ export default function IndexScreen() {
   return <Redirect href="/login" />
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   loading: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.surface0,
   },
-})
+}))

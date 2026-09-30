@@ -33,5 +33,10 @@ export function formatClockTime(parts: ClockParts): string {
   return `${hour}:${String(minute).padStart(2, '0')} ${period}`
 }
 
+/** "4:55 AM" → "4:55", for tight grids where the prayer order already implies the half of day. */
+export function stripMeridiem(value: string): string {
+  return (value || '').replace(/\s*(AM|PM)\s*$/i, '').trim()
+}
+
 export const HOURS_12 = Array.from({ length: 12 }, (_, i) => i + 1)
 export const MINUTES_60 = Array.from({ length: 60 }, (_, i) => i)

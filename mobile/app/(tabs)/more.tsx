@@ -1,11 +1,15 @@
 import { useRouter } from 'expo-router'
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native'
+import { useBottomTabBarHeight } from "expo-router/js-tabs"
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AppIcon } from '@/src/components/AppIcon'
+import { ScreenHeader } from '@/src/components/AppHeader'
 import { useAuth } from '@/src/context/AuthContext'
-import { colors } from '@/src/constants/theme'
+import { useLanguage } from '@/src/context/LanguageContext'
+import { makeStyles } from '@/src/context/ThemeContext'
 import type { AppIconName } from '@/src/constants/appIcons'
-import { DAILY_VERSE, ISLAMIC_CALENDAR } from '@/src/data/mockData'
+import { DAILY_VERSE } from '@/src/data/mockData'
+import { formatHijriDate } from '@/src/utils/hijriDate'
 import { canManageMosques, isAppAdmin, roleLabel } from '@/src/utils/roles'
 
 type MenuItem = {
@@ -23,9 +27,12 @@ const DEMO_MOSQUE_ADMIN = '7777777777 / Khairul12345'
 const DEMO_APP_ADMIN = '9999999999 / Admin@12345'
 
 export default function MoreScreen() {
+  const styles = useStyles()
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const tabBarHeight = useBottomTabBarHeight()
   const { user, isGuest, logout } = useAuth()
+  const { t } = useLanguage()
 
   const adminItems: MenuItem[] = [
     {
@@ -45,11 +52,17 @@ export default function MoreScreen() {
   ]
 
   const menuItems: MenuItem[] = [
+    {
+      route: '/submit-mosque',
+      emoji: '➕',
+      label: 'Add a Mosque',
+      desc: 'Request a missing mosque with photos & contact',
+    },
     { route: '/notifications', emoji: '💬', label: 'Messages', desc: 'Mosque timing updates & announcements' },
     { route: '/(tabs)/live-azan', emoji: '🔊', label: 'Live Azan', desc: 'Hear azan from mosque broadcasts' },
     { route: '/(tabs)/qibla', iconName: 'compass', label: 'Qibla Direction', desc: 'Find direction to the Kaaba' },
     { route: '/(tabs)/hadith', iconName: 'hadees', label: 'Hadith', desc: 'Daily wisdom from the Sunnah' },
-    { emoji: '📅', label: 'Islamic Calendar', desc: ISLAMIC_CALENDAR.hijriDate, comingSoon: true },
+    { emoji: '📅', label: 'Islamic Calendar', desc: formatHijriDate(new Date()), comingSoon: true },
     { emoji: '🍽️', label: 'Halal Restaurants', desc: 'Find halal food nearby', comingSoon: true },
     { emoji: '✅', label: 'Prayer Tracker', desc: 'Track your daily prayers', comingSoon: true },
   ]
@@ -141,63 +154,69 @@ export default function MoreScreen() {
   return (
     <ScrollView
       style={styles.page}
-      contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 16 }]}>
-      <Text style={styles.title}>More</Text>
+      contentContainerStyle={{ paddingBottom: tabBarHeight + 16 }}>
+      <ScreenHeader
+        icon="more"
+        title={t('screens.moreTitle')}
+        subtitle={t('screens.moreSubtitle')}
+        topInset={insets.top}
+      />
 
-      {/* Always first — visible for guests too (tap prompts sign-in) */}
-      <Text style={styles.sectionLabel}>Admin</Text>
-      {adminItems.map(renderMenuItem)}
+      <View style={styles.content}>
+        {/* Always first — visible for guests too (tap prompts sign-in) */}
+        <Text style={styles.sectionLabel}>Admin</Text>
+        {adminItems.map(renderMenuItem)}
 
-      {(user || isGuest) && (
-        <View style={styles.accountCard}>
-          <Text style={styles.accountLabel}>Account</Text>
-          <Text style={styles.accountName}>{user ? user.name : 'Guest user'}</Text>
-          {user ? (
-            <>
-              <Text style={styles.accountEmail}>{user.mobile || user.email}</Text>
-              <Text style={styles.roleBadge}>{roleLabel(user)}</Text>
-              {canManageMosques(user) ? (
-                <Pressable
-                  style={styles.accountBtn}
-                  onPress={() =>
-                    router.push(isAppAdmin(user) ? '/admin' : '/admin/my-mosques')
-                  }>
-                  <Text style={styles.accountBtnText}>
-                    {isAppAdmin(user) ? 'Open App Admin' : 'Open Azan & Prayer Timings'}
-                  </Text>
-                </Pressable>
-              ) : null}
-            </>
-          ) : (
-            <Text style={styles.roleHint}>
-              Guest can open Mosque Admin / App Admin above — you will be asked to sign in.
-            </Text>
-          )}
-          <Pressable style={styles.accountBtn} onPress={() => void onAccountAction()}>
-            <Text style={styles.accountBtnText}>{user ? 'Sign out' : 'Sign in'}</Text>
-          </Pressable>
+        {(user || isGuest) && (
+          <View style={styles.accountCard}>
+            <Text style={styles.accountLabel}>Account</Text>
+            <Text style={styles.accountName}>{user ? user.name : 'Guest user'}</Text>
+            {user ? (
+              <>
+                <Text style={styles.accountEmail}>{user.mobile || user.email}</Text>
+                <Text style={styles.roleBadge}>{roleLabel(user)}</Text>
+                {canManageMosques(user) ? (
+                  <Pressable
+                    style={styles.accountBtn}
+                    onPress={() =>
+                      router.push(isAppAdmin(user) ? '/admin' : '/admin/my-mosques')
+                    }>
+                    <Text style={styles.accountBtnText}>
+                      {isAppAdmin(user) ? 'Open App Admin' : 'Open Azan & Prayer Timings'}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </>
+            ) : (
+              <Text style={styles.roleHint}>
+                Guest can open Mosque Admin / App Admin above — you will be asked to sign in.
+              </Text>
+            )}
+            <Pressable style={styles.accountBtn} onPress={() => void onAccountAction()}>
+              <Text style={styles.accountBtnText}>{user ? 'Sign out' : 'Sign in'}</Text>
+            </Pressable>
+          </View>
+        )}
+
+        <View style={styles.verseCard}>
+          <Text style={styles.verseLabel}>Daily Verse</Text>
+          <Text style={styles.verseArabic}>{DAILY_VERSE.arabic}</Text>
+          <Text style={styles.verseTranslation}>"{DAILY_VERSE.translation}"</Text>
+          <Text style={styles.verseRef}>— {DAILY_VERSE.reference}</Text>
         </View>
-      )}
 
-      <View style={styles.verseCard}>
-        <Text style={styles.verseLabel}>Daily Verse</Text>
-        <Text style={styles.verseArabic}>{DAILY_VERSE.arabic}</Text>
-        <Text style={styles.verseTranslation}>"{DAILY_VERSE.translation}"</Text>
-        <Text style={styles.verseRef}>— {DAILY_VERSE.reference}</Text>
+        <Text style={styles.sectionLabel}>More</Text>
+        {menuItems.map(renderMenuItem)}
+
+        <Text style={styles.version}>PrayNow React Native v1.0.1</Text>
       </View>
-
-      <Text style={styles.sectionLabel}>More</Text>
-      {menuItems.map(renderMenuItem)}
-
-      <Text style={styles.version}>PrayNow React Native v1.0.1</Text>
     </ScrollView>
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   page: { flex: 1, backgroundColor: colors.surface0 },
-  content: { padding: 16, paddingTop: 48 },
-  title: { fontSize: 22, fontWeight: '800', marginBottom: 16 },
+  content: { padding: 16 },
   sectionLabel: {
     fontSize: 11,
     fontWeight: '800',
@@ -273,4 +292,4 @@ const styles = StyleSheet.create({
   menuDesc: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
   menuArrow: { fontSize: 20, color: colors.textMuted },
   version: { textAlign: 'center', color: colors.textMuted, fontSize: 12, marginTop: 12 },
-})
+}))

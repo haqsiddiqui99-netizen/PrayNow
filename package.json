@@ -14,6 +14,7 @@
     "db:migrate": "npm run db:migrate --prefix server",
     "db:seed": "npm run db:seed --prefix server",
     "db:import": "npm run db:import --prefix server",
+    "mosques:import-all": "npm run mosques:import-all --prefix server",
     "db:setup": "npm run db:migrate && npm run db:seed",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",

@@ -1,10 +1,11 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native'
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
+import { ScrollView, Text, View } from 'react-native'
+import { useBottomTabBarHeight } from "expo-router/js-tabs"
 import { AppIcon } from '@/src/components/AppIcon'
-import { colors } from '@/src/constants/theme'
+import { makeStyles } from '@/src/context/ThemeContext'
 import { DAILY_HADITH, HADITH_COLLECTION } from '@/src/data/mockData'
 
 export default function HadithScreen() {
+  const styles = useStyles()
   const tabBarHeight = useBottomTabBarHeight()
   const moreHadiths = HADITH_COLLECTION.filter((h) => h !== DAILY_HADITH)
 
@@ -37,7 +38,7 @@ export default function HadithScreen() {
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   page: { flex: 1, backgroundColor: colors.surface0 },
   content: { padding: 16, paddingTop: 48 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
@@ -63,4 +64,4 @@ const styles = StyleSheet.create({
   },
   quote: { fontSize: 14, lineHeight: 21, fontWeight: '500' },
   source: { fontSize: 12, color: colors.textMuted, marginTop: 8, fontWeight: '600' },
-})
+}))

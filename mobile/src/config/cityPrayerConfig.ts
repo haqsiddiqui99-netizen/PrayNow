@@ -9,6 +9,42 @@ import {
   DEFAULT_NIGHT_TIMINGS,
 } from '@/src/data/mockData'
 
+export type NaflTiming = { start: string; end: string; label: string }
+
+function parseClockTime(time: string): number {
+  const [clock, period] = time.split(' ')
+  const [hours, minutes] = clock.split(':').map(Number)
+  let h = hours
+  if (period === 'PM' && h !== 12) h += 12
+  if (period === 'AM' && h === 12) h = 0
+  return h * 60 + minutes
+}
+
+function formatClockTime(totalMinutes: number): string {
+  const normalized = ((totalMinutes % (24 * 60)) + 24 * 60) % (24 * 60)
+  const hours24 = Math.floor(normalized / 60)
+  const mins = normalized % 60
+  const period = hours24 >= 12 ? 'PM' : 'AM'
+  let h = hours24 % 12
+  if (h === 0) h = 12
+  return `${h}:${String(mins).padStart(2, '0')} ${period}`
+}
+
+function addMinutesToClockTime(time: string, deltaMinutes: number): string {
+  return formatClockTime(parseClockTime(time) + deltaMinutes)
+}
+
+export function deriveMorningNaflTimings(sunrise: string, zawalStart: string) {
+  const ishraqStart = addMinutesToClockTime(sunrise, 15)
+  const ishraqEnd = addMinutesToClockTime(sunrise, 105)
+  const chashtStart = ishraqEnd
+  const chashtEnd = addMinutesToClockTime(zawalStart, -20)
+  return {
+    ishraq: { start: ishraqStart, end: ishraqEnd, label: 'Ishraq' as const },
+    chasht: { start: chashtStart, end: chashtEnd, label: 'Chasht' as const },
+  }
+}
+
 export interface CityPrayerConfig {
   city: string
   country: string
@@ -19,6 +55,8 @@ export interface CityPrayerConfig {
   fajrNamazEnd: string
   zawal: { start: string; end: string; label: string }
   tuluAftab: { start: string; end: string; label: string }
+  ishraq: NaflTiming
+  chasht: NaflTiming
   nightTimings: { tahajjud: { start: string; end: string }; sehri: { start: string; end: string } }
   date?: string
   yearDaysLoaded?: number
@@ -54,6 +92,8 @@ export interface ApiCitySettingsResponse {
 
 const PRAYER_ORDER: PrayerName[] = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']
 
+const defaultMorningNafl = deriveMorningNaflTimings(SUNRISE, ZAWAL.start)
+
 export const DEFAULT_CITY_PRAYER_CONFIG: CityPrayerConfig = {
   city: LOCATION.city,
   country: LOCATION.country,
@@ -64,6 +104,8 @@ export const DEFAULT_CITY_PRAYER_CONFIG: CityPrayerConfig = {
   fajrNamazEnd: FAJR_NAMAZ_END,
   zawal: ZAWAL,
   tuluAftab: TULU_AFTAB,
+  ishraq: defaultMorningNafl.ishraq,
+  chasht: defaultMorningNafl.chasht,
   nightTimings: DEFAULT_NIGHT_TIMINGS,
 }
 
@@ -119,6 +161,8 @@ export function mapApiCitySettings(data: ApiCitySettingsResponse): CityPrayerCon
     },
   }
 
+  const morningNafl = deriveMorningNaflTimings(sunrise, zawalStart)
+
   return {
     city: settings.city || DEFAULT_CITY_PRAYER_CONFIG.city,
     country: settings.country || DEFAULT_CITY_PRAYER_CONFIG.country,
@@ -129,6 +173,8 @@ export function mapApiCitySettings(data: ApiCitySettingsResponse): CityPrayerCon
     fajrNamazEnd,
     zawal: { start: zawalStart, end: zawalEnd, label: 'Zawal' },
     tuluAftab: { start: fajrNamazEnd, end: sunrise, label: 'Tulu Aftab' },
+    ishraq: morningNafl.ishraq,
+    chasht: morningNafl.chasht,
     nightTimings,
     date: data.date || data.day?.date,
     yearDaysLoaded: data.yearDaysLoaded,

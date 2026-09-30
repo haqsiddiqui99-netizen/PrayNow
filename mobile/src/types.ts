@@ -54,7 +54,11 @@ export interface Mosque {
   facilities: string[]
   imam: string
   imamDetails: PersonContact
+  /** Multiple imams when provided by API; legacy single imam uses imamDetails. */
+  imams?: PersonContact[]
   moazzinDetails: PersonContact
+  /** Multiple mo'azzins when provided by API. */
+  moazzins?: PersonContact[]
   jumaTimings: JumaTimings
   sermonLanguage: string
   events: string[]

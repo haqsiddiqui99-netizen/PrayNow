@@ -1,9 +1,17 @@
-import { Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
-import { colors, radius, shadows } from '@/src/constants/theme'
+import { Image, Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native'
+import { radius } from '@/src/constants/theme'
+import { useLanguage } from '@/src/context/LanguageContext'
+import { makeStyles } from '@/src/context/ThemeContext'
 import type { Mosque, TravelMode } from '@/src/types'
 import { openGoogleMaps } from '@/src/utils/maps'
 
-const googleMapsIcon = require('../../assets/images/google_map_icon.png')
+/**
+ * Square, transparent pin derived from the original portrait tile by
+ * `scripts/make-maps-pin.mjs`. The source art carried the "Maps" wordmark on an
+ * opaque near-white background, which left gaps in the rounded tile and stayed
+ * light under the dark palette.
+ */
+const googleMapsIcon = require('../../assets/images/google_maps_pin.png')
 
 type Variant = 'compact' | 'chip' | 'button'
 
@@ -29,6 +37,9 @@ export function GoogleMapsButton({
   label?: string
   onPressBeforeOpen?: () => void
 }) {
+  const styles = useStyles()
+  const { t } = useLanguage()
+
   const handlePress = (e?: { stopPropagation?: () => void }) => {
     e?.stopPropagation?.()
     onPressBeforeOpen?.()
@@ -43,7 +54,7 @@ export function GoogleMapsButton({
     return (
       <Pressable style={[styles.button, style]} onPress={() => handlePress()} hitSlop={8}>
         <Image source={googleMapsIcon} style={styles.buttonIcon} resizeMode="contain" />
-        <Text style={styles.buttonLabel}>{label ?? 'Open in Google Maps'}</Text>
+        <Text style={styles.buttonLabel}>{label ?? t('mosque.openInMaps')}</Text>
       </Pressable>
     )
   }
@@ -59,7 +70,7 @@ export function GoogleMapsButton({
 
   return (
     <Pressable style={[styles.wrap, style]} onPress={(e) => handlePress(e)} hitSlop={8}>
-      <View style={[styles.iconShell, light && styles.iconShellLight]}>
+      <View style={styles.iconShell}>
         <Image source={googleMapsIcon} style={styles.icon} resizeMode="contain" />
       </View>
       {caption ? <Text style={[styles.caption, light && styles.captionLight]}>{caption}</Text> : null}
@@ -67,23 +78,21 @@ export function GoogleMapsButton({
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, shadows }) => ({
   wrap: { alignItems: 'center', minWidth: 52 },
   iconShell: {
     alignItems: 'center',
     justifyContent: 'center',
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: '#fff',
+    borderRadius: 13,
+    overflow: 'hidden',
+    backgroundColor: colors.surface2,
     borderWidth: 1,
     borderColor: colors.border,
     ...shadows.soft,
   },
-  iconShellLight: {
-    backgroundColor: colors.surface2,
-  },
-  icon: { width: 28, height: 34 },
+  icon: { width: 36, height: 36 },
   caption: {
     fontSize: 10,
     color: colors.textMuted,
@@ -98,19 +107,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: radius.sm,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface2,
     borderWidth: 1,
     borderColor: colors.border,
     ...shadows.soft,
   },
-  chipIcon: { width: 22, height: 26 },
+  chipIcon: { width: 24, height: 24 },
   chipLabel: { fontSize: 12, fontWeight: '800', color: colors.textPrimary },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface2,
     borderRadius: radius.sm,
     paddingVertical: 12,
     paddingHorizontal: 14,
@@ -118,6 +127,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     ...shadows.soft,
   },
-  buttonIcon: { width: 26, height: 32 },
+  buttonIcon: { width: 28, height: 28 },
   buttonLabel: { fontSize: 14, fontWeight: '800', color: colors.textPrimary },
-})
+}))

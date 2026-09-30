@@ -6,7 +6,7 @@ import { getStoredToken, type AppUser } from '@/src/services/authStorage'
 
 export type { AppUser }
 
-const FETCH_TIMEOUT_MS = 12000
+const FETCH_TIMEOUT_MS = 20000
 
 async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
   const controller = new AbortController()
@@ -86,6 +86,8 @@ export async function fetchSupportedCities(): Promise<
     lat?: number | null
     lng?: number | null
     aliases?: string[]
+    pinCodes?: string[]
+    pinPrefixes?: string[]
   }>
 > {
   try {
@@ -99,9 +101,22 @@ export async function fetchSupportedCities(): Promise<
       lat?: number | null
       lng?: number | null
       aliases?: string[]
+      pinCodes?: string[]
+      pinPrefixes?: string[]
     }>
   } catch {
-    return [{ id: 'kanpur', name: 'Kanpur', country: 'India', mosqueCount: 0, lat: 26.4499, lng: 80.3319 }]
+    return [
+      {
+        id: 'kanpur',
+        name: 'Kanpur',
+        country: 'India',
+        mosqueCount: 0,
+        lat: 26.4499,
+        lng: 80.3319,
+        pinCodes: ['208001'],
+        pinPrefixes: ['208'],
+      },
+    ]
   }
 }
 
@@ -141,6 +156,41 @@ export async function fetchLiveAzanSessions(): Promise<LiveAzanSession[]> {
     return data.sessions ?? []
   } catch {
     return []
+  }
+}
+
+export type AgoraCredentials = {
+  configured: boolean
+  appId: string | null
+  channel: string
+  uid: number
+  role: 'publisher' | 'subscriber'
+  token: string | null
+  expiresIn?: number
+}
+
+/** Listener token for a mosque that is broadcasting live right now. */
+export async function fetchAzanListenToken(mosqueId: string): Promise<{
+  sessionId: string
+  channel: string
+  agora: AgoraCredentials
+}> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/mosques/${mosqueId}/azan/listen`)
+  if (!res.ok) await parseError(res, 'Mosque is not live')
+  return (await res.json()) as { sessionId: string; channel: string; agora: AgoraCredentials }
+}
+
+export async function fetchLiveAzanStatus(): Promise<{ agoraConfigured: boolean; liveCount: number }> {
+  try {
+    const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/live-azan`)
+    if (!res.ok) return { agoraConfigured: false, liveCount: 0 }
+    const data = (await res.json()) as { agoraConfigured?: boolean; liveCount?: number }
+    return {
+      agoraConfigured: Boolean(data.agoraConfigured),
+      liveCount: data.liveCount ?? 0,
+    }
+  } catch {
+    return { agoraConfigured: false, liveCount: 0 }
   }
 }
 
@@ -196,7 +246,7 @@ export async function startMosqueAzan(mosqueId: string, prayerName?: PrayerName)
   if (!res.ok) await parseError(res, 'Failed to start azan')
   return (await res.json()) as {
     session: { id: string; channel: string; status: string }
-    agora: { configured: boolean; appId: string | null; channel: string; token: string | null }
+    agora: import('@/src/services/agoraClient').AgoraCredentials
   }
 }
 
@@ -325,14 +375,25 @@ export async function importAdminCityDaysCsv(csv: string, city?: string) {
   return (await res.json()) as { ok: boolean; upserted: number; yearDaysLoaded: number; city: string }
 }
 
-export async function generateAdminCityYear(year = new Date().getFullYear(), city?: string) {
+export async function generateAdminCityYear(
+  year = new Date().getFullYear(),
+  city?: string,
+  source: 'aladhan' | 'defaults' = 'aladhan',
+) {
   const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/admin/city/days/generate-year`, {
     method: 'POST',
     headers: await authHeaders(),
-    body: JSON.stringify({ year, city }),
+    body: JSON.stringify({ year, city, source }),
   })
   if (!res.ok) await parseError(res, 'Failed to generate year')
-  return (await res.json()) as { ok: boolean; upserted: number; city: string; year: number }
+  return (await res.json()) as {
+    ok: boolean
+    upserted: number
+    city: string
+    year: number
+    source?: string
+    method?: number
+  }
 }
 
 // --- User mosque notifications ---
@@ -417,5 +478,106 @@ export async function postMosqueAnnouncement(
   })
   if (!res.ok) await parseError(res, 'Failed to post announcement')
   return (await res.json()) as { ok: boolean; notified: number }
+}
+
+// --- "Add this mosque" requests from users ---
+
+export type MosqueRequestStatus = 'pending' | 'approved' | 'rejected'
+
+export type MosqueRequestInput = {
+  name: string
+  address: string
+  area: string
+  city: string
+  lat: number | null
+  lng: number | null
+  ownerName: string
+  ownerMobile: string
+  ownerEmail: string
+  notes: string
+  /** Each entry is a `data:image/...;base64,` URL produced on the device. */
+  photos: string[]
+}
+
+export type MosqueRequest = {
+  id: string
+  name: string
+  address: string
+  area: string
+  city: string
+  lat: number | null
+  lng: number | null
+  ownerName: string
+  ownerMobile: string
+  ownerEmail: string
+  notes: string
+  status: MosqueRequestStatus
+  reviewNote: string
+  reviewedAt: string | null
+  createdMosqueId: string | null
+  submittedByName: string
+  submittedByMobile: string
+  createdAt: string
+  /** Server-relative paths; pass through `resolveApiUrl` before rendering. */
+  photoUrls: string[]
+}
+
+/** Turns a server-relative path (such as a request photo) into a loadable URL. */
+export function resolveApiUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path
+  return `${getApiBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`
+}
+
+export async function submitMosqueRequest(
+  body: MosqueRequestInput,
+): Promise<{ id: string; status: MosqueRequestStatus }> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/me/mosque-requests`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) await parseError(res, 'Failed to submit request')
+  return (await res.json()) as { id: string; status: MosqueRequestStatus }
+}
+
+export async function fetchMyMosqueRequests(): Promise<MosqueRequest[]> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/me/mosque-requests`, {
+    headers: await authHeaders(false),
+  })
+  if (!res.ok) await parseError(res, 'Failed to load your requests')
+  const data = (await res.json()) as { requests?: MosqueRequest[] }
+  return data.requests ?? []
+}
+
+export async function fetchAdminMosqueRequests(
+  status: MosqueRequestStatus | 'all' = 'pending',
+): Promise<MosqueRequest[]> {
+  const res = await fetchWithTimeout(
+    `${getApiBaseUrl()}/api/admin/mosque-requests?status=${status}`,
+    { headers: await authHeaders(false) },
+  )
+  if (!res.ok) await parseError(res, 'Failed to load mosque requests')
+  const data = (await res.json()) as { requests?: MosqueRequest[] }
+  return data.requests ?? []
+}
+
+export async function approveMosqueRequest(id: string, reviewNote = ''): Promise<Mosque> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/admin/mosque-requests/${id}/approve`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ reviewNote }),
+  })
+  if (!res.ok) await parseError(res, 'Failed to approve request')
+  const data = (await res.json()) as { mosque: Mosque }
+  return data.mosque
+}
+
+export async function rejectMosqueRequest(id: string, reviewNote = ''): Promise<void> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/admin/mosque-requests/${id}/reject`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ reviewNote }),
+  })
+  if (!res.ok) await parseError(res, 'Failed to reject request')
 }
 

@@ -1,8 +1,10 @@
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useState } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import { MosqueAdminTimingsTable } from '@/src/components/MosqueAdminTimingsTable'
-import { colors, radius } from '@/src/constants/theme'
+import { radius } from '@/src/constants/theme'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { fetchLiveAzanSessions, fetchManagerMosques } from '@/src/services/api'
 import type { Mosque } from '@/src/types'
 import { isMosqueLive, refreshLiveSessions, subscribeLiveSessions } from '@/src/store/liveAzanSessions'
@@ -16,7 +18,10 @@ type Props = {
  * Home dashboard for mosque admins: Live Azan + full prayer timings table with edit.
  */
 export function HomeMosqueAdminPanel({ visible }: Props) {
+  const styles = useStyles()
+  const { colors } = useTheme()
   const router = useRouter()
+  const { placeName } = useLanguage()
   const [mosque, setMosque] = useState<Mosque | null>(null)
   const [mosqueCount, setMosqueCount] = useState(0)
   const [live, setLive] = useState(false)
@@ -98,7 +103,7 @@ export function HomeMosqueAdminPanel({ visible }: Props) {
           <View style={{ flex: 1 }}>
             <Text style={styles.kicker}>Live Azan</Text>
             <Text style={styles.mosqueName} numberOfLines={1}>
-              {mosque.name}
+              {placeName(mosque.name)}
             </Text>
             {mosqueCount > 1 ? (
               <Text style={styles.meta}>{mosqueCount} mosques · showing first · tap Go Live to pick</Text>
@@ -119,7 +124,7 @@ export function HomeMosqueAdminPanel({ visible }: Props) {
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   wrap: { gap: 12, marginBottom: 4 },
   card: {
     backgroundColor: colors.surface2,
@@ -128,7 +133,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 14,
   },
-  cardLive: { borderColor: colors.success, backgroundColor: '#f0fdf4' },
+  cardLive: { borderColor: colors.success, backgroundColor: colors.successBg },
   head: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12 },
   kicker: {
     fontSize: 10,
@@ -153,4 +158,4 @@ const styles = StyleSheet.create({
   error: { color: colors.accent, fontSize: 13, fontWeight: '600', marginBottom: 8 },
   linkBtn: { paddingVertical: 6 },
   linkText: { color: colors.primary, fontWeight: '800', fontSize: 13 },
-})
+}))

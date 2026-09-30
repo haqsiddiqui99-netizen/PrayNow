@@ -475,7 +475,7 @@ export const DAILY_VERSE: QuranVerse = {
 }
 
 export const ISLAMIC_CALENDAR = {
-  hijriDate: '14 Muharram 1448',
+  /** @deprecated Use formatHijriDate() — kept for calendar mock events only */
   gregorianDate: 'Friday, July 09, 2026',
   upcomingEvents: [
     { name: 'Ashura', date: '26 Muharram 1448', daysAway: 12 },

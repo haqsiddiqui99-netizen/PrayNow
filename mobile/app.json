@@ -4,30 +4,41 @@
     "slug": "praynow",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/Home_PP.png",
     "scheme": "praynow",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "PrayNow uses your location for nearby mosques, prayer times, and live Qibla direction."
+        "NSLocationWhenInUseUsageDescription": "PrayNow uses your location for nearby mosques, prayer times, and live Qibla direction.",
+        "NSMicrophoneUsageDescription": "PrayNow needs the microphone to broadcast live azan from your mosque.",
+        "UIBackgroundModes": ["audio"]
       }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0d47a1"
       },
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "RECORD_AUDIO",
+        "MODIFY_AUDIO_SETTINGS",
+        "ACCESS_NETWORK_STATE",
+        "BLUETOOTH"
+      ],
       "usesCleartextTraffic": true
     },
     "web": {
       "bundler": "metro",
-      "output": "static"
+      "output": "single"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
+          "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
           "backgroundColor": "#0d47a1"
         }
@@ -36,6 +47,17 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Allow PrayNow to find nearby mosques, prayer times, and Qibla direction."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24
+          },
+          "ios": {
+            "deploymentTarget": "16.4"
+          }
         }
       ]
     ],

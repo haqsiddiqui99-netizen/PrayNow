@@ -4,12 +4,12 @@ import {
   ActivityIndicator,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native'
-import { colors, radius } from '@/src/constants/theme'
+import { radius } from '@/src/constants/theme'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { createAdminMosque, fetchManagerMosques, updateAdminMosque } from '@/src/services/api'
 import type { Mosque, MosqueTimings, PrayerName } from '@/src/types'
 import { useAuth } from '@/src/context/AuthContext'
@@ -26,6 +26,8 @@ const DEFAULT_TIMINGS: MosqueTimings = {
 }
 
 export default function MosqueFormScreen() {
+  const styles = useStyles()
+  const { colors } = useTheme()
   const { id } = useLocalSearchParams<{ id?: string }>()
   const router = useRouter()
   const { user } = useAuth()
@@ -38,7 +40,7 @@ export default function MosqueFormScreen() {
   const [address, setAddress] = useState('')
   const [area, setArea] = useState('')
   const [phone, setPhone] = useState('')
-  const [sect, setSect] = useState('Sunni')
+  const [sect, setSect] = useState('Hanafi')
   const [lat, setLat] = useState('28.6139')
   const [lng, setLng] = useState('77.2090')
   const [capacity, setCapacity] = useState('500')
@@ -72,7 +74,7 @@ export default function MosqueFormScreen() {
     setAddress(m.address)
     setArea(m.area)
     setPhone(m.phone || '')
-    setSect(m.sect || 'Sunni')
+    setSect(m.sect || 'Hanafi')
     setLat(String(m.lat))
     setLng(String(m.lng))
     setCapacity(String(m.capacity || 500))
@@ -130,7 +132,7 @@ export default function MosqueFormScreen() {
       <Field label="Address" value={address} onChange={setAddress} />
       <Field label="Area" value={area} onChange={setArea} />
       <Field label="Phone" value={phone} onChange={setPhone} />
-      <Field label="Sect" value={sect} onChange={setSect} />
+      <Field label="Madhab (school)" value={sect} onChange={setSect} />
       <View style={styles.row}>
         <View style={styles.half}>
           <Field label="Latitude" value={lat} onChange={setLat} />
@@ -177,6 +179,7 @@ function Field({
   value: string
   onChange: (v: string) => void
 }) {
+  const styles = useStyles()
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
@@ -185,7 +188,7 @@ function Field({
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   page: { flex: 1, backgroundColor: colors.surface0 },
   content: { padding: 16, paddingBottom: 40 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -215,4 +218,4 @@ const styles = StyleSheet.create({
   },
   saveText: { color: '#fff', fontWeight: '800' },
   error: { color: colors.accent, fontWeight: '600', marginTop: 8 },
-})
+}))

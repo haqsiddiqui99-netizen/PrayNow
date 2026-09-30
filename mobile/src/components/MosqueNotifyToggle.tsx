@@ -1,8 +1,9 @@
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
-import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native'
+import { ActivityIndicator, Alert, Pressable, View } from 'react-native'
 import { useAuth } from '@/src/context/AuthContext'
 import { useMosqueNotify } from '@/src/context/MosqueNotifyContext'
+import { makeStyles } from '@/src/context/ThemeContext'
 
 type Props = {
   mosqueId: string
@@ -10,10 +11,9 @@ type Props = {
   stopPropagation?: boolean
 }
 
-/**
- * Teal ON / gray OFF switch — subscribe to mosque timings & announcements.
- */
+/** Slim green ON / gray OFF switch — mosque timings & announcements. */
 export function MosqueNotifyToggle({ mosqueId }: Props) {
+  const styles = useStyles()
   const router = useRouter()
   const { user } = useAuth()
   const { isSubscribed, toggle } = useMosqueNotify()
@@ -59,23 +59,27 @@ export function MosqueNotifyToggle({ mosqueId }: Props) {
   )
 }
 
-const styles = StyleSheet.create({
+const TRACK_W = 36
+const TRACK_H = 20
+const KNOB = 16
+
+const useStyles = makeStyles(({ colors }) => ({
   track: {
-    width: 44,
-    height: 26,
-    borderRadius: 13,
+    width: TRACK_W,
+    height: TRACK_H,
+    borderRadius: TRACK_H / 2,
     padding: 2,
     justifyContent: 'center',
   },
-  trackOn: { backgroundColor: '#14b8a6' },
+  trackOn: { backgroundColor: colors.success },
   trackOff: { backgroundColor: '#cbd5e1' },
   knob: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: KNOB,
+    height: KNOB,
+    borderRadius: KNOB / 2,
     backgroundColor: '#fff',
   },
   knobOn: { alignSelf: 'flex-end' },
   knobOff: { alignSelf: 'flex-start' },
   spinner: { alignSelf: 'center' },
-})
+}))

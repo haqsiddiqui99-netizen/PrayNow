@@ -1,4 +1,5 @@
 import { ISLAMIC_CALENDAR } from '../data/mockData'
+import { formatHijriDate } from '../utils/hijriDate'
 import { PageHeader } from '../components/PageHeader'
 import './CalendarPage.css'
 
@@ -14,8 +15,15 @@ export function CalendarPage({ onBack }: CalendarPageProps) {
       <div className="calendar-body">
         <div className="calendar-today card">
           <div className="cal-label">Today</div>
-          <div className="cal-hijri">{ISLAMIC_CALENDAR.hijriDate}</div>
-          <div className="cal-gregorian">{ISLAMIC_CALENDAR.gregorianDate}</div>
+          <div className="cal-hijri">{formatHijriDate(new Date())}</div>
+          <div className="cal-gregorian">
+            {new Date().toLocaleDateString(undefined, {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            })}
+          </div>
         </div>
 
         <div className="section">

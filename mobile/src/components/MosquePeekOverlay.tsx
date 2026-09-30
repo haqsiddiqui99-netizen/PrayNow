@@ -4,6 +4,7 @@ import {
   Dimensions,
   Modal,
   PanResponder,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,7 +17,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { FacilitiesLine } from '@/src/components/FacilitiesLine'
 import { GoogleMapsButton } from '@/src/components/GoogleMapsButton'
 import { MosqueTimingsGrid } from '@/src/components/MosqueTimingsGrid'
-import { colors, radius } from '@/src/constants/theme'
+import { radius } from '@/src/constants/theme'
+import { useLanguage } from '@/src/context/LanguageContext'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import type { Mosque, TravelMode } from '@/src/types'
 import { getCurrentPrayerForMosques } from '@/src/utils/prayerSchedule'
 import { formatCapacity } from '@/src/utils/mosqueSort'
@@ -37,7 +40,10 @@ export function MosquePeekOverlay({
   onClose: () => void
   onViewFull?: (mosque: Mosque) => void
 }) {
+  const styles = useStyles()
+  const { colors } = useTheme()
   const insets = useSafeAreaInsets()
+  const { t, formatDistance, placeName } = useLanguage()
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current
   const dragY = useRef(new Animated.Value(0)).current
   const backdropOpacity = useRef(new Animated.Value(0)).current
@@ -122,8 +128,8 @@ export function MosquePeekOverlay({
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            <Text style={styles.name}>{mosque.name}</Text>
-            <Text style={styles.address}>{mosque.address}</Text>
+            <Text style={styles.name}>{placeName(mosque.name)}</Text>
+            <Text style={styles.address}>{placeName(mosque.address)}</Text>
 
             <View style={styles.metaRow}>
               <View style={styles.metaChip}>
@@ -132,7 +138,7 @@ export function MosquePeekOverlay({
               </View>
               <View style={styles.metaChip}>
                 <Ionicons name="location-outline" size={11} color={colors.textSecondary} />
-                <Text style={styles.metaChipText}>{mosque.distance} km</Text>
+                <Text style={styles.metaChipText}>{formatDistance(mosque.distance)}</Text>
               </View>
               <View style={styles.metaChip}>
                 <Ionicons name="people-outline" size={11} color={colors.textSecondary} />
@@ -140,25 +146,27 @@ export function MosquePeekOverlay({
               </View>
               <View style={styles.metaChip}>
                 <Ionicons name="car-outline" size={11} color={colors.textSecondary} />
-                <Text style={styles.metaChipText}>{travelMinutes} min</Text>
+                <Text style={styles.metaChipText}>
+                  {travelMinutes} {t('units.min')}
+                </Text>
               </View>
             </View>
 
-            <FacilitiesLine facilities={mosque.facilities} max={6} />
+            <FacilitiesLine
+              facilities={mosque.facilities}
+              capacity={mosque.capacity}
+              hintBackgroundColor={colors.surface2}
+            />
 
-            <Text style={styles.sectionLabel}>Prayer times</Text>
+            <Text style={styles.sectionLabel}>{t('mosque.prayerTimes')}</Text>
             <MosqueTimingsGrid mosque={mosque} currentPrayer={currentPrayer?.name ?? null} />
 
             {mosque.imam ? (
               <View style={styles.detailRow}>
                 <Ionicons name="person-outline" size={14} color={colors.textSecondary} />
-                <Text style={styles.detailLine}>Imam: {mosque.imam}</Text>
-              </View>
-            ) : null}
-            {mosque.phone ? (
-              <View style={styles.detailRow}>
-                <Ionicons name="call-outline" size={14} color={colors.textSecondary} />
-                <Text style={styles.detailLine}>{mosque.phone}</Text>
+                <Text style={styles.detailLine}>
+                  {t('mosque.imam')}: {mosque.imam}
+                </Text>
               </View>
             ) : null}
 
@@ -189,7 +197,7 @@ export function MosquePeekOverlay({
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   root: { flex: 1, justifyContent: 'flex-end' },
   backdropWrap: { ...StyleSheet.absoluteFillObject },
   sheet: {
@@ -198,11 +206,15 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.28,
-    shadowRadius: 24,
-    elevation: 16,
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0 -8px 24px rgba(0, 0, 0, 0.28)' }
+      : {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -8 },
+          shadowOpacity: 0.28,
+          shadowRadius: 24,
+          elevation: 16,
+        }),
   },
   handleZone: { paddingTop: 10, paddingBottom: 6, alignItems: 'center' },
   handle: {
@@ -213,7 +225,7 @@ const styles = StyleSheet.create({
   },
   hero: {
     height: 140,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.headerBg,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -243,7 +255,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 11,
     fontWeight: '800',
-    color: colors.primary,
+    color: colors.pageAccent,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginTop: 14,
@@ -259,10 +271,10 @@ const styles = StyleSheet.create({
   eventLine: { fontSize: 12, color: colors.textMuted, flexShrink: 1 },
   actions: { paddingHorizontal: 18, paddingTop: 12, gap: 8 },
   primaryBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.headerBg,
     borderRadius: radius.sm,
     paddingVertical: 14,
     alignItems: 'center',
   },
   primaryBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
-})
+}))

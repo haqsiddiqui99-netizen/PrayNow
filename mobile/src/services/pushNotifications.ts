@@ -1,46 +1,55 @@
 import { Platform } from 'react-native'
 import Constants from 'expo-constants'
 import * as Device from 'expo-device'
-import * as Notifications from 'expo-notifications'
 import { registerPushToken } from '@/src/services/api'
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-})
+/** Expo Go (SDK 53+) no longer supports remote push on Android — skip the module entirely. */
+function isExpoGo() {
+  return Constants.appOwnership === 'expo'
+}
 
 /** Request permission and register Expo push token with the API (logged-in users). */
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
+  if (isExpoGo()) {
+    return null
+  }
+
   if (!Device.isDevice && Platform.OS !== 'web') {
     // Simulators often cannot receive push; still allow inbox.
     return null
   }
 
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'Mosque updates',
-      importance: Notifications.AndroidImportance.DEFAULT,
-    })
-  }
-
-  const { status: existing } = await Notifications.getPermissionsAsync()
-  let finalStatus = existing
-  if (existing !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync()
-    finalStatus = status
-  }
-  if (finalStatus !== 'granted') return null
-
-  const projectId =
-    Constants.expoConfig?.extra?.eas?.projectId ??
-    // Expo Go may expose a projectId under easConfig
-    (Constants as { easConfig?: { projectId?: string } }).easConfig?.projectId
-
   try {
+    const Notifications = await import('expo-notifications')
+
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+      }),
+    })
+
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'Mosque updates',
+        importance: Notifications.AndroidImportance.DEFAULT,
+      })
+    }
+
+    const { status: existing } = await Notifications.getPermissionsAsync()
+    let finalStatus = existing
+    if (existing !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync()
+      finalStatus = status
+    }
+    if (finalStatus !== 'granted') return null
+
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      (Constants as { easConfig?: { projectId?: string } }).easConfig?.projectId
+
     const tokenResult = projectId
       ? await Notifications.getExpoPushTokenAsync({ projectId })
       : await Notifications.getExpoPushTokenAsync()

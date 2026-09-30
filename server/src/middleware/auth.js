@@ -23,6 +23,22 @@ export function authMiddleware(req, res, next) {
   }
 }
 
+/**
+ * Populates req.user when a valid token is present but still allows anonymous
+ * callers through, for routes whose visibility depends on the resource itself.
+ */
+export function optionalAuthMiddleware(req, _res, next) {
+  const header = req.headers.authorization
+  if (header?.startsWith('Bearer ')) {
+    try {
+      req.user = jwt.verify(header.slice(7), JWT_SECRET)
+    } catch {
+      // An unusable token is treated the same as no token at all.
+    }
+  }
+  next()
+}
+
 export function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {

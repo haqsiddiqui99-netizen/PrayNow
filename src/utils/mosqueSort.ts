@@ -5,7 +5,7 @@ export type MosqueSortMode = 'nearest' | 'early-namaz'
 
 export const MOSQUE_SORT_OPTIONS: { id: MosqueSortMode; label: string }[] = [
   { id: 'nearest', label: 'Nearest' },
-  { id: 'early-namaz', label: 'Early Namaz' },
+  { id: 'early-namaz', label: 'Early' },
 ]
 
 function namazForSort(mosque: Mosque, prayerName: PrayerName, now: Date): string {

@@ -9,7 +9,8 @@ import {
   View,
 } from 'react-native'
 import { TimePickerField } from '@/src/components/TimePickerField'
-import { colors, radius } from '@/src/constants/theme'
+import { radius } from '@/src/constants/theme'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { fetchManagerMosques, updateManagerMosqueTimings } from '@/src/services/api'
 import type { JumaSession, Mosque, MosqueTimings, PrayerName } from '@/src/types'
 import { getJumaSessions, toJumaTimingsPayload } from '@/src/utils/jumaTimings'
@@ -17,6 +18,8 @@ import { getJumaSessions, toJumaTimingsPayload } from '@/src/utils/jumaTimings'
 const PRAYERS: PrayerName[] = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']
 
 export default function EditTimingsScreen() {
+  const styles = useStyles()
+  const { colors } = useTheme()
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
   const [mosque, setMosque] = useState<Mosque | null>(null)
@@ -203,7 +206,7 @@ export default function EditTimingsScreen() {
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   page: { flex: 1, backgroundColor: colors.surface0 },
   content: { padding: 12, paddingBottom: 28 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -292,4 +295,4 @@ const styles = StyleSheet.create({
   saveText: { color: '#fff', fontWeight: '800' },
   error: { color: colors.accent, fontWeight: '600', marginTop: 8 },
   ok: { color: colors.success, fontWeight: '700', marginTop: 8 },
-})
+}))

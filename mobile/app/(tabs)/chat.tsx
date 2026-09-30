@@ -5,15 +5,16 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
+import { useBottomTabBarHeight } from "expo-router/js-tabs"
 import { AppIcon } from '@/src/components/AppIcon'
-import { colors } from '@/src/constants/theme'
+import { ScreenHeader } from '@/src/components/AppHeader'
+import { useLanguage } from '@/src/context/LanguageContext'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import {
   askIslamicQuestion,
   createMessage,
@@ -27,6 +28,8 @@ const WELCOME_MESSAGE = createMessage(
 )
 
 function TypingIndicator() {
+  const styles = useStyles()
+  const { colors } = useTheme()
   return (
     <View style={[styles.bubbleRow, styles.bubbleRowAssistant]}>
       <AppIcon name="ai" size={28} variant="avatar" style={styles.avatarIcon} />
@@ -38,6 +41,7 @@ function TypingIndicator() {
 }
 
 function MessageBubble({ message }: { message: ChatMessage }) {
+  const styles = useStyles()
   const isUser = message.role === 'user'
   return (
     <View style={[styles.bubbleRow, isUser ? styles.bubbleRowUser : styles.bubbleRowAssistant]}>
@@ -50,8 +54,11 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 }
 
 export default function ChatScreen() {
+  const styles = useStyles()
+  const { colors } = useTheme()
   const insets = useSafeAreaInsets()
   const tabBarHeight = useBottomTabBarHeight()
+  const { t } = useLanguage()
   const scrollRef = useRef<ScrollView>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE])
   const [input, setInput] = useState('')
@@ -91,15 +98,11 @@ export default function ChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}>
       <View style={styles.flex}>
-        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-          <View style={styles.headerIcon}>
-          <AppIcon name="ai" size={36} variant="header" />
-        </View>
-          <View>
-            <Text style={styles.headerTitle}>Islamic AI Guide</Text>
-            <Text style={styles.headerSub}>Powered by OpenAI · Ask about Islam</Text>
-          </View>
-        </View>
+        <ScreenHeader
+          title={t('screens.aiTitle')}
+          subtitle={t('screens.aiSubtitle')}
+          topInset={insets.top}
+        />
 
         <ScrollView
           ref={scrollRef}
@@ -147,26 +150,8 @@ export default function ChatScreen() {
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   flex: { flex: 1, backgroundColor: colors.surface0 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: colors.primary,
-  },
-  headerIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  headerSub: { color: 'rgba(255,255,255,0.9)', fontSize: 12, marginTop: 2 },
   messages: { flex: 1 },
   messagesContent: { padding: 16, gap: 12 },
   bubbleRow: { flexDirection: 'row', gap: 8, maxWidth: '88%' },
@@ -233,4 +218,4 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: { opacity: 0.4 },
   sendIcon: { color: '#fff', fontSize: 16, fontWeight: '700' },
-})
+}))

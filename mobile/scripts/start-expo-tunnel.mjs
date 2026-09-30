@@ -1,8 +1,15 @@
 import { spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { patchMetroWsLimits } from './patch-metro-ws.mjs';
+import { patchMetroCors } from './patch-metro-cors.mjs';
 
 const mobileRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+const isWindows = process.platform === 'win32';
+const metroWorkers = process.env.REACT_NATIVE_MAX_WORKERS || (isWindows ? '1' : '2');
+
+patchMetroWsLimits(mobileRoot);
+patchMetroCors(mobileRoot);
 
 console.log('\n>>> Tunnel mode — works when Wi-Fi LAN times out (needs internet)\n');
 console.log('>>> Scan the QR code when Metro starts (URL will be exp://....tunnel...\n');
@@ -10,12 +17,14 @@ console.log('>>> Scan the QR code when Metro starts (URL will be exp://....tunne
 const env = {
   ...process.env,
   EXPO_NO_DEPENDENCY_VALIDATION: '1',
+  REACT_NATIVE_MAX_WORKERS: metroWorkers,
+  METRO_MAX_WORKERS: process.env.METRO_MAX_WORKERS || metroWorkers,
 };
 
-const child = spawn('npx', ['expo', 'start', '--tunnel', '--clear', '--port', '8081'], {
+const expoCli = join(mobileRoot, 'node_modules', 'expo', 'bin', 'cli');
+const child = spawn(process.execPath, [expoCli, 'start', '--tunnel', '--clear', '--port', '8081'], {
   cwd: mobileRoot,
   env,
-  shell: true,
   stdio: 'inherit',
 });
 

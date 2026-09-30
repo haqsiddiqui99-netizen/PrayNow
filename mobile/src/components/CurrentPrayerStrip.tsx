@@ -1,9 +1,11 @@
-import { StyleSheet, Text, View } from 'react-native'
-import { colors, radius } from '@/src/constants/theme'
+import { Text, View } from 'react-native'
+import { radius } from '@/src/constants/theme'
+import { makeStyles } from '@/src/context/ThemeContext'
 import type { LivePrayerInfo } from '@/src/utils/prayerSchedule'
 
 /** Single-line current prayer only — used on Home above mosque list */
 export function CurrentPrayerStrip({ info }: { info: LivePrayerInfo }) {
+  const styles = useStyles()
   return (
     <View style={styles.strip}>
       <Text style={styles.label}>Current prayer</Text>
@@ -22,7 +24,7 @@ export function CurrentPrayerStrip({ info }: { info: LivePrayerInfo }) {
   )
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   strip: {
     marginHorizontal: 16,
     marginTop: 6,
@@ -46,4 +48,4 @@ const styles = StyleSheet.create({
   dot: { fontSize: 12, color: colors.textMuted, fontWeight: '700' },
   time: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
   idle: { fontSize: 12, color: colors.textMuted, fontWeight: '600' },
-})
+}))
