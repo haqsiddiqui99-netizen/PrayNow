@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import * as SplashScreen from 'expo-splash-screen'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { AppToastHost } from '@/src/components/AppToast'
 import { AuthProvider } from '@/src/context/AuthContext'
 import { CityPrayerProvider } from '@/src/context/CityPrayerContext'
 import { LocationProvider } from '@/src/context/LocationContext'
@@ -66,6 +67,7 @@ export default function RootLayout() {
                         options={{ headerShown: true, title: 'Add a mosque' }}
                       />
                     </Stack>
+                    <AppToastHost />
                   </InboxProvider>
                 </MosqueNotifyProvider>
               </LocationProvider>

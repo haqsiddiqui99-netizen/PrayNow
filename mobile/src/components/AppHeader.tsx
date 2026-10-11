@@ -19,9 +19,14 @@ const HEADER_BOTTOM_PAD = 10
 /** Height of the home header's brand line, fixed so the content height stays predictable. */
 const HEADER_BRAND_HEIGHT = 26
 
+/**
+ * Home uses a single greeting row (name + location + account) instead of a
+ * separate brand line, so its fallback height is one control row plus padding.
+ */
+const HOME_HEADER_CONTENT_HEIGHT = HEADER_TOP_GAP + HEADER_CONTROL_HEIGHT + HEADER_BOTTOM_PAD + 4
+
 /** Fallback height of the home header content (without the status-bar inset). */
-export const APP_HEADER_CONTENT_HEIGHT =
-  HEADER_TOP_GAP + HEADER_BRAND_HEIGHT + HEADER_ROW_GAP + HEADER_CONTROL_HEIGHT + HEADER_BOTTOM_PAD
+export const APP_HEADER_CONTENT_HEIGHT = HOME_HEADER_CONTENT_HEIGHT
 
 type HeaderShellProps = {
   topInset: number
@@ -61,11 +66,11 @@ export function LocationPill({
       hitSlop={6}
       accessibilityRole="button"
       accessibilityLabel={`Location ${text}. Tap to change`}>
-      <Ionicons name="location-sharp" size={14} color={colors.primary} />
+      <Ionicons name="location-sharp" size={14} color={colors.selectedText} />
       <Text style={styles.locationText} numberOfLines={1}>
         {text}
       </Text>
-      <Ionicons name="chevron-down" size={13} color={colors.primary} />
+      <Ionicons name="chevron-down" size={13} color={colors.selectedText} />
     </Pressable>
   )
 }
@@ -79,8 +84,8 @@ type AppHeaderProps = {
 }
 
 /**
- * Home header in two lines: the brand alone on top, then account on the left and
- * city on the right. Appearance, language and messages live inside the account
+ * Home header is one row: a greeting on the left, the city pill and account
+ * menu on the right. Appearance, language and messages live inside the account
  * menu rather than as separate header controls.
  */
 export function AppHeader({
@@ -94,14 +99,17 @@ export function AppHeader({
 
   return (
     <HeaderShell topInset={topInset} onMeasureHeight={onMeasureHeight}>
-      <View style={styles.brandLine}>
-        <Text style={styles.brandName} numberOfLines={1}>
-          PrayNow
-        </Text>
-      </View>
-      <View style={styles.identityRow}>
+      <View style={styles.homeRow}>
+        <View style={styles.greetingBlock}>
+          <Text style={styles.greetingKicker} numberOfLines={1}>
+            PrayNow
+          </Text>
+          <Text style={styles.greetingName} numberOfLines={1}>
+            {greetingName}
+          </Text>
+        </View>
+        <LocationPill text={locationText} onPress={onPressLocation} style={styles.homeLocation} />
         <UserMenu greetingName={greetingName} />
-        <LocationPill text={locationText} onPress={onPressLocation} />
       </View>
     </HeaderShell>
   )
@@ -201,10 +209,32 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
-  brandLine: {
-    height: HEADER_BRAND_HEIGHT,
+  homeRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 10,
+    minHeight: HEADER_CONTROL_HEIGHT + 4,
+  },
+  greetingBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  greetingKicker: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: colors.textSecondary,
+  },
+  greetingName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    letterSpacing: -0.3,
+    marginTop: -1,
+  },
+  homeLocation: {
+    maxWidth: '42%',
   },
   mark: {
     width: HEADER_CONTROL_HEIGHT,
@@ -262,14 +292,13 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
     paddingLeft: 10,
     paddingRight: 8,
     borderRadius: radius.pill,
-    backgroundColor: colors.primarySoft,
-    borderWidth: 1,
-    borderColor: colors.pillBorder,
+    backgroundColor: colors.selectedBg,
+    borderWidth: 0,
   },
   locationText: {
     flexShrink: 1,
     fontSize: 12.5,
     fontWeight: '700',
-    color: colors.primary,
+    color: colors.selectedText,
   },
 }))

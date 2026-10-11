@@ -15,16 +15,11 @@ import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import type { CityPrayerConfig } from '@/src/config/cityPrayerConfig'
 import {
-  getCurrentPrayerRemainingMinutes,
   getCurrentPrayerRemainingSeconds,
   getMinutesUntilTime,
   getPrayerDisplayName,
-  getPrayerWindowProgress,
   type LivePrayerInfo,
 } from '@/src/utils/prayerSchedule'
-
-/** Minutes left in the current window below which the countdown turns urgent. */
-const URGENT_MINUTES = 15
 
 type Props = {
   info: LivePrayerInfo
@@ -63,11 +58,8 @@ export function HomePrayerCard({ info, config, hijriDate, now }: Props) {
   const current = info.current
   // Both countdowns read the same `now` so an end time that doubles as the next
   // start never shows two different spans.
-  const remainingMins = current ? getCurrentPrayerRemainingMinutes(current, now) : 0
   const remainingSecs = current ? getCurrentPrayerRemainingSeconds(current, now) : 0
   const nextMins = getMinutesUntilTime(info.next.start, now)
-  const progress = current ? getPrayerWindowProgress(current, now) : 0
-  const urgent = current !== null && remainingMins <= URGENT_MINUTES
 
   const clock = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
   const gregorian = now.toLocaleDateString(undefined, {
@@ -146,24 +138,20 @@ export function HomePrayerCard({ info, config, hijriDate, now }: Props) {
           <Text style={styles.heroLabel}>{t('home.now')}</Text>
           {current ? (
             <>
-              <View style={styles.nowRow}>
-                <Text
-                  style={styles.nowName}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.7}>
-                  {prayerName(current.displayName)}
-                </Text>
-                <CountdownPill
-                  progress={progress}
-                  secondsLeft={remainingSecs}
-                  urgent={urgent}
-                  accessibilityLabel={t('home.endsIn', {
-                    duration: formatCountdown(remainingSecs),
-                  })}
-                />
-              </View>
+              <Text
+                style={styles.nowName}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}>
+                {prayerName(current.displayName)}
+              </Text>
               <TimeRange start={current.start} end={current.end} style={styles.heroRange} />
+              <CountdownPill
+                secondsLeft={remainingSecs}
+                accessibilityLabel={t('home.endsIn', {
+                  duration: formatCountdown(remainingSecs),
+                })}
+              />
             </>
           ) : (
             <Text style={styles.idle}>{t('home.noActive')}</Text>
@@ -171,7 +159,7 @@ export function HomePrayerCard({ info, config, hijriDate, now }: Props) {
         </View>
 
         <View style={styles.heroNext}>
-          <Text style={styles.heroLabel}>{t('home.next')}</Text>
+          <Text style={styles.nextLabel}>{t('home.next')}</Text>
           <Text style={styles.nextName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
             {prayerName(info.next.displayName)}
           </Text>
@@ -269,12 +257,12 @@ export function HomePrayerCard({ info, config, hijriDate, now }: Props) {
 const useStyles = makeStyles(({ colors, shadows }) => ({
   card: {
     backgroundColor: colors.surface2,
-    borderRadius: radius.lg,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: 16,
-    paddingTop: 13,
-    paddingBottom: 6,
+    paddingTop: 14,
+    paddingBottom: 8,
     ...shadows.card,
   },
   dateRow: {
@@ -282,76 +270,81 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
-    paddingBottom: 10,
+    paddingBottom: 12,
   },
-  hijri: { flexShrink: 1, fontSize: 14, fontWeight: '600', color: colors.success },
-  gregorian: { flexShrink: 0, fontSize: 13, fontWeight: '400', color: colors.textSecondary },
+  hijri: { flexShrink: 1, fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+  gregorian: { flexShrink: 0, fontSize: 12, fontWeight: '500', color: colors.textSecondary },
 
   hero: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    gap: 12,
-    paddingTop: 2,
+    gap: 10,
   },
   heroNow: {
-    flex: 1,
+    flex: 1.35,
     minWidth: 0,
+    backgroundColor: colors.surface1,
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 4,
   },
   heroNext: {
-    width: '34%',
+    flex: 0.9,
     minWidth: 0,
-    paddingLeft: 14,
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: colors.border,
+    backgroundColor: colors.surface1,
+    borderRadius: radius.lg,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    justifyContent: 'center',
   },
   heroLabel: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: colors.textMuted,
+  },
+  nextLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: colors.textMuted,
   },
   // Poppins_500Medium rather than the app-wide Inter set: the two prayer names
   // are the design's accent moment, so they get their own family, size, weight.
   nowName: {
-    flexShrink: 1,
-    minWidth: 0,
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '500',
     fontFamily: 'Poppins_500Medium',
-    color: colors.success,
+    color: colors.textPrimary,
     marginTop: 2,
   },
-  // Countdown sits beside the prayer name, pushed to the right so it sits near
-  // the Now/Next divider; the name shrinks first on narrow screens.
-  nowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  heroRange: { marginTop: 6 },
+  heroRange: { marginTop: 0 },
   range: {
-    fontSize: 14,
-    fontWeight: '400',
+    fontSize: 13,
+    fontWeight: '500',
     color: colors.textSecondary,
     fontVariant: ['tabular-nums'],
   },
   idle: { fontSize: 14, fontWeight: '500', color: colors.textMuted, marginTop: 6 },
 
   nextName: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '500',
     fontFamily: 'Poppins_500Medium',
     color: colors.textPrimary,
     marginTop: 2,
   },
   nextTime: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '600',
     color: colors.textPrimary,
     marginTop: 2,
     fontVariant: ['tabular-nums'],
   },
-  nextIn: { fontSize: 13, fontWeight: '400', color: colors.textSecondary, marginTop: 1 },
+  nextIn: { fontSize: 12, fontWeight: '500', color: colors.textSecondary, marginTop: 2 },
 
   pauseRow: {
     flexDirection: 'row',
@@ -367,26 +360,24 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
 
   strip: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 14,
+    gap: 6,
+    marginTop: 12,
   },
   stripCell: {
     flex: 1,
     minWidth: 0,
     alignItems: 'center',
     gap: 2,
-    paddingVertical: 9,
-    paddingHorizontal: 3,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface2,
+    backgroundColor: colors.surface1,
   },
-  stripCellActive: { backgroundColor: colors.selectedBg, borderColor: colors.selectedBg },
-  stripCellNext: { backgroundColor: colors.surface2, borderColor: colors.primarySoft },
+  stripCellActive: { backgroundColor: colors.selectedBg },
+  stripCellNext: { backgroundColor: colors.surface1 },
   stripName: {
-    fontSize: 13,
-    fontWeight: '400',
+    fontSize: 12,
+    fontWeight: '500',
     color: colors.textSecondary,
     textAlign: 'center',
   },

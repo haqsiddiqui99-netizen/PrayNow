@@ -127,3 +127,55 @@ export async function askOpenAiIslamicQuestion(message, history = []) {
 
   return text
 }
+
+export async function transcribeOpenAiAudio(audioBase64, mime = 'audio/mp4') {
+  const apiKey = process.env.OPENAI_API_KEY?.trim()
+  if (!apiKey) {
+    const error = new Error('AI chat is not configured on the server.')
+    error.code = 'AI_NOT_CONFIGURED'
+    throw error
+  }
+
+  const cleaned = String(audioBase64 || '').replace(/^data:[^;]+;base64,/, '')
+  const buffer = Buffer.from(cleaned, 'base64')
+  if (buffer.length < 200) {
+    const error = new Error('Recording was too short.')
+    error.code = 'INVALID_AUDIO'
+    throw error
+  }
+  if (buffer.length > 6 * 1024 * 1024) {
+    const error = new Error('Recording is too long.')
+    error.code = 'INVALID_AUDIO'
+    throw error
+  }
+
+  const type = String(mime || 'audio/mp4')
+  const name = type.includes('webm') ? 'question.webm' : type.includes('wav') ? 'question.wav' : 'question.m4a'
+  const form = new FormData()
+  form.append('file', new Blob([buffer], { type }), name)
+  form.append('model', 'whisper-1')
+
+  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+  })
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '')
+    const error = new Error(`OpenAI API error (${response.status})`)
+    error.code = 'AI_UPSTREAM_ERROR'
+    error.status = response.status
+    error.detail = detail.slice(0, 500)
+    throw error
+  }
+
+  const data = await response.json()
+  const text = String(data.text || '').trim()
+  if (!text) {
+    const error = new Error('No speech was heard.')
+    error.code = 'AI_EMPTY_RESPONSE'
+    throw error
+  }
+  return text
+}

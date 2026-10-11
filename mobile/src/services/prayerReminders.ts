@@ -1,0 +1,152 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { Platform } from 'react-native'
+
+const STORAGE_KEY = 'praynow.prayerReminders.v1'
+const CHANNEL_ID = 'prayer-reminders'
+
+export type ReminderItem = {
+  /** Stable id, e.g. `fajr` or `extra:ishraq`. */
+  key: string
+  name: string
+  /** Minutes from midnight; values past 1440 roll over to the next day. */
+  start: number
+  end: number
+  kind: 'prayer' | 'optional' | 'avoid'
+}
+
+type Stored = Record<string, string | null>
+
+export type ReminderResult = 'scheduled' | 'off' | 'denied' | 'unsupported'
+
+async function readStore(): Promise<Stored> {
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    return parsed && typeof parsed === 'object' ? (parsed as Stored) : {}
+  } catch {
+    return {}
+  }
+}
+
+async function writeStore(store: Stored) {
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(store)).catch(() => {})
+}
+
+export async function loadReminderKeys(): Promise<string[]> {
+  return Object.keys(await readStore())
+}
+
+async function notifications() {
+  if (Platform.OS === 'web') return null
+  try {
+    const Notifications = await import('expo-notifications')
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    })
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
+        name: 'Prayer reminders',
+        importance: Notifications.AndroidImportance.HIGH,
+      })
+    }
+    return Notifications
+  } catch {
+    return null
+  }
+}
+
+function clock(min: number) {
+  const m = ((Math.round(min) % 1440) + 1440) % 1440
+  const h = Math.floor(m / 60)
+  return `${((h + 11) % 12) + 1}:${String(m % 60).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
+}
+
+function message(item: ReminderItem) {
+  if (item.kind === 'avoid') {
+    return {
+      title: `${item.name} has started`,
+      body: `Avoid prayer until ${clock(item.end)}.`,
+    }
+  }
+  if (item.kind === 'optional') {
+    return {
+      title: `${item.name} time`,
+      body: `${item.name} is open now, until ${clock(item.end)}.`,
+    }
+  }
+  return { title: `${item.name} time`, body: `It's time for ${item.name} · ${clock(item.start)}` }
+}
+
+async function schedule(
+  Notifications: NonNullable<Awaited<ReturnType<typeof notifications>>>,
+  item: ReminderItem,
+): Promise<string> {
+  const m = ((Math.round(item.start) % 1440) + 1440) % 1440
+  return Notifications.scheduleNotificationAsync({
+    content: { ...message(item), sound: 'default', data: { type: 'prayer_reminder', key: item.key } },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour: Math.floor(m / 60),
+      minute: m % 60,
+      ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
+    },
+  })
+}
+
+/** Turn one reminder on or off. The choice is saved even where notifications can't be scheduled. */
+export async function setReminder(item: ReminderItem, on: boolean): Promise<ReminderResult> {
+  const store = await readStore()
+  const Notifications = await notifications()
+  const previous = store[item.key]
+  if (Notifications && previous) await Notifications.cancelScheduledNotificationAsync(previous).catch(() => {})
+
+  if (!on) {
+    delete store[item.key]
+    await writeStore(store)
+    return 'off'
+  }
+  if (!Notifications) {
+    store[item.key] = null
+    await writeStore(store)
+    return 'unsupported'
+  }
+  try {
+    const current = await Notifications.getPermissionsAsync()
+    const granted = current.granted || (await Notifications.requestPermissionsAsync()).granted
+    if (!granted) return 'denied'
+    store[item.key] = await schedule(Notifications, item)
+    await writeStore(store)
+    return 'scheduled'
+  } catch {
+    store[item.key] = null
+    await writeStore(store)
+    return 'unsupported'
+  }
+}
+
+/**
+ * Prayer times drift a minute or two every few days, so re-schedule saved reminders
+ * with today's times whenever the home screen loads.
+ */
+export async function syncReminders(items: ReminderItem[]) {
+  const store = await readStore()
+  const keys = Object.keys(store)
+  if (!keys.length) return
+  const Notifications = await notifications()
+  if (!Notifications) return
+  const perm = await Notifications.getPermissionsAsync().catch(() => null)
+  if (!perm?.granted) return
+  for (const key of keys) {
+    const item = items.find((entry) => entry.key === key)
+    if (!item) continue
+    const previous = store[key]
+    if (previous) await Notifications.cancelScheduledNotificationAsync(previous).catch(() => {})
+    store[key] = await schedule(Notifications, item).catch(() => null)
+  }
+  await writeStore(store)
+}

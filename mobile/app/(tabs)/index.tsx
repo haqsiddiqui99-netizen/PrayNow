@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Animated,
@@ -21,10 +21,10 @@ import { CityPickerSheet } from '@/src/components/CityPickerSheet'
 import { CityUnavailableBanner } from '@/src/components/CityUnavailableBanner'
 import { MosqueCard } from '@/src/components/MosqueCard'
 import { MosqueFilterSheet, type FilterDropdownAnchor } from '@/src/components/MosqueFilterSheet'
-import { MosquePeekOverlay } from '@/src/components/MosquePeekOverlay'
 import { MosqueRadiusChips } from '@/src/components/MosqueRadiusChips'
 import { MosqueSortBar } from '@/src/components/MosqueSortBar'
-import { HomePrayerCard } from '@/src/components/HomePrayerCard'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { PrayerHomeCard, prayerDayFromConfig } from '@/src/components/PrayerHomeCard'
 import { radius } from '@/src/constants/theme'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import {
@@ -37,7 +37,6 @@ import {
 import { useAuth } from '@/src/context/AuthContext'
 import { useCityPrayer } from '@/src/context/CityPrayerContext'
 import { useLanguage } from '@/src/context/LanguageContext'
-import { HomeMosqueAdminPanel } from '@/src/components/HomeMosqueAdminPanel'
 import { formatHijriDate } from '@/src/utils/hijriDate'
 import { useLocation } from '@/src/hooks/useLocation'
 import { useMosques } from '@/src/hooks/useMosques'
@@ -49,16 +48,20 @@ import {
   type MosqueSectFilter,
   type MosqueSortMode,
 } from '@/src/utils/mosqueSort'
-import { canManageMosques } from '@/src/utils/roles'
 
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView)
 
 /** Home keeps the three sorts people actually use; the Mosques tab has them all. */
-const HOME_SORT_MODES: ReadonlyArray<MosqueSortMode> = ['nearest', 'early-namaz', 'capacity-high']
+const HOME_SORT_MODES: ReadonlyArray<MosqueSortMode> = [
+  'nearest',
+  'early-namaz',
+  'late-namaz',
+  'farthest',
+]
 
 export default function HomeScreen() {
   const styles = useStyles()
-  const { colors } = useTheme()
+  const { colors, mode } = useTheme()
   const router = useRouter()
   const navigation = useNavigation()
   const insets = useSafeAreaInsets()
@@ -87,8 +90,9 @@ export default function HomeScreen() {
   const [filterAnchor, setFilterAnchor] = useState<FilterDropdownAnchor | null>(null)
   const filterBtnRef = useRef<View>(null)
   const [cityPickerOpen, setCityPickerOpen] = useState(false)
-  const [peekMosque, setPeekMosque] = useState<Mosque | null>(null)
   const [now, setNow] = useState(new Date())
+  const hijriToday = formatHijriDate(now)
+  const prayerDay = useMemo(() => prayerDayFromConfig(cityPrayer, hijriToday), [cityPrayer, hijriToday])
   const [mosqueSearch, setMosqueSearch] = useState('')
   const [refreshing, setRefreshing] = useState(false)
   const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState<number | null>(null)
@@ -206,7 +210,7 @@ export default function HomeScreen() {
       style={styles.filterBtn}
       onPress={openFilter}
       hitSlop={6}>
-      <Ionicons name="options-outline" size={12} color={colors.primary} />
+      <Ionicons name="options-outline" size={16} color={colors.textSecondary} />
       <Text style={styles.filterBtnText}>{t('common.filter')}</Text>
       {activeFilterCount > 0 && (
         <View style={styles.filterBadge}>
@@ -217,21 +221,19 @@ export default function HomeScreen() {
   )
 
   const nearbyRadius = (
-    <MosqueRadiusChips value={radiusKm} onChange={setRadiusKm} compact fullWidth />
+    <MosqueRadiusChips value={radiusKm} onChange={setRadiusKm} />
   )
 
   const nearbySort = (
-    <View style={styles.sortRow}>
-      <View style={styles.sortScroll}>
-        <MosqueSortBar
-          value={sortMode}
-          onChange={setSortMode}
-          compact
-          modes={HOME_SORT_MODES}
-        />
-      </View>
-      {filterButton}
-    </View>
+    <MosqueSortBar
+      value={sortMode}
+      onChange={setSortMode}
+      compact
+      modes={HOME_SORT_MODES}
+      showIcons={false}
+      hintBackgroundColor={mode === 'dark' ? '#122027' : '#FFFFFF'}
+      trailing={filterButton}
+    />
   )
 
   return (
@@ -260,22 +262,17 @@ export default function HomeScreen() {
         }>
         <View style={{ height: headerHeight }} />
 
-        <View style={styles.section}>
-          <HomePrayerCard
-            info={prayerInfo}
-            config={cityPrayer}
-            hijriDate={formatHijriDate(now)}
-            now={now}
+        <View style={styles.prayerSection}>
+          <PrayerHomeCard
+            data={prayerDay}
+            lat={cityPrayer.lat}
+            lon={cityPrayer.lng}
+            storage={AsyncStorage}
           />
         </View>
 
-        {canManageMosques(user) ? (
-          <View style={styles.section}>
-            <HomeMosqueAdminPanel visible />
-          </View>
-        ) : null}
-
-        <View style={[styles.section, styles.mosqueList]}>
+        <View style={styles.mosqueList}>
+          <View style={styles.nearbyCard}>
           {!citySupported && !locLoading && (
             <CityUnavailableBanner detectedCity={detectedCity} country={location.country} />
           )}
@@ -312,9 +309,6 @@ export default function HomeScreen() {
             ) : null}
           </View>
           {nearbySort}
-          {!loading && nearby.length > 0 && !searchQuery ? (
-            <Text style={styles.peekHint}>{t('home.peekHint')}</Text>
-          ) : null}
           {!loading && citySupported && nearbyTotal === 0 && (
             <Text style={styles.emptyNearby}>
               {searchQuery
@@ -322,8 +316,9 @@ export default function HomeScreen() {
                 : t('mosques.emptyHint', { city: supportedCity?.name ?? '' })}
             </Text>
           )}
+          </View>
           {loading && nearbyTotal === 0 ? (
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={colors.primary} style={styles.loader} />
           ) : (
             nearby.map((m) => (
               <MosqueCard
@@ -331,21 +326,12 @@ export default function HomeScreen() {
                 mosque={m}
                 travelMode="driving"
                 homeCompact
-                isPeekActive={peekMosque?.id === m.id}
-                onPeek={() => setPeekMosque(m)}
               />
             ))
           )}
         </View>
       </AnimatedScrollView>
 
-      <MosquePeekOverlay
-        mosque={peekMosque}
-        travelMode="driving"
-        visible={peekMosque !== null}
-        onClose={() => setPeekMosque(null)}
-        onViewFull={(m) => router.push(`/mosque/${m.id}`)}
-      />
 
       <CityPickerSheet
         visible={cityPickerOpen}
@@ -388,7 +374,7 @@ export default function HomeScreen() {
   )
 }
 
-const useStyles = makeStyles(({ colors }) => ({
+const useStyles = makeStyles(({ colors, mode }) => ({
   page: { flex: 1, backgroundColor: colors.surface0 },
   headerWrap: {
     position: 'absolute',
@@ -399,31 +385,57 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   boxNonePointerEvents: { pointerEvents: 'box-none' },
   scroll: { flex: 1 },
-  section: { paddingHorizontal: 10, marginTop: 4 },
+  section: { paddingHorizontal: 14, marginTop: 12 },
+  prayerSection: { marginTop: 12 },
+  nearbyCard: {
+    marginTop: 0,
+    marginBottom: 0,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 12,
+    borderRadius: 0,
+    backgroundColor: mode === 'dark' ? '#122027' : '#FFFFFF',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: mode === 'dark' ? '#24343A' : '#E3E8EF',
+  },
   nearbyHeadingRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     justifyContent: 'space-between',
     gap: 8,
-    marginBottom: 6,
+    marginBottom: 12,
   },
-  nearbyTitle: { flexShrink: 1, fontSize: 14, fontWeight: '800', color: colors.textPrimary },
-  nearbyCount: { flexShrink: 0, fontSize: 11, fontWeight: '700', color: colors.textSecondary },
+  nearbyTitle: {
+    flexShrink: 1,
+    fontSize: 22,
+    lineHeight: 26,
+    fontFamily: 'Newsreader_600SemiBold',
+    color: colors.textPrimary,
+    letterSpacing: -0.4,
+  },
+  nearbyCount: {
+    flexShrink: 0,
+    fontSize: 12,
+    fontFamily: 'Figtree_600SemiBold',
+    color: colors.textMuted,
+  },
 
   filterBtn: {
+    flexGrow: 0,
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: radius.pill,
     backgroundColor: colors.surface2,
     borderWidth: 1,
     borderColor: colors.border,
-    flexShrink: 0,
-    alignSelf: 'center',
   },
-  filterBtnText: { fontSize: 10, fontWeight: '700', color: colors.primary },
+  filterBtnText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
   filterBadge: {
     minWidth: 14,
     height: 14,
@@ -437,9 +449,9 @@ const useStyles = makeStyles(({ colors }) => ({
   sortRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 0,
-    marginBottom: 4,
+    gap: 8,
+    marginTop: 2,
+    marginBottom: 8,
   },
   sortScroll: {
     flex: 1,
@@ -453,29 +465,29 @@ const useStyles = makeStyles(({ colors }) => ({
     paddingVertical: 16,
     paddingHorizontal: 8,
   },
-  mosqueList: { paddingTop: 4, marginTop: 2 },
+  mosqueList: { paddingTop: 0, marginTop: 0 },
+  loader: { marginTop: 16, alignSelf: 'center' },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface2,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 10,
-    marginBottom: 6,
+    backgroundColor: colors.surface1,
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    marginTop: 10,
+    marginBottom: 8,
   },
-  searchIcon: { marginRight: 6 },
+  searchIcon: { marginRight: 8 },
   searchInput: {
     flex: 1,
-    paddingVertical: 8,
-    fontSize: 13,
+    paddingVertical: 10,
+    fontSize: 14,
     color: colors.textPrimary,
   },
   peekHint: {
     fontSize: 11,
-    fontWeight: '600',
+    fontFamily: 'Figtree_500Medium',
     color: colors.textMuted,
-    marginBottom: 8,
+    marginTop: 2,
     lineHeight: 16,
   },
 }))

@@ -1,7 +1,7 @@
 import { getApiBaseUrl } from '@/src/config/api'
 import type { ApiCitySettingsResponse } from '@/src/config/cityPrayerConfig'
 import { MOCK_MOSQUES } from '@/src/data/mockData'
-import type { Mosque, MosqueTimings, NightTimings, PrayerName } from '@/src/types'
+import type { BroadcastPrayer, Mosque, MosqueTimings, NightTimings, TaraweehSettings } from '@/src/types'
 import { getStoredToken, type AppUser } from '@/src/services/authStorage'
 
 export type { AppUser }
@@ -237,7 +237,27 @@ export async function updateManagerMosqueTimings(
   return (await res.json()) as Mosque
 }
 
-export async function startMosqueAzan(mosqueId: string, prayerName?: PrayerName) {
+export async function joinLiveAzan(mosqueId: string): Promise<void> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/mosques/${mosqueId}/azan/join`, { method: 'POST' })
+  if (!res.ok) await parseError(res, 'Could not join live azan')
+}
+
+export async function leaveLiveAzan(mosqueId: string): Promise<void> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/mosques/${mosqueId}/azan/leave`, { method: 'POST' })
+  if (!res.ok) await parseError(res, 'Could not leave live azan')
+}
+
+export async function updateMosqueTaraweeh(mosqueId: string, body: TaraweehSettings): Promise<Mosque> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/manager/mosques/${mosqueId}/taraweeh`, {
+    method: 'PUT',
+    headers: await authHeaders(),
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) await parseError(res, 'Failed to save Taraweeh')
+  return (await res.json()) as Mosque
+}
+
+export async function startMosqueAzan(mosqueId: string, prayerName?: BroadcastPrayer) {
   const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/manager/mosques/${mosqueId}/azan/start`, {
     method: 'POST',
     headers: await authHeaders(),
@@ -316,6 +336,17 @@ export async function createAdminMosque(body: Record<string, unknown>): Promise<
     body: JSON.stringify(body),
   })
   if (!res.ok) await parseError(res, 'Failed to create mosque')
+  return (await res.json()) as Mosque
+}
+
+/** Mosque admin updates the one mosque the app admin assigned to them. */
+export async function updateAssignedMosque(mosqueId: string, body: Record<string, unknown>): Promise<Mosque> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/manager/mosques/${mosqueId}`, {
+    method: 'PUT',
+    headers: await authHeaders(),
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) await parseError(res, 'Failed to update mosque')
   return (await res.json()) as Mosque
 }
 
@@ -434,11 +465,12 @@ export async function registerPushToken(token: string, platform = 'unknown'): Pr
 
 export type AppNotification = {
   id: string
-  type: 'timings' | 'announcement'
+  type: 'timings' | 'announcement' | 'azan_alert' | 'facilities'
   title: string
   body: string
   mosqueId: string | null
   mosqueName: string
+  voiceNotePath?: string | null
   read: boolean
   createdAt: string
 }
@@ -467,9 +499,19 @@ export async function markAllNotificationsRead(): Promise<void> {
   if (!res.ok) await parseError(res, 'Failed to mark all read')
 }
 
+export async function sendAzanAlert(mosqueId: string, prayerName: string): Promise<{ notified: number }> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/manager/mosques/${mosqueId}/azan/alert`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ prayerName }),
+  })
+  if (!res.ok) await parseError(res, 'Could not alert subscribers')
+  return (await res.json()) as { notified: number }
+}
+
 export async function postMosqueAnnouncement(
   mosqueId: string,
-  body: { title: string; body: string },
+  body: { title: string; body: string; audioBase64?: string; mime?: string },
 ): Promise<{ ok: boolean; notified: number }> {
   const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/manager/mosques/${mosqueId}/announcements`, {
     method: 'POST',

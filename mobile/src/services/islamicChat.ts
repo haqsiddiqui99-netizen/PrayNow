@@ -205,3 +205,65 @@ async function askAiViaApi(question: string, history: ChatHistoryItem[]): Promis
     clearTimeout(timer)
   }
 }
+
+function mimeFromUri(uri: string, blobType?: string) {
+  if (blobType && blobType !== 'application/octet-stream') return blobType
+  if (uri.includes('.webm')) return 'audio/webm'
+  if (uri.includes('.wav')) return 'audio/wav'
+  if (uri.includes('.mp3')) return 'audio/mpeg'
+  return 'audio/mp4'
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('Could not read the recording.'))
+    reader.onloadend = () => {
+      const result = typeof reader.result === 'string' ? reader.result : ''
+      const comma = result.indexOf(',')
+      const audioBase64 = comma >= 0 ? result.slice(comma + 1) : result
+      if (!audioBase64) {
+        reject(new Error('Could not read the recording.'))
+        return
+      }
+      resolve(audioBase64)
+    }
+    reader.readAsDataURL(blob)
+  })
+}
+
+export async function recordingToBase64(uri: string): Promise<{ audioBase64: string; mime: string }> {
+  const response = await fetch(uri)
+  const blob = await response.blob()
+  try {
+    return { audioBase64: await blobToBase64(blob), mime: mimeFromUri(uri, blob.type) }
+  } finally {
+    blob.close?.()
+  }
+}
+
+/** Turns a recorded question into text. */
+export async function transcribeQuestion(uri: string): Promise<string> {
+  const { getApiBaseUrl } = await import('@/src/config/api')
+  const { audioBase64, mime } = await recordingToBase64(uri)
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 45000)
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/chat/transcribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audioBase64, mime }),
+      signal: controller.signal,
+    })
+    const data = (await res.json().catch(() => ({ error: 'Could not transcribe' }))) as {
+      text?: string
+      error?: string
+    }
+    if (!res.ok) throw new Error(data.error || `Transcription failed (${res.status})`)
+    const text = data.text?.trim()
+    if (!text) throw new Error('No speech was heard.')
+    return text
+  } finally {
+    clearTimeout(timer)
+  }
+}

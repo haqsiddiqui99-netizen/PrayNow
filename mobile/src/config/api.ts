@@ -33,6 +33,13 @@ export function getApiBaseUrl(): string {
     return 'http://localhost:5000'
   }
 
+  // Browser on this PC: talk to the API on the same machine, not a stale LAN IP.
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const host = window.location.hostname
+    if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return 'http://localhost:5000'
+    if (host) return `http://${host}:5000`
+  }
+
   // Expo Go / local: prefer Metro LAN host so a stale .env IP cannot break login.
   const devHost = getExpoDevHost()
   if (devHost) return `http://${devHost}:5000`

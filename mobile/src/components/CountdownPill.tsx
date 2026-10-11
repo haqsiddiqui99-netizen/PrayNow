@@ -12,38 +12,23 @@ function digital(totalSeconds: number) {
 }
 
 /**
- * Time left in the running prayer window, sized to sit inline with the other
- * chips instead of taking a column of its own. The pill is its own progress
- * track: the fill drains from full to empty as the window closes.
+ * Neutral time-left chip, the same dark pill as the home radius control.
  */
 export function CountdownPill({
-  progress,
   secondsLeft,
   label,
-  urgent = false,
   accessibilityLabel,
 }: {
-  /** Share (0–1) of the window already elapsed. */
-  progress: number
   secondsLeft: number
   /** Optional trailing word, e.g. "left". Omit for a bare digital readout. */
   label?: string
-  urgent?: boolean
   accessibilityLabel: string
 }) {
   const styles = useStyles()
 
-  const remaining = Math.max(0, Math.min(1, 1 - progress))
-
   return (
-    <View
-      style={styles.pill}
-      accessibilityRole="progressbar"
-      accessibilityLabel={accessibilityLabel}>
-      <View
-        style={[styles.fill, urgent && styles.fillUrgent, { width: `${remaining * 100}%` }]}
-      />
-      <Text style={[styles.time, urgent && styles.timeUrgent]} numberOfLines={1}>
+    <View style={styles.pill} accessibilityRole="timer" accessibilityLabel={accessibilityLabel}>
+      <Text style={styles.time} numberOfLines={1}>
         {digital(secondsLeft)}
       </Text>
       {label ? (
@@ -61,32 +46,21 @@ const useStyles = makeStyles(({ colors }) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    marginTop: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: radius.pill,
-    backgroundColor: colors.surface1,
-    overflow: 'hidden',
+    backgroundColor: colors.selectedBg,
   },
-  fill: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: colors.accentSoft,
-  },
-  // The drained track stays readable behind the text, so urgency is carried by a
-  // solid fill rather than by recolouring the label.
-  fillUrgent: { backgroundColor: colors.accent },
   time: {
     fontSize: 13,
-    fontWeight: '600',
-    color: colors.accent,
+    fontWeight: '700',
+    color: colors.selectedText,
     fontVariant: ['tabular-nums'],
   },
-  timeUrgent: { fontWeight: '700' },
   label: {
     fontSize: 13,
-    fontWeight: '400',
-    color: colors.accent,
+    fontWeight: '600',
+    color: colors.selectedText,
   },
 }))

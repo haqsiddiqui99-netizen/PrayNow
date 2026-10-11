@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons'
-import { StyleSheet, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 import { radius } from '@/src/constants/theme'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import type { JumaSession, Mosque } from '@/src/types'
@@ -11,25 +11,20 @@ const JUMA_COLUMNS = [
   { key: 'namaz', label: 'Jamat', getTime: (session: JumaSession) => session.namaz },
 ] as const
 
-/** One phase's Azan/Khutba/Jamat row inside the shared Jumu'ah card. */
+/** One Friday session: a label over Azan, Khutba, and Jamat stacked tightly. */
 function JumaPhaseRow({ session, phaseLabel }: { session: JumaSession; phaseLabel: string | null }) {
   const styles = useStyles()
   return (
     <View style={styles.phase}>
       {phaseLabel ? <Text style={styles.phaseLabel}>{phaseLabel}</Text> : null}
-      <View style={styles.columnsRow}>
-        {JUMA_COLUMNS.map((column, index) => {
-          const align = index === 0 ? 'left' : index === JUMA_COLUMNS.length - 1 ? 'right' : 'center'
-          return (
-            <View key={column.key} style={styles.column}>
-              <Text style={[styles.columnLabel, { textAlign: align }]}>{column.label}</Text>
-              <Text style={[styles.columnValue, { textAlign: align }]} numberOfLines={1}>
-                {column.getTime(session)?.trim() || '—'}
-              </Text>
-            </View>
-          )
-        })}
-      </View>
+      {JUMA_COLUMNS.map((column) => (
+        <View key={column.key} style={styles.timeRow}>
+          <Text style={styles.columnLabel}>{column.label}</Text>
+          <Text style={styles.columnValue} numberOfLines={1}>
+            {column.getTime(session)?.trim() || '—'}
+          </Text>
+        </View>
+      ))}
     </View>
   )
 }
@@ -55,15 +50,15 @@ export function MosqueFridaySection({ mosque }: { mosque: Mosque }) {
         <Ionicons name="star-outline" size={16} color={colors.primary} />
         <Text style={styles.cardTitle}>Jumu&apos;ah (Friday)</Text>
       </View>
-      {activeSessions.map((session, index) => (
-        <View key={index}>
-          {index > 0 ? <View style={styles.divider} /> : null}
+      <View style={styles.phases}>
+        {activeSessions.map((session, index) => (
           <JumaPhaseRow
+            key={index}
             session={session}
             phaseLabel={activeSessions.length > 1 ? `Phase ${index + 1}` : null}
           />
-        </View>
-      ))}
+        ))}
+      </View>
     </View>
   )
 }
@@ -73,15 +68,13 @@ export function getOtherMosqueEvents(events: string[]) {
   return events.filter((event) => !/friday|khutbah|khutba|juma/i.test(event))
 }
 
-const useStyles = makeStyles(({ colors }) => ({
+const useStyles = makeStyles(({ colors, mode }) => ({
   card: {
     marginTop: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: radius.md,
     padding: 12,
     gap: 10,
-    backgroundColor: colors.surface2,
+    backgroundColor: mode === 'dark' ? '#3a3228' : '#f6efe4',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -95,22 +88,32 @@ const useStyles = makeStyles(({ colors }) => ({
     fontFamily: 'Poppins_500Medium',
     color: colors.textPrimary,
   },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-    marginVertical: 10,
+  phases: {
+    flexDirection: 'row',
+    gap: 8,
   },
-  phase: { gap: 6 },
+  phase: {
+    flex: 1,
+    minWidth: 0,
+    gap: 6,
+    padding: 10,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surface2,
+  },
   phaseLabel: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
     fontFamily: 'Poppins_500Medium',
-    color: colors.textMuted,
+    color: '#6f4e37',
   },
-  columnsRow: {
+  timeRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
   },
-  column: { flex: 1, gap: 2 },
   columnLabel: {
     fontSize: 12,
     fontWeight: '500',
@@ -118,9 +121,11 @@ const useStyles = makeStyles(({ colors }) => ({
     color: colors.textSecondary,
   },
   columnValue: {
-    fontSize: 15,
-    fontWeight: '500',
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: '600',
     fontFamily: 'Poppins_500Medium',
     color: colors.textPrimary,
+    textAlign: 'right',
   },
 }))

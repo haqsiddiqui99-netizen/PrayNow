@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native'
+import { VoiceNotePlayer } from '@/src/components/VoiceNotePlayer'
 import { useAuth } from '@/src/context/AuthContext'
 import { useInbox } from '@/src/context/InboxContext'
 import { radius } from '@/src/constants/theme'
@@ -96,13 +97,20 @@ export default function NotificationsScreen() {
               <Text style={styles.title} numberOfLines={2}>
                 {item.title}
               </Text>
-              {item.body ? (
+              {item.body && !(item.voiceNotePath && item.body === 'Voice note') ? (
                 <Text style={styles.body} numberOfLines={3}>
                   {item.body}
                 </Text>
               ) : null}
+              {item.voiceNotePath ? <VoiceNotePlayer source={item.voiceNotePath} /> : null}
               <Text style={styles.type}>
-                {item.type === 'announcement' ? 'Announcement' : 'Timings update'}
+                {item.type === 'announcement'
+                  ? 'Announcement'
+                  : item.type === 'azan_alert'
+                    ? 'Azan alert'
+                    : item.type === 'facilities'
+                      ? 'Facilities update'
+                      : 'Timings update'}
               </Text>
             </Pressable>
           )}

@@ -93,6 +93,21 @@ export function HomeMosqueAdminPanel({ visible }: Props) {
 
   const openAzan = () => {
     if (mosqueCount > 1) router.push('/admin/my-mosques')
+    else router.push(`/admin/mosque/${mosque.id}/azan`)
+  }
+
+  const openEdit = () => {
+    if (mosqueCount > 1) router.push('/admin/my-mosques')
+    else router.push({ pathname: '/admin/mosque-form', params: { id: mosque.id } })
+  }
+
+  const openTimings = () => {
+    if (mosqueCount > 1) router.push('/admin/my-mosques')
+    else router.push(`/admin/mosque/${mosque.id}/timings`)
+  }
+
+  const openAnnounce = () => {
+    if (mosqueCount > 1) router.push('/admin/my-mosques')
     else router.push(`/admin/mosque/${mosque.id}`)
   }
 
@@ -115,7 +130,16 @@ export function HomeMosqueAdminPanel({ visible }: Props) {
         </View>
 
         <Pressable style={[styles.btn, styles.btnAzan, live && styles.btnAzanLive]} onPress={openAzan}>
-          <Text style={styles.btnAzanText}>{live ? 'Manage Live Azan' : 'Go Live (Azan)'}</Text>
+          <Text style={styles.btnAzanText}>{live ? 'Azan dashboard · live' : 'Azan dashboard'}</Text>
+        </Pressable>
+        <Pressable style={[styles.btn, styles.btnTime]} onPress={openTimings}>
+          <Text style={styles.btnAzanText}>Edit prayer times</Text>
+        </Pressable>
+        <Pressable style={[styles.btn, styles.btnQuiet]} onPress={openEdit}>
+          <Text style={styles.btnQuietText}>Edit mosque</Text>
+        </Pressable>
+        <Pressable style={[styles.btn, styles.btnQuiet]} onPress={openAnnounce}>
+          <Text style={styles.btnQuietText}>Publish announcement</Text>
         </Pressable>
       </View>
 
@@ -154,7 +178,15 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   btnAzan: { backgroundColor: colors.success },
   btnAzanLive: { backgroundColor: '#15803d' },
-  btnAzanText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  btnAzanText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  btnTime: { backgroundColor: colors.primary, marginTop: 8 },
+  btnQuiet: {
+    backgroundColor: colors.surface0,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: 8,
+  },
+  btnQuietText: { color: colors.textPrimary, fontWeight: '800', fontSize: 14 },
   error: { color: colors.accent, fontSize: 13, fontWeight: '600', marginBottom: 8 },
   linkBtn: { paddingVertical: 6 },
   linkText: { color: colors.primary, fontWeight: '800', fontSize: 13 },

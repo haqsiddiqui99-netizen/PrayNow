@@ -37,6 +37,17 @@ export interface NightTimings {
   sehri: { start: string; end: string }
 }
 
+/** Ramadan night prayer after Isha. Each mosque finishes on its own schedule. */
+export interface TaraweehSettings {
+  enabled: boolean
+  startTime: string
+  nights: number
+  rakahs: number
+  night: number
+}
+
+export type BroadcastPrayer = PrayerName | 'Taraweeh'
+
 export type MosqueTimings = Record<PrayerName, MosquePrayerSlot>
 
 export interface Mosque {
@@ -52,6 +63,8 @@ export interface Mosque {
   arrivalStatus: ArrivalStatus
   arrivalMessage: string
   facilities: string[]
+  /** Full feature list for the mosque admin, including ones switched off. */
+  featureOptions?: string[]
   imam: string
   imamDetails: PersonContact
   /** Multiple imams when provided by API; legacy single imam uses imamDetails. */
@@ -70,4 +83,5 @@ export interface Mosque {
   capacity: number
   timings: MosqueTimings
   nightTimings: NightTimings
+  taraweeh?: TaraweehSettings
 }

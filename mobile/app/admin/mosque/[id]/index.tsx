@@ -1,4 +1,4 @@
-import { useFocusEffect, useLocalSearchParams } from 'expo-router'
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
@@ -14,7 +14,7 @@ import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { useAzanBroadcast } from '@/src/hooks/useAzanBroadcast'
 import { fetchManagerMosques, postMosqueAnnouncement } from '@/src/services/api'
 import { subscribeLiveSessions } from '@/src/store/liveAzanSessions'
-import type { Mosque, PrayerName } from '@/src/types'
+import type { BroadcastPrayer, Mosque, PrayerName } from '@/src/types'
 
 const PRAYERS: PrayerName[] = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']
 
@@ -22,6 +22,7 @@ export default function MosqueHubScreen() {
   const styles = useStyles()
   const { colors } = useTheme()
   const { id } = useLocalSearchParams<{ id: string }>()
+  const router = useRouter()
   const [mosque, setMosque] = useState<Mosque | null>(null)
   const [loading, setLoading] = useState(true)
   const broadcast = useAzanBroadcast(id ? String(id) : undefined)
@@ -102,7 +103,22 @@ export default function MosqueHubScreen() {
       <Text style={styles.sub}>{mosque.area}</Text>
       {mosque.address ? <Text style={styles.address}>{mosque.address}</Text> : null}
 
-      <Text style={styles.sectionLabel}>Live Azan</Text>
+      <Pressable
+        style={[styles.hero, styles.heroAzan]}
+        onPress={() => router.push(`/admin/mosque/${mosque.id}/azan`)}>
+        <Text style={styles.heroTitle}>Azan dashboard</Text>
+        <Text style={styles.heroMeta}>
+          {broadcast.live ? `Live now · ${mm}:${ss}` : 'Open this to give the azan'}
+        </Text>
+      </Pressable>
+      <Pressable
+        style={[styles.hero, styles.heroTime]}
+        onPress={() => router.push(`/admin/mosque/${mosque.id}/timings`)}>
+        <Text style={styles.heroTitleDark}>Edit prayer times</Text>
+        <Text style={styles.heroMetaDark}>Change azan and jamat for each prayer</Text>
+      </Pressable>
+
+      <Text style={styles.sectionLabel}>Give azan</Text>
       <View style={[styles.card, broadcast.live && styles.cardLive]}>
         <View style={styles.statusRow}>
           <View style={[styles.dot, broadcast.live && styles.dotOn]} />
@@ -118,7 +134,7 @@ export default function MosqueHubScreen() {
           <>
             <Text style={styles.chipLabel}>Prayer (optional)</Text>
             <View style={styles.prayerRow}>
-              {PRAYERS.map((p) => {
+              {(mosque.taraweeh?.enabled ? ([...PRAYERS, 'Taraweeh'] as BroadcastPrayer[]) : PRAYERS).map((p) => {
                 const on = broadcast.prayer === p
                 return (
                   <Pressable
@@ -150,9 +166,15 @@ export default function MosqueHubScreen() {
         {broadcast.error ? <Text style={styles.errorInline}>{broadcast.error}</Text> : null}
       </View>
 
+      <Text style={styles.sectionLabel}>Edit this mosque</Text>
+      <Pressable
+        style={[styles.btn, styles.btnEdit]}
+        onPress={() => router.push({ pathname: '/admin/mosque-form', params: { id: mosque.id } })}>
+        <Text style={styles.btnText}>Edit mosque details</Text>
+      </Pressable>
       <MosqueAdminTimingsTable mosque={mosque} />
 
-      <Text style={styles.sectionLabel}>Announcement</Text>
+      <Text style={styles.sectionLabel}>Publish announcement</Text>
       <View style={styles.card}>
         <Text style={styles.announceHint}>
           Notify users who turned on notifications for this mosque (in-app + push).
@@ -174,7 +196,7 @@ export default function MosqueHubScreen() {
           style={[styles.btn, styles.btnAnnounce]}
           disabled={announceBusy}
           onPress={() => void onAnnounce()}>
-          <Text style={styles.btnText}>{announceBusy ? 'Sending…' : 'Post announcement'}</Text>
+          <Text style={styles.btnText}>{announceBusy ? 'Sending…' : 'Publish announcement'}</Text>
         </Pressable>
         {announceOk ? <Text style={styles.okInline}>{announceOk}</Text> : null}
       </View>
@@ -189,6 +211,18 @@ const useStyles = makeStyles(({ colors }) => ({
   title: { fontSize: 22, fontWeight: '800', color: colors.textPrimary },
   sub: { fontSize: 13, color: colors.primary, fontWeight: '700', marginTop: 4 },
   address: { fontSize: 12, color: colors.textMuted, marginTop: 2, marginBottom: 8 },
+  hero: {
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    marginTop: 10,
+  },
+  heroAzan: { backgroundColor: colors.success },
+  heroTime: { backgroundColor: colors.primary },
+  heroTitle: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  heroMeta: { color: 'rgba(255,255,255,0.9)', fontSize: 13, marginTop: 4, fontWeight: '600' },
+  heroTitleDark: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  heroMetaDark: { color: 'rgba(255,255,255,0.9)', fontSize: 13, marginTop: 4, fontWeight: '600' },
   sectionLabel: {
     marginTop: 12,
     marginBottom: 8,
@@ -244,6 +278,7 @@ const useStyles = makeStyles(({ colors }) => ({
     fontSize: 14,
   },
   inputMulti: { minHeight: 72, textAlignVertical: 'top' },
+  btnEdit: { backgroundColor: colors.primary, marginBottom: 12 },
   btnAnnounce: { backgroundColor: colors.primary, marginTop: 4 },
   okInline: { marginTop: 8, color: colors.success, fontWeight: '700', fontSize: 12 },
 }))

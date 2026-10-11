@@ -26,11 +26,29 @@ async function withClient(fn) {
   }
 }
 
+// Voice notes go to every subscriber of a mosque; the random id is the only key.
+router.get('/voice-notes/:id', async (req, res) => {
+  if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) return res.status(404).end()
+  try {
+    const note = await withClient(async (client) => {
+      const { rows } = await client.query(`SELECT mime, audio FROM mosque_voice_notes WHERE id = $1`, [req.params.id])
+      return rows[0] || null
+    })
+    if (!note) return res.status(404).end()
+    res.setHeader('Content-Type', note.mime || 'audio/mp4')
+    res.setHeader('Cache-Control', 'private, max-age=86400')
+    res.send(Buffer.from(note.audio, 'base64'))
+  } catch (err) {
+    console.error('voice note failed', err)
+    res.status(500).end()
+  }
+})
+
 router.get('/me/subscriptions', authMiddleware, async (req, res) => {
   try {
     const mosqueIds = await withClient(async (client) => {
       const { rows } = await client.query(
-        `SELECT COALESCE(m.legacy_id, m.id::text) AS mosque_id
+        `SELECT COALESCE(m.legacy_id::text, m.id::text) AS mosque_id
          FROM mosque_subscriptions s
          INNER JOIN mosques m ON m.id = s.mosque_id
          WHERE s.user_id = $1`,
@@ -109,8 +127,8 @@ router.get('/me/notifications', authMiddleware, async (req, res) => {
   try {
     const rows = await withClient(async (client) => {
       const { rows: list } = await client.query(
-        `SELECT n.id, n.type, n.title, n.body, n.read_at, n.created_at,
-                COALESCE(m.legacy_id, m.id::text) AS mosque_id,
+        `SELECT n.id, n.type, n.title, n.body, n.read_at, n.created_at, n.voice_note_id,
+                COALESCE(m.legacy_id::text, m.id::text) AS mosque_id,
                 m.name AS mosque_name
          FROM notifications n
          LEFT JOIN mosques m ON m.id = n.mosque_id
@@ -126,6 +144,7 @@ router.get('/me/notifications', authMiddleware, async (req, res) => {
         body: r.body,
         mosqueId: r.mosque_id ? String(r.mosque_id) : null,
         mosqueName: r.mosque_name || '',
+        voiceNotePath: r.voice_note_id ? `/api/voice-notes/${r.voice_note_id}` : null,
         read: Boolean(r.read_at),
         createdAt: r.created_at,
       }))

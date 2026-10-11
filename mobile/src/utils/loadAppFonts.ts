@@ -5,6 +5,14 @@ import {
   Inter_700Bold,
   Inter_800ExtraBold,
 } from '@expo-google-fonts/inter'
+import {
+  Figtree_400Regular,
+  Figtree_500Medium,
+  Figtree_600SemiBold,
+  Figtree_700Bold,
+  Figtree_800ExtraBold,
+} from '@expo-google-fonts/figtree'
+import { Newsreader_500Medium, Newsreader_600SemiBold } from '@expo-google-fonts/newsreader'
 import { Poppins_500Medium } from '@expo-google-fonts/poppins'
 import * as Font from 'expo-font'
 
@@ -26,6 +34,13 @@ const TEXT_FONTS = {
 /** Standalone accent font used for the home card's current-prayer name only. */
 const ACCENT_FONTS = {
   Poppins_500Medium,
+  Figtree_400Regular,
+  Figtree_500Medium,
+  Figtree_600SemiBold,
+  Figtree_700Bold,
+  Figtree_800ExtraBold,
+  Newsreader_500Medium,
+  Newsreader_600SemiBold,
 } as const
 
 const ALL_FONTS = { ...ICON_FONTS, ...TEXT_FONTS, ...ACCENT_FONTS }

@@ -76,6 +76,15 @@ export default function MosqueDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('detail.allTimes')}</Text>
           <Text style={styles.sectionHint}>{t('detail.allTimesHint')}</Text>
+          {mosque.taraweeh?.enabled ? (
+            <View style={styles.card}>
+              <Text style={styles.sectionLabel}>Taraweeh</Text>
+              <Text style={styles.eventItem}>
+                Night {mosque.taraweeh.night} of {mosque.taraweeh.nights} · starts {mosque.taraweeh.startTime} ·{' '}
+                {mosque.taraweeh.rakahs} rak‘ahs
+              </Text>
+            </View>
+          ) : null}
           <MosqueTimingsGrid mosque={mosque} currentPrayer={currentPrayer?.name ?? null} compact />
           <MosqueFridaySection mosque={mosque} />
         </View>

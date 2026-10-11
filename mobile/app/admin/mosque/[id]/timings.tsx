@@ -11,11 +11,20 @@ import {
 import { TimePickerField } from '@/src/components/TimePickerField'
 import { radius } from '@/src/constants/theme'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
-import { fetchManagerMosques, updateManagerMosqueTimings } from '@/src/services/api'
-import type { JumaSession, Mosque, MosqueTimings, PrayerName } from '@/src/types'
+import { fetchManagerMosques, updateManagerMosqueTimings, updateMosqueTaraweeh } from '@/src/services/api'
+import type { JumaSession, Mosque, MosqueTimings, PrayerName, TaraweehSettings } from '@/src/types'
 import { getJumaSessions, toJumaTimingsPayload } from '@/src/utils/jumaTimings'
 
 const PRAYERS: PrayerName[] = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']
+const TARAWEH_NIGHTS = [10, 15, 20, 27, 29] as const
+const TARAWEH_RAKAHS = [8, 20] as const
+const DEFAULT_TARAWEH: TaraweehSettings = {
+  enabled: false,
+  startTime: '8:45 PM',
+  nights: 27,
+  rakahs: 20,
+  night: 1,
+}
 
 export default function EditTimingsScreen() {
   const styles = useStyles()
@@ -31,6 +40,7 @@ export default function EditTimingsScreen() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [ok, setOk] = useState('')
+  const [taraweeh, setTaraweeh] = useState<TaraweehSettings>(DEFAULT_TARAWEH)
 
   useEffect(() => {
     void (async () => {
@@ -43,6 +53,7 @@ export default function EditTimingsScreen() {
           setJumaSessions(
             getJumaSessions(found.jumaTimings, found.timings?.Dhuhr?.azan || ''),
           )
+          setTaraweeh({ ...DEFAULT_TARAWEH, ...found.taraweeh })
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load')
@@ -70,6 +81,11 @@ export default function EditTimingsScreen() {
     setError('')
     setOk('')
     try {
+      const nights = taraweeh.nights
+      await updateMosqueTaraweeh(mosque.id, {
+        ...taraweeh,
+        night: Math.min(nights, Math.max(1, taraweeh.night)),
+      })
       await updateManagerMosqueTimings(mosque.id, {
         timings,
         jumaTimings: toJumaTimingsPayload(jumaSessions),
@@ -196,6 +212,71 @@ export default function EditTimingsScreen() {
         </Pressable>
       </View>
 
+      <Text style={styles.sectionTitle}>Taraweeh</Text>
+      <View style={styles.card}>
+        <Text style={styles.taraweehHint}>
+          Night prayer after Isha in Ramadan. Each mosque chooses how many nights it takes to finish.
+        </Text>
+        <Pressable
+          style={[styles.toggle, taraweeh.enabled && styles.toggleOn]}
+          onPress={() => setTaraweeh((prev) => ({ ...prev, enabled: !prev.enabled }))}>
+          <Text style={[styles.toggleText, taraweeh.enabled && styles.toggleTextOn]}>
+            {taraweeh.enabled ? 'Taraweeh is on' : 'Taraweeh is off'}
+          </Text>
+        </Pressable>
+        <TimePickerField
+          label="Starts"
+          value={taraweeh.startTime}
+          onChange={(startTime) => setTaraweeh((prev) => ({ ...prev, startTime }))}
+        />
+        <Text style={styles.fieldLabel}>Nights to finish</Text>
+        <View style={styles.choiceRow}>
+          {TARAWEH_NIGHTS.map((nights) => (
+            <Pressable
+              key={nights}
+              style={[styles.choice, taraweeh.nights === nights && styles.choiceOn]}
+              onPress={() =>
+                setTaraweeh((prev) => ({
+                  ...prev,
+                  nights,
+                  night: Math.min(prev.night, nights),
+                }))
+              }>
+              <Text style={[styles.choiceText, taraweeh.nights === nights && styles.choiceTextOn]}>{nights}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <Text style={styles.fieldLabel}>Rak‘ahs each night</Text>
+        <View style={styles.choiceRow}>
+          {TARAWEH_RAKAHS.map((rakahs) => (
+            <Pressable
+              key={rakahs}
+              style={[styles.choice, taraweeh.rakahs === rakahs && styles.choiceOn]}
+              onPress={() => setTaraweeh((prev) => ({ ...prev, rakahs }))}>
+              <Text style={[styles.choiceText, taraweeh.rakahs === rakahs && styles.choiceTextOn]}>{rakahs}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <Text style={styles.fieldLabel}>Tonight is night</Text>
+        <View style={styles.nightRow}>
+          <Pressable
+            style={styles.step}
+            onPress={() => setTaraweeh((prev) => ({ ...prev, night: Math.max(1, prev.night - 1) }))}>
+            <Text style={styles.stepText}>−</Text>
+          </Pressable>
+          <Text style={styles.nightValue}>
+            {taraweeh.night} of {taraweeh.nights}
+          </Text>
+          <Pressable
+            style={styles.step}
+            onPress={() =>
+              setTaraweeh((prev) => ({ ...prev, night: Math.min(prev.nights, prev.night + 1) }))
+            }>
+            <Text style={styles.stepText}>+</Text>
+          </Pressable>
+        </View>
+      </View>
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {ok ? <Text style={styles.ok}>{ok}</Text> : null}
 
@@ -295,4 +376,44 @@ const useStyles = makeStyles(({ colors }) => ({
   saveText: { color: '#fff', fontWeight: '800' },
   error: { color: colors.accent, fontWeight: '600', marginTop: 8 },
   ok: { color: colors.success, fontWeight: '700', marginTop: 8 },
+  taraweehHint: { fontSize: 12, color: colors.textMuted, lineHeight: 17, marginBottom: 10, marginTop: 8 },
+  fieldLabel: { fontSize: 12, fontWeight: '700', color: colors.textSecondary, marginTop: 10, marginBottom: 6 },
+  toggle: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: colors.surface0,
+  },
+  toggleOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  toggleText: { fontWeight: '800', color: colors.textPrimary },
+  toggleTextOn: { color: '#fff' },
+  choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  choice: {
+    minWidth: 48,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface0,
+    alignItems: 'center',
+  },
+  choiceOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  choiceText: { fontWeight: '800', color: colors.textPrimary },
+  choiceTextOn: { color: '#fff' },
+  nightRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
+  step: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface0,
+  },
+  stepText: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
+  nightValue: { fontSize: 16, fontWeight: '800', color: colors.textPrimary },
 }))

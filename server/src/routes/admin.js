@@ -36,6 +36,16 @@ import {
 } from '../services/mosqueRequests.js'
 
 const router = Router()
+// About 2 minutes of compressed speech, base64-encoded.
+const MAX_VOICE_NOTE_B64 = 3 * 1024 * 1024
+
+/** pg-mem can return TEXT[] defaults as the literal '{}' / '{a,b}' instead of an array. */
+function toTextArray(value) {
+  if (Array.isArray(value)) return value.map(String)
+  if (typeof value !== 'string') return []
+  const inner = value.trim().replace(/^\{|\}$/g, '')
+  return inner ? inner.split(',').map((item) => item.replace(/^"|"$/g, '').trim()).filter(Boolean) : []
+}
 const pool = getPool()
 
 router.post('/login', async (req, res) => {
@@ -466,6 +476,143 @@ router.get('/manager/mosques', authMiddleware, requireRole('admin', 'mosque_mana
   }
 })
 
+// Assigned mosque admin can edit that mosque's details and prayer timings.
+router.put('/manager/mosques/:id', authMiddleware, requireRole('admin', 'mosque_manager'), async (req, res) => {
+  const client = await pool.connect()
+  try {
+    await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+    const dbId = await resolveMosqueDbId(client, req.params.id)
+    if (!dbId) return res.status(404).json({ error: 'Not found' })
+    const allowed = await userCanManageMosque(client, req.user.sub, req.user.role, dbId)
+    if (!allowed) return res.status(403).json({ error: 'Not assigned to this mosque' })
+
+    const b = req.body || {}
+    await client.query(
+      `UPDATE mosques SET
+         name = COALESCE($2, name),
+         address = COALESCE($3, address),
+         area = COALESCE($4, area),
+         phone = COALESCE($5, phone),
+         sect = COALESCE($6, sect),
+         lat = COALESCE($7, lat),
+         lng = COALESCE($8, lng),
+         capacity = COALESCE($9, capacity),
+         updated_at = NOW()
+       WHERE id = $1`,
+      [
+        dbId,
+        b.name || null,
+        b.address || null,
+        b.area || null,
+        b.phone ?? null,
+        b.sect || null,
+        b.lat ?? null,
+        b.lng ?? null,
+        b.capacity ?? null,
+      ],
+    )
+    if (Array.isArray(b.facilities) || Array.isArray(b.featureOptions)) {
+      const options = Array.isArray(b.featureOptions) ? b.featureOptions : b.facilities
+      const names = [...new Set(options.map((item) => String(item || '').trim()).filter(Boolean))].slice(0, 40)
+      const enabled = new Set(
+        (Array.isArray(b.facilities) ? b.facilities : names).map((item) => String(item || '').trim()),
+      )
+      const active = names.filter((name) => enabled.has(name))
+      const { rows: prevRows } = await client.query(
+        `SELECT name, facilities, facility_options FROM mosques WHERE id = $1`,
+        [dbId],
+      )
+      const prevActive = new Set(toTextArray(prevRows[0]?.facilities))
+      const prevOptions = new Set([...toTextArray(prevRows[0]?.facility_options), ...prevActive])
+      await client.query(
+        `UPDATE mosques SET facilities = $2, facility_options = $3, updated_at = NOW() WHERE id = $1`,
+        [dbId, active, names],
+      )
+      const nowActive = new Set(active)
+      const nowOptions = new Set(names)
+      const changes = []
+      for (const name of prevOptions) {
+        if (!nowOptions.has(name)) changes.push(`${name} is no longer listed`)
+        else if (prevActive.has(name) && !nowActive.has(name)) changes.push(`${name} is not available right now`)
+      }
+      for (const name of nowActive) {
+        if (!prevActive.has(name)) changes.push(`${name} is now available`)
+      }
+      if (changes.length) {
+        try {
+          await notifyMosqueSubscribers(client, dbId, {
+            type: 'facilities',
+            title: `${prevRows[0]?.name || 'Your mosque'}: facilities updated`,
+            body: changes.join('. ') + '.',
+          })
+        } catch (err) {
+          console.warn('[notify] facilities fan-out failed', err instanceof Error ? err.message : err)
+        }
+      }
+    }
+    if (b.timings) await upsertMosqueTimings(client, dbId, b.timings)
+    if (b.nightTimings) await upsertNightTimings(client, dbId, b.nightTimings)
+    const mosque = await fetchMosqueById(client, dbId)
+    if (b.timings) {
+      try {
+        await notifyMosqueSubscribers(client, dbId, {
+          type: 'timings',
+          title: `${mosque.name}: prayer timings updated`,
+          body: 'Azan / Jamat timings were changed. Open the app to see the latest schedule.',
+        })
+      } catch (err) {
+        console.warn('[notify] manager update fan-out failed', err instanceof Error ? err.message : err)
+      }
+    }
+    res.json(mosque)
+  } catch (err) {
+    console.error('Manager update mosque failed:', err)
+    res.status(500).json({ error: err.message || 'Failed to update mosque' })
+  } finally {
+    client.release()
+  }
+})
+
+router.put('/manager/mosques/:id/taraweeh', authMiddleware, requireRole('admin', 'mosque_manager'), async (req, res) => {
+  const NIGHTS = new Set([10, 15, 20, 27, 29])
+  const RAKAHS = new Set([8, 20])
+  const body = req.body || {}
+  const nights = Number(body.nights)
+  const rakahs = Number(body.rakahs)
+  let night = Number(body.night)
+  if (!NIGHTS.has(nights)) return res.status(400).json({ error: 'Nights must be 10, 15, 20, 27, or 29' })
+  if (!RAKAHS.has(rakahs)) return res.status(400).json({ error: 'Rak‘ahs must be 8 or 20' })
+  if (!Number.isFinite(night)) night = 1
+  night = Math.min(nights, Math.max(1, Math.round(night)))
+  const startTime = String(body.startTime || '8:45 PM').trim().slice(0, 16)
+
+  const client = await pool.connect()
+  try {
+    await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+    const dbId = await resolveMosqueDbId(client, req.params.id)
+    if (!dbId) return res.status(404).json({ error: 'Not found' })
+    const allowed = await userCanManageMosque(client, req.user.sub, req.user.role, dbId)
+    if (!allowed) return res.status(403).json({ error: 'Not assigned to this mosque' })
+    await client.query(
+      `UPDATE mosques SET
+         taraweeh_enabled = $2,
+         taraweeh_start = $3,
+         taraweeh_nights = $4,
+         taraweeh_rakahs = $5,
+         taraweeh_night = $6,
+         updated_at = NOW()
+       WHERE id = $1`,
+      [dbId, Boolean(body.enabled), startTime, nights, rakahs, night],
+    )
+    res.json(await fetchMosqueById(client, dbId))
+  } catch (err) {
+    console.error('Taraweeh update failed:', err)
+    res.status(500).json({ error: err.message || 'Failed to save Taraweeh' })
+  } finally {
+    client.release()
+  }
+})
+
 router.put('/manager/mosques/:id/timings', authMiddleware, requireRole('admin', 'mosque_manager'), async (req, res) => {
   const client = await pool.connect()
   try {
@@ -515,7 +662,52 @@ router.post(
   async (req, res) => {
     const title = String(req.body?.title || '').trim()
     const body = String(req.body?.body || '').trim()
-    if (!title) return res.status(400).json({ error: 'title required' })
+    const audioBase64 = typeof req.body?.audioBase64 === 'string' ? req.body.audioBase64.replace(/\s/g, '') : ''
+    const mime = String(req.body?.mime || 'audio/mp4').slice(0, 64)
+    if (!title && !body && !audioBase64) return res.status(400).json({ error: 'Write a message or record a voice note' })
+    if (audioBase64 && (audioBase64.length > MAX_VOICE_NOTE_B64 || !/^[A-Za-z0-9+/=]+$/.test(audioBase64))) {
+      return res.status(400).json({ error: 'Voice note is too long or unreadable (keep it under 2 minutes)' })
+    }
+    if (audioBase64 && !mime.startsWith('audio/')) return res.status(400).json({ error: 'Voice note must be audio' })
+    const client = await pool.connect()
+    try {
+      await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+      const dbId = await resolveMosqueDbId(client, req.params.id)
+      if (!dbId) return res.status(404).json({ error: 'Mosque not found' })
+      const allowed = await userCanManageMosque(client, req.user.sub, req.user.role, dbId)
+      if (!allowed) return res.status(403).json({ error: 'Not assigned to this mosque' })
+      const mosque = await fetchMosqueById(client, dbId)
+      let voiceNoteId = null
+      if (audioBase64) {
+        voiceNoteId = randomUUID()
+        await client.query(
+          `INSERT INTO mosque_voice_notes (id, mosque_id, mime, audio) VALUES ($1, $2, $3, $4)`,
+          [voiceNoteId, dbId, mime, audioBase64],
+        )
+      }
+      const result = await notifyMosqueSubscribers(client, dbId, {
+        type: 'announcement',
+        title: (title || `Message from ${mosque.name}`).slice(0, 255),
+        body: body || (voiceNoteId ? 'Voice note' : `Announcement from ${mosque.name}`),
+        voiceNoteId,
+      })
+      res.status(201).json({ ok: true, notified: result.notified, mosqueId: mosque.id })
+    } catch (err) {
+      console.error('announcement failed', err)
+      res.status(500).json({ error: err.message || 'Failed to post announcement' })
+    } finally {
+      client.release()
+    }
+  },
+)
+
+// Tell subscribers the azan is about to start.
+router.post(
+  '/manager/mosques/:id/azan/alert',
+  authMiddleware,
+  requireRole('admin', 'mosque_manager'),
+  async (req, res) => {
+    const prayer = String(req.body?.prayerName || '').trim().slice(0, 16)
     const client = await pool.connect()
     try {
       await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
@@ -525,14 +717,14 @@ router.post(
       if (!allowed) return res.status(403).json({ error: 'Not assigned to this mosque' })
       const mosque = await fetchMosqueById(client, dbId)
       const result = await notifyMosqueSubscribers(client, dbId, {
-        type: 'announcement',
-        title: title.slice(0, 255),
-        body: body || `Announcement from ${mosque.name}`,
+        type: 'azan_alert',
+        title: `${prayer ? `${prayer} azan` : 'Azan'} starts soon`,
+        body: `${mosque.name} is about to give the azan live. Open the app to listen.`,
       })
-      res.status(201).json({ ok: true, notified: result.notified, mosqueId: mosque.id })
+      res.status(201).json({ ok: true, notified: result.notified })
     } catch (err) {
-      console.error('announcement failed', err)
-      res.status(500).json({ error: err.message || 'Failed to post announcement' })
+      console.error('azan alert failed', err)
+      res.status(500).json({ error: err.message || 'Failed to alert subscribers' })
     } finally {
       client.release()
     }

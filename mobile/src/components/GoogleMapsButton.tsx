@@ -1,7 +1,8 @@
+import { Ionicons } from '@expo/vector-icons'
 import { Image, Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import { radius } from '@/src/constants/theme'
 import { useLanguage } from '@/src/context/LanguageContext'
-import { makeStyles } from '@/src/context/ThemeContext'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import type { Mosque, TravelMode } from '@/src/types'
 import { openGoogleMaps } from '@/src/utils/maps'
 
@@ -13,7 +14,7 @@ import { openGoogleMaps } from '@/src/utils/maps'
  */
 const googleMapsIcon = require('../../assets/images/google_maps_pin.png')
 
-type Variant = 'compact' | 'chip' | 'button'
+type Variant = 'compact' | 'chip' | 'button' | 'distance' | 'panel' | 'bar' | 'place'
 
 export function GoogleMapsButton({
   mosque,
@@ -38,6 +39,7 @@ export function GoogleMapsButton({
   onPressBeforeOpen?: () => void
 }) {
   const styles = useStyles()
+  const { colors } = useTheme()
   const { t } = useLanguage()
 
   const handlePress = (e?: { stopPropagation?: () => void }) => {
@@ -55,6 +57,57 @@ export function GoogleMapsButton({
       <Pressable style={[styles.button, style]} onPress={() => handlePress()} hitSlop={8}>
         <Image source={googleMapsIcon} style={styles.buttonIcon} resizeMode="contain" />
         <Text style={styles.buttonLabel}>{label ?? t('mosque.openInMaps')}</Text>
+      </Pressable>
+    )
+  }
+
+  if (variant === 'place') {
+    return (
+      <Pressable style={[styles.place, style]} onPress={(e) => handlePress(e)} hitSlop={4}>
+        <Image source={googleMapsIcon} style={styles.placeIcon} resizeMode="contain" />
+        <Text style={styles.placeDistance} numberOfLines={1}>
+          {caption}
+        </Text>
+        <Text style={styles.placeAddress} numberOfLines={2}>
+          {label}
+        </Text>
+        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+      </Pressable>
+    )
+  }
+
+  if (variant === 'bar') {
+    return (
+      <Pressable style={[styles.bar, style]} onPress={(e) => handlePress(e)} hitSlop={4}>
+        <Image source={googleMapsIcon} style={styles.barIcon} resizeMode="contain" />
+        <Text style={styles.barCaption} numberOfLines={1}>
+          {caption}
+        </Text>
+      </Pressable>
+    )
+  }
+
+  if (variant === 'panel') {
+    return (
+      <Pressable style={[styles.panel, style]} onPress={(e) => handlePress(e)} hitSlop={4}>
+        <View style={styles.panelIconShell}>
+          <Image source={googleMapsIcon} style={styles.panelIcon} resizeMode="contain" />
+        </View>
+        <Text style={styles.panelCaption} numberOfLines={1}>
+          {caption}
+        </Text>
+      </Pressable>
+    )
+  }
+
+  if (variant === 'distance') {
+    return (
+      <Pressable style={[styles.distance, style]} onPress={(e) => handlePress(e)} hitSlop={6}>
+        <Image source={googleMapsIcon} style={styles.distanceIcon} resizeMode="contain" />
+        <Text style={styles.distanceCaption} numberOfLines={1}>
+          {caption}
+        </Text>
+        <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
       </Pressable>
     )
   }
@@ -100,6 +153,88 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
     marginTop: 4,
   },
   captionLight: { color: colors.textSecondary },
+  distance: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingLeft: 6,
+    paddingRight: 8,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface1,
+  },
+  distanceIcon: { width: 22, height: 22 },
+  distanceCaption: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  panel: {
+    width: 84,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface2,
+  },
+  panelIconShell: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface1,
+  },
+  panelIcon: { width: 32, height: 32 },
+  panelCaption: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  bar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'stretch',
+    gap: 8,
+    minHeight: 44,
+    paddingHorizontal: 14,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface2,
+  },
+  barIcon: { width: 22, height: 22 },
+  barCaption: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  place: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    gap: 8,
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingLeft: 8,
+    paddingRight: 10,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface1,
+  },
+  placeIcon: { width: 28, height: 28 },
+  placeDistance: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  placeAddress: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -17,7 +17,6 @@ import { ScreenHeader } from '@/src/components/AppHeader'
 import { CityUnavailableBanner } from '@/src/components/CityUnavailableBanner'
 import { MosqueCard } from '@/src/components/MosqueCard'
 import { MosqueFilterSheet, type FilterDropdownAnchor } from '@/src/components/MosqueFilterSheet'
-import { MosquePeekOverlay } from '@/src/components/MosquePeekOverlay'
 import { MosqueRadiusChips } from '@/src/components/MosqueRadiusChips'
 import { MosqueSortBar } from '@/src/components/MosqueSortBar'
 import { NearbyMosquesMap } from '@/src/components/NearbyMosquesMap'
@@ -47,7 +46,7 @@ const DEFAULT_TRAVEL_MODE = 'driving' as const
 
 export default function MosquesScreen() {
   const styles = useStyles()
-  const { colors } = useTheme()
+  const { colors, mode } = useTheme()
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const tabBarHeight = useBottomTabBarHeight()
@@ -138,15 +137,21 @@ export default function MosquesScreen() {
       />
 
       <View style={styles.radiusRow}>
-        <MosqueRadiusChips value={radiusKm} onChange={setRadiusKm} compact fullWidth />
+        <MosqueRadiusChips value={radiusKm} onChange={setRadiusKm} />
       </View>
 
-      <View style={styles.sortRow}>
-        <View style={styles.sortScroll}>
-          <MosqueSortBar value={sortMode} onChange={setSortMode} compact />
-        </View>
+      <View style={styles.sortOnly}>
+        <MosqueSortBar
+          value={sortMode}
+          onChange={setSortMode}
+          compact
+          hintBackgroundColor={mode === 'dark' ? colors.surface0 : '#F1F3F7'}
+        />
+      </View>
+
+      <View style={styles.toolRow}>
         <Pressable ref={filterBtnRef} style={styles.filterBtn} onPress={openFilter} hitSlop={6}>
-          <Text style={styles.filterBtnIcon}>⏷</Text>
+          <Ionicons name="options-outline" size={16} color={colors.textSecondary} />
           <Text style={styles.filterBtnText}>{t('common.filter')}</Text>
           {activeFilterCount > 0 && (
             <View style={styles.filterBadge}>
@@ -162,7 +167,7 @@ export default function MosquesScreen() {
               onPress={() => setViewMode('list')}>
               <Ionicons
                 name="list"
-                size={12}
+                size={16}
                 color={viewMode === 'list' ? colors.selectedText : colors.textMuted}
               />
             </Pressable>
@@ -171,7 +176,7 @@ export default function MosquesScreen() {
               onPress={() => setViewMode('map')}>
               <Ionicons
                 name="map"
-                size={12}
+                size={16}
                 color={viewMode === 'map' ? colors.selectedText : colors.textMuted}
               />
             </Pressable>
@@ -223,8 +228,6 @@ export default function MosquesScreen() {
                 mosque={peekMosque}
                 travelMode={DEFAULT_TRAVEL_MODE}
                 {...exploreCardProps}
-                isPeekActive
-                onPeek={() => setPeekMosque(peekMosque)}
               />
             </View>
           ) : filtered.length > 0 ? (
@@ -261,9 +264,6 @@ export default function MosquesScreen() {
               </Pressable>
             ) : null}
           </View>
-          {!loading && filtered.length > 0 && !searchQuery ? (
-            <Text style={styles.peekHint}>{t('home.peekHint')}</Text>
-          ) : null}
           {loading && !filtered.length ? (
             <ActivityIndicator color={colors.headerBg} style={styles.loader} />
           ) : filtered.length === 0 ? (
@@ -275,21 +275,12 @@ export default function MosquesScreen() {
                 mosque={m}
                 travelMode={DEFAULT_TRAVEL_MODE}
                 {...exploreCardProps}
-                isPeekActive={peekMosque?.id === m.id}
-                onPeek={() => setPeekMosque(m)}
               />
             ))
           )}
         </View>
       )}
 
-      <MosquePeekOverlay
-        mosque={peekMosque}
-        travelMode={DEFAULT_TRAVEL_MODE}
-        visible={peekMosque !== null && viewMode === 'list'}
-        onClose={() => setPeekMosque(null)}
-        onViewFull={(m) => router.push(`/mosque/${m.id}`)}
-      />
       <MosqueFilterSheet
         visible={filterOpen}
         anchor={filterAnchor}
@@ -305,31 +296,31 @@ export default function MosquesScreen() {
   )
 }
 
-const useStyles = makeStyles(({ colors }) => ({
-  page: { flex: 1, backgroundColor: colors.surface0 },
+const useStyles = makeStyles(({ colors, mode }) => ({
+  page: { flex: 1, backgroundColor: mode === 'dark' ? colors.surface0 : '#F1F3F7' },
   radiusRow: {
     paddingHorizontal: 16,
     marginTop: 4,
     marginBottom: 0,
   },
-  sortRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  sortOnly: {
     paddingHorizontal: 16,
-    marginTop: 2,
-    marginBottom: 4,
+    marginTop: 8,
   },
-  sortScroll: {
-    flex: 1,
-    minWidth: 0,
+  toolRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
   },
   filterBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: radius.pill,
     backgroundColor: colors.surface2,
     borderWidth: 1,
@@ -337,8 +328,7 @@ const useStyles = makeStyles(({ colors }) => ({
     flexShrink: 0,
     alignSelf: 'center',
   },
-  filterBtnIcon: { fontSize: 9, color: colors.primary, fontWeight: '800' },
-  filterBtnText: { fontSize: 10, fontWeight: '700', color: colors.primary },
+  filterBtnText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
   filterBadge: {
     minWidth: 14,
     height: 14,
@@ -370,8 +360,8 @@ const useStyles = makeStyles(({ colors }) => ({
     padding: 2,
   },
   viewToggleBtn: {
-    width: 26,
-    height: 22,
+    width: 32,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.pill,

@@ -1,4 +1,5 @@
 import { Redirect, useRouter } from 'expo-router'
+import { StatusBar } from 'expo-status-bar'
 import { useState } from 'react'
 import {
   ActivityIndicator,
@@ -6,38 +7,53 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '@/src/context/AuthContext'
-import { getApiBaseUrl } from '@/src/config/api'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { isAppAdmin, isMosqueAdmin } from '@/src/utils/roles'
 
 type AuthMode = 'signin' | 'signup'
 
-const bw = {
-  bg: '#ffffff',
-  fg: '#0a0a0a',
-  muted: '#737373',
-  border: '#d4d4d4',
-  soft: '#f5f5f5',
-  inverse: '#000000',
-} as const
-
 const DEMO_ACCOUNTS = [
-  { label: 'Khairul Manazil', mobile: '7777777777', password: 'Khairul12345' },
-  { label: 'All mosques', mobile: '8888888888', password: 'Manager@12345' },
+  { label: 'Everyday', mobile: '6666666666', password: 'User@12345' },
+  { label: 'Mosque admin', mobile: '8888888888', password: 'Manager@12345' },
+  { label: 'Khairul', mobile: '7777777777', password: 'Khairul12345' },
   { label: 'App owner', mobile: '9999999999', password: 'Admin@12345' },
 ] as const
+
+const PALETTE = {
+  light: {
+    page: '#F7F4EE',
+    ink: '#1A1814',
+    muted: '#6E675F',
+    soft: '#A39B92',
+    line: 'rgba(26,24,20,0.16)',
+    button: '#1A1814',
+    buttonText: '#F7F4EE',
+  },
+  dark: {
+    page: '#141311',
+    ink: '#F4F0E8',
+    muted: '#C4BBB0',
+    soft: '#8A837A',
+    line: 'rgba(244,240,232,0.22)',
+    button: '#F4F0E8',
+    buttonText: '#161616',
+  },
+} as const
 
 export default function LoginScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
+  const styles = useStyles()
+  const { mode } = useTheme()
+  const c = PALETTE[mode]
   const { login, register, continueAsGuest, user } = useAuth()
-  const [mode, setMode] = useState<AuthMode>('signin')
+  const [authMode, setAuthMode] = useState<AuthMode>('signin')
   const [name, setName] = useState('')
   const [mobile, setMobile] = useState('')
   const [password, setPassword] = useState('')
@@ -47,18 +63,21 @@ export default function LoginScreen() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [guestLoading, setGuestLoading] = useState(false)
+  const [demosOpen, setDemosOpen] = useState(false)
 
   if (user) {
+    if (isMosqueAdmin(user)) return <Redirect href="/my-mosque" />
     return <Redirect href="/(tabs)" />
   }
 
   const resetError = () => setError('')
 
   const fillDemo = (mobileValue: string, passwordValue: string) => {
-    setMode('signin')
+    setAuthMode('signin')
     setMobile(mobileValue)
     setPassword(passwordValue)
-    setShowPassword(true)
+    setShowPassword(false)
+    setDemosOpen(false)
     setError('')
   }
 
@@ -73,7 +92,7 @@ export default function LoginScreen() {
       setError('Enter your password')
       return
     }
-    if (mode === 'signup') {
+    if (authMode === 'signup') {
       if (!name.trim()) {
         setError('Enter your full name')
         return
@@ -91,13 +110,13 @@ export default function LoginScreen() {
     setLoading(true)
     setError('')
     try {
-      if (mode === 'signup') {
+      if (authMode === 'signup') {
         await register(name.trim(), normalized, password)
         router.replace('/(tabs)')
       } else {
         const loggedIn = await login(normalized, password)
         if (isAppAdmin(loggedIn)) router.replace('/admin')
-        else if (isMosqueAdmin(loggedIn)) router.replace('/admin/my-mosques')
+        else if (isMosqueAdmin(loggedIn)) router.replace('/my-mosque')
         else router.replace('/(tabs)')
       }
     } catch (err) {
@@ -117,295 +136,314 @@ export default function LoginScreen() {
     }
   }
 
+  const localMobile = mobile.replace(/\D/g, '').slice(-10)
+  const busy = loading || guestLoading
+
   return (
-    <KeyboardAvoidingView
-      style={styles.page}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: insets.top + 28, paddingBottom: insets.bottom + 24 },
-        ]}
-        keyboardShouldPersistTaps="handled">
-        <View style={styles.hero}>
-          <View style={styles.logoMark}>
-            <Text style={styles.logoEmoji}>🕌</Text>
-          </View>
+    <View style={styles.page}>
+      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingTop: insets.top + 36, paddingBottom: insets.bottom + 28 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
           <Text style={styles.brand}>PrayNow</Text>
-          <Text style={styles.tagline}>Mosques & prayer times for your city</Text>
-        </View>
+          <Text style={styles.tagline}>Mosques and prayer times for your city</Text>
 
-        <View style={styles.modeSwitch}>
-          <Pressable
-            style={[styles.modeBtn, mode === 'signin' && styles.modeBtnActive]}
-            onPress={() => {
-              setMode('signin')
-              resetError()
-            }}>
-            <Text style={[styles.modeText, mode === 'signin' && styles.modeTextActive]}>Sign in</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.modeBtn, mode === 'signup' && styles.modeBtnActive]}
-            onPress={() => {
-              setMode('signup')
-              resetError()
-            }}>
-            <Text style={[styles.modeText, mode === 'signup' && styles.modeTextActive]}>Sign up</Text>
-          </Pressable>
-        </View>
+          <View style={styles.modes}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setAuthMode('signin')
+                resetError()
+              }}
+              style={styles.modeBtn}>
+              <Text style={[styles.modeText, authMode === 'signin' && styles.modeTextActive]}>Sign in</Text>
+              <View style={[styles.modeRule, authMode === 'signin' && styles.modeRuleActive]} />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setAuthMode('signup')
+                resetError()
+              }}
+              style={styles.modeBtn}>
+              <Text style={[styles.modeText, authMode === 'signup' && styles.modeTextActive]}>Sign up</Text>
+              <View style={[styles.modeRule, authMode === 'signup' && styles.modeRuleActive]} />
+            </Pressable>
+          </View>
 
-        <View style={styles.form}>
-          {mode === 'signup' && (
-            <>
-              <Text style={styles.label}>Full name</Text>
+          {authMode === 'signup' ? (
+            <View style={styles.field}>
               <TextInput
                 style={styles.input}
                 value={name}
                 onChangeText={setName}
-                placeholder="Your name"
-                placeholderTextColor={bw.muted}
+                placeholder="Full name"
+                placeholderTextColor={c.soft}
                 autoCapitalize="words"
               />
-            </>
-          )}
+            </View>
+          ) : null}
 
-          <Text style={styles.label}>Mobile number</Text>
-          <TextInput
-            style={styles.input}
-            value={mobile}
-            onChangeText={setMobile}
-            placeholder="10-digit mobile"
-            placeholderTextColor={bw.muted}
-            keyboardType="phone-pad"
-            autoComplete="tel"
-          />
-
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.passwordWrap}>
+          <View style={styles.field}>
+            <Text style={styles.prefix}>+91</Text>
             <TextInput
-              style={styles.passwordInput}
+              style={styles.input}
+              value={localMobile}
+              onChangeText={(value) => setMobile(value.replace(/\D/g, '').slice(0, 10))}
+              placeholder="Mobile number"
+              placeholderTextColor={c.soft}
+              keyboardType="phone-pad"
+              autoComplete="tel"
+              maxLength={10}
+            />
+          </View>
+
+          <View style={styles.field}>
+            <TextInput
+              style={styles.input}
               value={password}
               onChangeText={setPassword}
-              placeholder="Enter password"
-              placeholderTextColor={bw.muted}
+              placeholder="Password"
+              placeholderTextColor={c.soft}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
               autoCorrect={false}
-              autoComplete={mode === 'signup' ? 'new-password' : 'password'}
+              autoComplete={authMode === 'signup' ? 'new-password' : 'password'}
             />
             <Pressable
-              style={styles.eyeBtn}
               onPress={() => setShowPassword((v) => !v)}
+              hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
-              <Text style={styles.eyeText}>{showPassword ? 'Hide' : 'Show'}</Text>
+              <Text style={styles.showText}>{showPassword ? 'Hide' : 'Show'}</Text>
             </Pressable>
           </View>
 
-          {mode === 'signup' && (
-            <>
-              <Text style={styles.label}>Confirm password</Text>
-              <View style={styles.passwordWrap}>
-                <TextInput
-                  style={styles.passwordInput}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  placeholder="Re-enter password"
-                  placeholderTextColor={bw.muted}
-                  secureTextEntry={!showConfirmPassword}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                <Pressable
-                  style={styles.eyeBtn}
-                  onPress={() => setShowConfirmPassword((v) => !v)}
-                  accessibilityRole="button"
-                  accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}>
-                  <Text style={styles.eyeText}>{showConfirmPassword ? 'Hide' : 'Show'}</Text>
-                </Pressable>
-              </View>
-            </>
-          )}
+          {authMode === 'signup' ? (
+            <View style={styles.field}>
+              <TextInput
+                style={styles.input}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Confirm password"
+                placeholderTextColor={c.soft}
+                secureTextEntry={!showConfirmPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Pressable
+                onPress={() => setShowConfirmPassword((v) => !v)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}>
+                <Text style={styles.showText}>{showConfirmPassword ? 'Hide' : 'Show'}</Text>
+              </Pressable>
+            </View>
+          ) : null}
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Pressable
-            style={[styles.primaryBtn, loading && styles.btnDisabled]}
+            accessibilityRole="button"
+            style={[styles.primaryBtn, busy && styles.btnDisabled]}
             onPress={() => void submit()}
-            disabled={loading || guestLoading}>
+            disabled={busy}>
             {loading ? (
-              <ActivityIndicator color={bw.bg} />
+              <ActivityIndicator color={c.buttonText} />
             ) : (
-              <Text style={styles.primaryBtnText}>{mode === 'signup' ? 'Create account' : 'Sign in'}</Text>
+              <Text style={styles.primaryBtnText}>{authMode === 'signup' ? 'Create account' : 'Sign in'}</Text>
             )}
           </Pressable>
 
           <Pressable
-            style={[styles.outlineBtn, guestLoading && styles.btnDisabled]}
+            accessibilityRole="button"
+            style={styles.guestBtn}
             onPress={() => void onGuest()}
-            disabled={loading || guestLoading}>
+            disabled={busy}>
             {guestLoading ? (
-              <ActivityIndicator color={bw.fg} />
+              <ActivityIndicator color={c.ink} />
             ) : (
-              <Text style={styles.outlineBtnText}>Continue as guest</Text>
+              <Text style={styles.guestText}>Continue as guest</Text>
             )}
           </Pressable>
 
-          {mode === 'signin' ? (
-            <View style={styles.demoBox}>
-              <Text style={styles.demoTitle}>Quick demo fill</Text>
-              {DEMO_ACCOUNTS.map((a) => (
+          {authMode === 'signin' ? (
+            <Pressable
+              accessibilityRole="button"
+              style={styles.demoLink}
+              onPress={() => setDemosOpen((open) => !open)}>
+              <Text style={styles.demoLinkText}>Use a demo account</Text>
+            </Pressable>
+          ) : null}
+
+          {authMode === 'signin' && demosOpen ? (
+            <View style={styles.demoList}>
+              {DEMO_ACCOUNTS.map((account) => (
                 <Pressable
-                  key={a.mobile}
-                  style={styles.demoBtn}
-                  onPress={() => fillDemo(a.mobile, a.password)}>
-                  <Text style={styles.demoBtnText}>
-                    {a.label}: {a.mobile}
-                  </Text>
+                  key={account.mobile}
+                  accessibilityRole="button"
+                  style={styles.demoRow}
+                  onPress={() => fillDemo(account.mobile, account.password)}>
+                  <Text style={styles.demoName}>{account.label}</Text>
+                  <Text style={styles.demoMeta}>{account.mobile}</Text>
                 </Pressable>
               ))}
             </View>
           ) : null}
-
-          <Text style={styles.hint}>
-            API: {getApiBaseUrl()}
-            {'\n'}Khairul Manazil: 7777777777 / Khairul12345
-          </Text>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   )
 }
 
-const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: bw.bg },
-  content: { flexGrow: 1, paddingHorizontal: 24 },
-  hero: { alignItems: 'center', marginBottom: 28 },
-  logoMark: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 2,
-    borderColor: bw.fg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  logoEmoji: { fontSize: 34 },
-  brand: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: bw.fg,
-    letterSpacing: -0.8,
-  },
-  tagline: {
-    fontSize: 14,
-    color: bw.muted,
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 20,
-  },
-  modeSwitch: {
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderColor: bw.border,
-    borderRadius: 10,
-    padding: 4,
-    marginBottom: 20,
-    backgroundColor: bw.soft,
-  },
-  modeBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modeBtnActive: { backgroundColor: bw.inverse },
-  modeText: { fontSize: 13, fontWeight: '700', color: bw.muted },
-  modeTextActive: { color: bw.bg },
-  form: {},
-  label: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: bw.fg,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 6,
-    marginTop: 10,
-  },
-  input: {
-    backgroundColor: bw.bg,
-    borderWidth: 1.5,
-    borderColor: bw.fg,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: bw.fg,
-  },
-  passwordWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: bw.fg,
-    borderRadius: 8,
-    backgroundColor: bw.bg,
-  },
-  passwordInput: {
-    flex: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: bw.fg,
-  },
-  eyeBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  eyeText: { fontSize: 13, fontWeight: '800', color: bw.fg },
-  error: { color: '#dc2626', fontSize: 13, fontWeight: '600', marginTop: 12 },
-  primaryBtn: {
-    backgroundColor: bw.inverse,
-    borderRadius: 8,
-    paddingVertical: 15,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  primaryBtnText: { color: bw.bg, fontWeight: '800', fontSize: 16 },
-  outlineBtn: {
-    borderRadius: 8,
-    paddingVertical: 15,
-    alignItems: 'center',
-    marginTop: 10,
-    borderWidth: 1.5,
-    borderColor: bw.fg,
-  },
-  outlineBtnText: { color: bw.fg, fontWeight: '700', fontSize: 15 },
-  btnDisabled: { opacity: 0.65 },
-  demoBox: {
-    marginTop: 18,
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: bw.border,
-    backgroundColor: bw.soft,
-    gap: 8,
-  },
-  demoTitle: { fontSize: 11, fontWeight: '800', color: bw.muted, textTransform: 'uppercase' },
-  demoBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: bw.bg,
-    borderWidth: 1,
-    borderColor: bw.border,
-  },
-  demoBtnText: { fontSize: 13, fontWeight: '700', color: bw.fg },
-  hint: {
-    fontSize: 11,
-    color: bw.muted,
-    textAlign: 'center',
-    marginTop: 18,
-    lineHeight: 17,
-  },
+const useStyles = makeStyles(({ mode }) => {
+  const c = PALETTE[mode]
+  const webInput = Platform.OS === 'web' ? { outlineWidth: 0, outlineStyle: 'none' as const } : null
+
+  return {
+    page: { flex: 1, backgroundColor: c.page },
+    flex: { flex: 1 },
+    content: {
+      flexGrow: 1,
+      paddingHorizontal: 28,
+      maxWidth: 440,
+      width: '100%',
+      alignSelf: 'center',
+    },
+    brand: {
+      fontFamily: 'Newsreader_600SemiBold',
+      fontSize: 46,
+      letterSpacing: -0.8,
+      color: c.ink,
+      textAlign: 'center',
+    },
+    tagline: {
+      fontFamily: 'Figtree_400Regular',
+      fontSize: 14,
+      lineHeight: 20,
+      color: c.muted,
+      textAlign: 'center',
+      marginTop: 8,
+    },
+    modes: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 28,
+      marginTop: 36,
+      marginBottom: 8,
+    },
+    modeBtn: { alignItems: 'center', paddingVertical: 6 },
+    modeText: {
+      fontFamily: 'Figtree_500Medium',
+      fontSize: 15,
+      color: c.soft,
+    },
+    modeTextActive: { color: c.ink },
+    modeRule: {
+      marginTop: 6,
+      height: 1,
+      width: 22,
+      backgroundColor: 'transparent',
+    },
+    modeRuleActive: { backgroundColor: c.ink },
+    field: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderBottomWidth: 1,
+      borderBottomColor: c.line,
+      minHeight: 54,
+      marginTop: 8,
+    },
+    prefix: {
+      fontFamily: 'Figtree_500Medium',
+      fontSize: 16,
+      color: c.ink,
+      marginRight: 10,
+    },
+    input: {
+      flex: 1,
+      fontFamily: 'Figtree_400Regular',
+      fontSize: 16,
+      color: c.ink,
+      paddingVertical: 14,
+      borderWidth: 0,
+      backgroundColor: 'transparent',
+      ...webInput,
+    },
+    showText: {
+      fontFamily: 'Figtree_500Medium',
+      fontSize: 13,
+      color: c.muted,
+      marginLeft: 8,
+    },
+    error: {
+      fontFamily: 'Figtree_500Medium',
+      color: '#A33B32',
+      fontSize: 13,
+      lineHeight: 18,
+      marginTop: 14,
+    },
+    primaryBtn: {
+      backgroundColor: c.button,
+      borderRadius: 999,
+      minHeight: 52,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 28,
+    },
+    primaryBtnText: {
+      fontFamily: 'Figtree_600SemiBold',
+      fontSize: 16,
+      color: c.buttonText,
+    },
+    guestBtn: {
+      minHeight: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 6,
+    },
+    guestText: {
+      fontFamily: 'Figtree_500Medium',
+      fontSize: 14,
+      color: c.muted,
+    },
+    btnDisabled: { opacity: 0.65 },
+    demoLink: {
+      alignSelf: 'center',
+      marginTop: 18,
+      paddingVertical: 6,
+    },
+    demoLinkText: {
+      fontFamily: 'Figtree_500Medium',
+      fontSize: 13,
+      color: c.ink,
+      textDecorationLine: 'underline',
+    },
+    demoList: { marginTop: 8 },
+    demoRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: c.line,
+    },
+    demoName: {
+      fontFamily: 'Figtree_500Medium',
+      fontSize: 14,
+      color: c.ink,
+    },
+    demoMeta: {
+      fontFamily: 'Figtree_400Regular',
+      fontSize: 13,
+      color: c.muted,
+    },
+  }
 })

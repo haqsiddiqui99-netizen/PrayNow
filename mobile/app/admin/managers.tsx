@@ -103,7 +103,7 @@ export default function ManagersScreen() {
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.lead}>
-        Create mosque admin logins (mobile + password) and assign mosques. They only manage assigned mosques.
+        Create a mosque admin and assign their mosque. They can give azan, edit that mosque, and publish announcements. They cannot manage any other mosque.
       </Text>
 
       <Pressable style={styles.add} onPress={() => setShowForm((v) => !v)}>
@@ -124,7 +124,7 @@ export default function ManagersScreen() {
           />
           <Text style={styles.label}>Password</Text>
           <TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry />
-          <Text style={styles.label}>Assign mosques</Text>
+          <Text style={styles.label}>Assign mosque</Text>
           {mosques.map((m) => {
             const on = selectedMosqueIds.includes(m.id)
             return (

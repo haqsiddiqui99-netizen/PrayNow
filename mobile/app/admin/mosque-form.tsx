@@ -10,7 +10,7 @@ import {
 } from 'react-native'
 import { radius } from '@/src/constants/theme'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
-import { createAdminMosque, fetchManagerMosques, updateAdminMosque } from '@/src/services/api'
+import { createAdminMosque, fetchManagerMosques, updateAdminMosque, updateAssignedMosque } from '@/src/services/api'
 import type { Mosque, MosqueTimings, PrayerName } from '@/src/types'
 import { useAuth } from '@/src/context/AuthContext'
 import { isAppAdmin } from '@/src/utils/roles'
@@ -47,8 +47,9 @@ export default function MosqueFormScreen() {
   const [timings, setTimings] = useState<MosqueTimings>(DEFAULT_TIMINGS)
 
   useEffect(() => {
-    if (!isAppAdmin(user)) {
-      router.replace('/admin')
+    if (!user) return
+    if (!isAppAdmin(user) && !id) {
+      router.replace('/admin/my-mosques')
       return
     }
     if (!id) return
@@ -108,8 +109,22 @@ export default function MosqueFormScreen() {
       photos: [],
     }
     try {
-      if (editing && id) await updateAdminMosque(id, payload)
-      else await createAdminMosque(payload)
+      if (editing && id) {
+        if (isAppAdmin(user)) await updateAdminMosque(id, payload)
+        else {
+          await updateAssignedMosque(id, {
+            name: payload.name,
+            address: payload.address,
+            area: payload.area,
+            phone: payload.phone,
+            sect: payload.sect,
+            lat: payload.lat,
+            lng: payload.lng,
+            capacity: payload.capacity,
+            timings: payload.timings,
+          })
+        }
+      } else await createAdminMosque(payload)
       router.back()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Save failed')

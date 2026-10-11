@@ -5,9 +5,9 @@ import { getPool } from '../db/pool.js'
 import { signToken } from '../middleware/auth.js'
 import { fetchMosqueRows, fetchMosqueById, resolveMosqueDbId } from '../services/mosques.js'
 import { buildLiveAzanFeeds } from '../services/liveAzan.js'
-import { getLiveSessions, getLiveSessionForMosque, getLatestRecording } from '../services/liveAzanSessions.js'
+import { getLiveSessions, getLiveSessionForMosque, getLatestRecording, joinLiveListener, leaveLiveListener } from '../services/liveAzanSessions.js'
 import { buildAgoraCredentials } from '../services/agora.js'
-import { askOpenAiIslamicQuestion } from '../services/islamicChat.js'
+import { askOpenAiIslamicQuestion, transcribeOpenAiAudio } from '../services/islamicChat.js'
 import {
   formatDateYmd,
   getCityDay,
@@ -305,6 +305,25 @@ router.get('/mosques/:id/azan/listen', async (req, res) => {
   }
 })
 
+async function changeLiveListeners(req, res, delta) {
+  const client = await pool.connect()
+  try {
+    await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+    const dbId = await resolveMosqueDbId(client, req.params.id)
+    if (!dbId) return res.status(404).json({ error: 'Mosque not found' })
+    const listeners = delta > 0
+      ? await joinLiveListener(client, dbId)
+      : await leaveLiveListener(client, dbId)
+    if (listeners == null) return res.status(404).json({ error: 'Not live' })
+    res.json({ listeners })
+  } finally {
+    client.release()
+  }
+}
+
+router.post('/mosques/:id/azan/join', (req, res) => changeLiveListeners(req, res, 1))
+router.post('/mosques/:id/azan/leave', (req, res) => changeLiveListeners(req, res, -1))
+
 router.post('/chat', async (req, res) => {
   try {
     const { message, history } = req.body || {}
@@ -320,6 +339,26 @@ router.post('/chat', async (req, res) => {
     console.error('Chat error:', error.status || error.code, error.detail || error.message)
     res.status(502).json({
       error: 'Unable to get an AI response right now. Please try again.',
+      code: error.code || 'AI_ERROR',
+    })
+  }
+})
+
+router.post('/chat/transcribe', async (req, res) => {
+  try {
+    const { audioBase64, mime } = req.body || {}
+    const text = await transcribeOpenAiAudio(audioBase64, mime)
+    res.json({ text })
+  } catch (error) {
+    if (error.code === 'AI_NOT_CONFIGURED') {
+      return res.status(503).json({ error: error.message, code: error.code })
+    }
+    if (error.code === 'INVALID_AUDIO') {
+      return res.status(400).json({ error: error.message, code: error.code })
+    }
+    console.error('Transcribe error:', error.status || error.code, error.detail || error.message)
+    res.status(502).json({
+      error: 'Could not understand that recording. Please try again.',
       code: error.code || 'AI_ERROR',
     })
   }

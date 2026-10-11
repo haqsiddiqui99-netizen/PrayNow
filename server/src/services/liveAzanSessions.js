@@ -80,6 +80,30 @@ export async function getLiveSessions(client) {
   }))
 }
 
+/** Someone started listening to the live broadcast. */
+export async function joinLiveListener(client, mosqueDbId) {
+  const { rows } = await client.query(
+    `UPDATE mosque_live_azan_sessions
+     SET listeners = listeners + 1
+     WHERE mosque_id = $1 AND status = 'live'
+     RETURNING listeners`,
+    [mosqueDbId],
+  )
+  return rows[0]?.listeners ?? null
+}
+
+/** Someone stopped listening. Never goes below zero. */
+export async function leaveLiveListener(client, mosqueDbId) {
+  const { rows } = await client.query(
+    `UPDATE mosque_live_azan_sessions
+     SET listeners = GREATEST(listeners - 1, 0)
+     WHERE mosque_id = $1 AND status = 'live'
+     RETURNING listeners`,
+    [mosqueDbId],
+  )
+  return rows[0]?.listeners ?? null
+}
+
 /** The most recent ended session with a recording, for a mosque. */
 export async function getLatestRecording(client, mosqueDbId) {
   const { rows } = await client.query(

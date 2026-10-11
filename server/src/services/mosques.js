@@ -132,6 +132,7 @@ function mapMosqueRow(row, timingRows = [], night = null) {
     sermonLanguage: row.sermon_language || '',
     capacity: row.capacity != null ? Number(row.capacity) : 0,
     facilities: row.facilities || [],
+    featureOptions: Array.isArray(row.facility_options) ? row.facility_options : [],
     events: row.events || [],
     photos: Array.isArray(row.photos) ? row.photos : [],
     isActive: row.is_active,
@@ -139,6 +140,13 @@ function mapMosqueRow(row, timingRows = [], night = null) {
     nightTimings: {
       tahajjud: { start: night?.tahajjud_start || '', end: night?.tahajjud_end || '' },
       sehri: { start: night?.sehri_start || '', end: night?.sehri_end || '' },
+    },
+    taraweeh: {
+      enabled: Boolean(row.taraweeh_enabled),
+      startTime: row.taraweeh_start || '8:45 PM',
+      nights: Number(row.taraweeh_nights) || 27,
+      rakahs: Number(row.taraweeh_rakahs) || 20,
+      night: Number(row.taraweeh_night) || 1,
     },
     distance: 0,
     rating: row.rating != null ? Number(row.rating) : 0,

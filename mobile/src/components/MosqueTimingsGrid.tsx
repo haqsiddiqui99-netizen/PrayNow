@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { Alert, Animated, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { radius, timingTextStyle } from '@/src/constants/theme'
 import { useLanguage } from '@/src/context/LanguageContext'
@@ -50,11 +50,17 @@ export function MosqueCurrentNextTimings({
   currentPrayer,
   nextPrayer,
   azanOnly = false,
+  prominent = false,
+  omitControls = false,
 }: {
   mosque: Mosque
   currentPrayer?: PrayerName | null
   nextPrayer: PrayerName
   azanOnly?: boolean
+  /** Larger Live and play controls on their own row, for the home card. */
+  prominent?: boolean
+  /** Leave the Live control out so the card can place it elsewhere. */
+  omitControls?: boolean
 }) {
   const styles = useStyles()
   const { t, prayerName } = useLanguage()
@@ -72,7 +78,7 @@ export function MosqueCurrentNextTimings({
   const azanId = `${mosque.id}-${name}`
 
   return (
-    <View style={styles.currentBlock}>
+    <View style={[styles.currentBlock, prominent && styles.currentBlockProminent]}>
       <Text style={styles.currentPrayerName} numberOfLines={1}>
         {prayerName(shortLabel(name))}
         {!isActive ? (
@@ -83,7 +89,9 @@ export function MosqueCurrentNextTimings({
       <View style={styles.currentRow}>
         <Text style={styles.currentRowLabel}>{t('mosque.azan')}</Text>
         <Text style={styles.currentRowTime}>{azan}</Text>
-        <AzanControls mosqueId={mosque.id} sessionKey={azanId} live={azanStarted} />
+        {prominent || omitControls ? null : (
+          <AzanControls mosqueId={mosque.id} sessionKey={azanId} live={azanStarted} />
+        )}
       </View>
 
       {!azanOnly ? (
@@ -91,6 +99,10 @@ export function MosqueCurrentNextTimings({
           <Text style={styles.currentRowLabel}>{t('mosque.namaz')}</Text>
           <Text style={styles.currentRowTime}>{namaz}</Text>
         </View>
+      ) : null}
+
+      {prominent && !omitControls ? (
+        <AzanControls mosqueId={mosque.id} sessionKey={azanId} live={azanStarted} prominent />
       ) : null}
     </View>
   )
@@ -101,14 +113,43 @@ export function MosqueCurrentNextTimings({
  * The pill and speaker turn green while the azan window is live, grey otherwise.
  * Tapping the speaker while live plays / stops the azan audio.
  */
+/** Live and speaker as one button, for the home card's prayer panel. */
+export function MosqueLiveButton({
+  mosque,
+  currentPrayer,
+  nextPrayer,
+}: {
+  mosque: Mosque
+  currentPrayer?: PrayerName | null
+  nextPrayer: PrayerName
+}) {
+  const now = useNowTick(30000)
+  const broadcastLive = useMosqueLive(mosque.id)
+  const name = currentPrayer ?? nextPrayer
+  const live = broadcastLive || (Boolean(currentPrayer) && isMosqueAzanLive(mosque, name, now))
+
+  return (
+    <AzanControls
+      mosqueId={mosque.id}
+      sessionKey={`${mosque.id}-${name}`}
+      live={live}
+      combined
+    />
+  )
+}
+
 function AzanControls({
   mosqueId,
   sessionKey,
   live,
+  prominent = false,
+  combined = false,
 }: {
   mosqueId: string
   sessionKey: string
   live: boolean
+  prominent?: boolean
+  combined?: boolean
 }) {
   const styles = useStyles()
   const { colors } = useTheme()
@@ -118,30 +159,92 @@ function AzanControls({
 
   const { t } = useLanguage()
   const isPlaying = state.id === sessionKey && state.playing
+  const pulse = useRef(new Animated.Value(0)).current
+
+  useEffect(() => {
+    if (!live) {
+      pulse.setValue(0)
+      return
+    }
+    const loop = Animated.loop(
+      Animated.timing(pulse, {
+        toValue: 1,
+        duration: 1400,
+        useNativeDriver: true,
+      }),
+    )
+    loop.start()
+    return () => loop.stop()
+  }, [live, pulse])
   // pause icon while playing; play icon when live & idle/paused; muted when not live.
   const iconName = isPlaying ? 'pause' : live ? 'play' : 'volume-mute'
 
+  const onToggle = () => {
+    void toggleLiveAzan(mosqueId, sessionKey).catch((e) => {
+      Alert.alert('Live azan', e instanceof Error ? e.message : 'Could not play live azan')
+    })
+  }
+
+  if (combined) {
+    const roundIcon = isPlaying ? 'stop' : 'play'
+    const ringScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.55] })
+    const ringOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0] })
+    return (
+      <View style={styles.playWrap}>
+        {live ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.playRing, { opacity: ringOpacity, transform: [{ scale: ringScale }] }]}
+          />
+        ) : null}
+        <Pressable
+          disabled={!live}
+          onPress={onToggle}
+          accessibilityRole="button"
+          accessibilityLabel={isPlaying ? 'Stop azan' : 'Play azan'}
+          style={[styles.playBtn, live ? styles.playBtnLive : styles.playBtnIdle]}>
+          <Ionicons
+            name={roundIcon}
+            size={22}
+            color="#ffffff"
+            style={roundIcon === 'play' ? styles.playGlyph : undefined}
+          />
+        </Pressable>
+      </View>
+    )
+  }
+
   return (
-    <View style={styles.azanControls}>
-      <View style={[styles.livePill, live ? styles.livePillOn : styles.livePillOff]}>
-        <View style={[styles.livePillDot, !live && styles.livePillDotOff]} />
-        <Text style={[styles.livePillText, live ? styles.livePillTextOn : styles.livePillTextOff]}>
+    <View style={[styles.azanControls, prominent && styles.azanControlsProminent]}>
+      <View
+        style={[
+          styles.livePill,
+          live ? styles.livePillOn : styles.livePillOff,
+          prominent && styles.livePillProminent,
+        ]}>
+        <View style={[styles.livePillDot, prominent && styles.livePillDotProminent, !live && styles.livePillDotOff]} />
+        <Text
+          style={[
+            styles.livePillText,
+            prominent && styles.livePillTextProminent,
+            live ? styles.livePillTextOn : styles.livePillTextOff,
+          ]}>
           {t('mosque.live')}
         </Text>
       </View>
 
       <Pressable
         disabled={!live}
-        hitSlop={8}
-        onPress={() => {
-          void toggleLiveAzan(mosqueId, sessionKey).catch((e) => {
-            Alert.alert('Live azan', e instanceof Error ? e.message : 'Could not play live azan')
-          })
-        }}
+        hitSlop={6}
+        onPress={onToggle}
         accessibilityRole="button"
         accessibilityLabel={isPlaying ? 'Pause azan' : 'Play azan'}
-        style={[styles.speakerBtn, live ? styles.speakerBtnOn : styles.speakerBtnOff]}>
-        <Ionicons name={iconName} size={13} color={live ? '#ffffff' : colors.textMuted} />
+        style={[
+          styles.speakerBtn,
+          prominent && styles.speakerBtnProminent,
+          live ? styles.speakerBtnOn : styles.speakerBtnOff,
+        ]}>
+        <Ionicons name={iconName} size={prominent ? 20 : 13} color={live ? '#ffffff' : colors.textMuted} />
       </Pressable>
     </View>
   )
@@ -154,6 +257,8 @@ export function MosqueTimingsGrid({
   dense = false,
   currentAndNext = false,
   nextPrayer,
+  prominent = false,
+  omitControls = false,
 }: {
   mosque: Mosque
   currentPrayer?: PrayerName | null
@@ -161,6 +266,8 @@ export function MosqueTimingsGrid({
   dense?: boolean
   currentAndNext?: boolean
   nextPrayer?: PrayerName
+  prominent?: boolean
+  omitControls?: boolean
 }) {
   const styles = useStyles()
   const gridStyles = useTimingGridStyles()
@@ -172,6 +279,8 @@ export function MosqueTimingsGrid({
         mosque={mosque}
         currentPrayer={currentPrayer}
         nextPrayer={nextPrayer}
+        prominent={prominent}
+        omitControls={omitControls}
       />
     )
   }
@@ -286,6 +395,7 @@ export function MosqueTimingsTable({
 
 const useStyles = makeStyles(({ colors }) => ({
   currentBlock: { marginTop: 4, gap: 2 },
+  currentBlockProminent: { marginTop: 0, gap: 6, flex: 1 },
   // Matches the mosque name header's family/weight (Poppins_500Medium).
   currentPrayerName: {
     fontSize: 13,
@@ -321,6 +431,11 @@ const useStyles = makeStyles(({ colors }) => ({
     gap: 6,
     marginLeft: 6,
   },
+  azanControlsProminent: {
+    marginLeft: 0,
+    marginTop: 4,
+    gap: 8,
+  },
   livePill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -355,6 +470,17 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   livePillTextOn: { color: colors.success },
   livePillTextOff: { color: colors.textMuted },
+  livePillProminent: {
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 40,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+    backgroundColor: colors.surface2,
+  },
+  livePillDotProminent: { width: 8, height: 8, borderRadius: 4 },
+  livePillTextProminent: { fontSize: 12, letterSpacing: 0.6 },
   speakerBtn: {
     width: 24,
     height: 24,
@@ -370,6 +496,53 @@ const useStyles = makeStyles(({ colors }) => ({
   speakerBtnOff: {
     backgroundColor: 'rgba(148,163,184,0.14)',
     borderColor: colors.border,
+  },
+  speakerBtnProminent: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  playWrap: {
+    width: 64,
+    height: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playRing: {
+    position: 'absolute',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#e11d48',
+  },
+  playBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playBtnLive: { backgroundColor: '#e11d48' },
+  playBtnIdle: { backgroundColor: colors.selectedBg },
+  playGlyph: { marginLeft: 3 },
+  liveCombined: {
+    width: 84,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+  },
+  liveCombinedOn: { backgroundColor: colors.success },
+  liveCombinedOff: { backgroundColor: colors.surface2 },
+  liveCombinedDotOn: { backgroundColor: '#fff' },
+  liveCombinedTextOn: { color: '#fff' },
+  liveCombinedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   gridMargin: { marginTop: 12 },
   gridCompactMargin: { marginTop: 10 },

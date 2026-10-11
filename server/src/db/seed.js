@@ -12,6 +12,7 @@ const PRAYER_NAMES = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']
 const SEED_ADMIN_ID = 'a0000000-0000-4000-8000-000000000001'
 const SEED_MANAGER_ID = 'a1111111-1111-4111-8111-111111111111'
 const SEED_KHAIRUL_MANAGER_ID = 'a2222222-2222-4222-8222-222222222222'
+const SEED_APP_USER_ID = 'a3333333-3333-4333-8333-333333333333'
 
 const DEFAULT_TIMINGS = {
   Fajr: { start: '4:55 AM', azan: '4:55 AM', jamat: '5:10 AM', end: '5:40 AM' },
@@ -156,6 +157,23 @@ async function seed() {
     )
     console.log('Admin user:', adminEmail, '| mobile login:', adminMobile)
 
+    const appUserMobile = String(process.env.SEED_USER_MOBILE || '6666666666').replace(/\D/g, '')
+    const appUserPassword = process.env.SEED_USER_PASSWORD || 'User@12345'
+    const appUserName = process.env.SEED_USER_NAME || 'Demo User'
+    const appUserHash = await bcrypt.hash(appUserPassword, 10)
+    const appUserEmail = `user_${appUserMobile}@app.praynow.local`
+    await client.query(
+      `INSERT INTO users (id, email, password_hash, full_name, mobile, role)
+       VALUES ($1, $2, $3, $4, $5, 'app_user')
+       ON CONFLICT (email) DO UPDATE SET
+         password_hash = EXCLUDED.password_hash,
+         full_name = EXCLUDED.full_name,
+         mobile = COALESCE(EXCLUDED.mobile, users.mobile),
+         role = 'app_user'`,
+      [SEED_APP_USER_ID, appUserEmail, appUserHash, appUserName, appUserMobile],
+    )
+    console.log('Normal user mobile login:', appUserMobile, '| password:', appUserPassword)
+
     await client.query(
       `INSERT INTO city_settings (
          id, city, country, lat, lng, zawal_start, zawal_end, sunrise, fajr_namaz_end,
@@ -250,13 +268,15 @@ async function seed() {
       ])
       managerId = existing.rows[0]?.id
     }
-    // Demo mosque admin can manage every seeded mosque (any mosque in the city seed set)
+    // Demo mosque admin controls one mosque only.
     if (managerId) {
-      const { rows: allMosques } = await client.query(`SELECT id FROM mosques`)
-      for (const row of allMosques) {
+      const { rows: assigned } = await client.query(
+        `SELECT id, name FROM mosques WHERE legacy_id = '1' LIMIT 1`,
+      )
+      if (assigned[0]?.id) {
         await client.query(
           `INSERT INTO mosque_assignments (user_id, mosque_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-          [managerId, row.id],
+          [managerId, assigned[0].id],
         )
       }
       console.log(
@@ -264,7 +284,8 @@ async function seed() {
         managerMobile,
         '| password:',
         managerPassword,
-        `| assigned ${allMosques.length} mosque(s)`,
+        '| mosque:',
+        assigned[0]?.name || 'none',
       )
     } else {
       console.warn('Could not create demo mosque admin user')

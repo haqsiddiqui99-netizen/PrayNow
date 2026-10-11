@@ -43,9 +43,15 @@ CREATE TABLE IF NOT EXISTS mosques (
   juma_sessions    TEXT,
   sermon_language  VARCHAR(128),
   facilities       TEXT[] NOT NULL DEFAULT '{}',
+  facility_options TEXT[] NOT NULL DEFAULT '{}',
   events           TEXT[] NOT NULL DEFAULT '{}',
   photos           TEXT[] NOT NULL DEFAULT '{}',
   capacity         INTEGER NOT NULL DEFAULT 500,
+  taraweeh_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  taraweeh_start   VARCHAR(16) NOT NULL DEFAULT '8:45 PM',
+  taraweeh_nights  INTEGER NOT NULL DEFAULT 27,
+  taraweeh_rakahs  INTEGER NOT NULL DEFAULT 20,
+  taraweeh_night   INTEGER NOT NULL DEFAULT 1,
   is_active        BOOLEAN NOT NULL DEFAULT TRUE,
   mic_enabled      BOOLEAN NOT NULL DEFAULT TRUE,
   stream_url       VARCHAR(512),
@@ -190,19 +196,36 @@ CREATE TABLE IF NOT EXISTS notifications (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   mosque_id   UUID REFERENCES mosques(id) ON DELETE SET NULL,
-  type        VARCHAR(32) NOT NULL CHECK (type IN ('timings', 'announcement')),
+  type        VARCHAR(32) NOT NULL CHECK (type IN ('timings', 'announcement', 'azan_alert', 'facilities')),
   title       VARCHAR(255) NOT NULL,
   body        TEXT NOT NULL DEFAULT '',
+  voice_note_id UUID,
   read_at     TIMESTAMPTZ,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
+
+-- Voice notes a mosque admin attaches to a message for subscribers.
+CREATE TABLE IF NOT EXISTS mosque_voice_notes (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  mosque_id   UUID NOT NULL REFERENCES mosques(id) ON DELETE CASCADE,
+  mime        VARCHAR(64) NOT NULL DEFAULT 'audio/mp4',
+  audio       TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id) WHERE read_at IS NULL;
 
 -- Multi imam / mo'azzin (idempotent for existing databases)
 ALTER TABLE mosques ADD COLUMN IF NOT EXISTS imams JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE mosques ADD COLUMN IF NOT EXISTS moazzins JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE mosques ADD COLUMN IF NOT EXISTS facility_options TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE mosques ADD COLUMN IF NOT EXISTS taraweeh_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE mosques ADD COLUMN IF NOT EXISTS taraweeh_start VARCHAR(16) NOT NULL DEFAULT '8:45 PM';
+ALTER TABLE mosques ADD COLUMN IF NOT EXISTS taraweeh_nights INTEGER NOT NULL DEFAULT 27;
+ALTER TABLE mosques ADD COLUMN IF NOT EXISTS taraweeh_rakahs INTEGER NOT NULL DEFAULT 20;
+ALTER TABLE mosques ADD COLUMN IF NOT EXISTS taraweeh_night INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS voice_note_id UUID;
 
 -- A signed-in user asks for a mosque to be added; an app admin approves or rejects.
 -- Approving copies the request into mosques and records the new id here.

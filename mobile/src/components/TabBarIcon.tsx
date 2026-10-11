@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
 import type { ColorValue } from 'react-native'
 import { useTheme } from '@/src/context/ThemeContext'
 
-export type TabBarIconName = 'home' | 'ai' | 'mosque' | 'azan' | 'more'
+export type TabBarIconName = 'home' | 'ai' | 'mosque' | 'azan' | 'more' | 'manage'
 
 type TabBarIconProps = {
   name: TabBarIconName
@@ -38,6 +38,14 @@ export function TabBarIcon({ name, focused, color, size = 24 }: TabBarIconProps)
       return <Ionicons name={focused ? 'radio' : 'radio-outline'} size={size} color={iconColor} />
     case 'more':
       return <Ionicons name={focused ? 'menu' : 'menu-outline'} size={size} color={iconColor} />
+    case 'manage':
+      return (
+        <MaterialCommunityIcons
+          name={focused ? 'shield-account' : 'shield-account-outline'}
+          size={size}
+          color={iconColor}
+        />
+      )
     default:
       return null
   }

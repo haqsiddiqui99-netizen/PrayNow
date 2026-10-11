@@ -75,7 +75,7 @@ export default function MyMosquesScreen() {
       <Text style={styles.lead}>
         {isAppAdmin(user)
           ? 'All mosques — open one for Azan & Prayer Timings dashboards.'
-          : 'Your mosques — open Azan or Timings for each mosque.'}
+          : 'Mosques assigned to you. For each one you can give azan, edit the mosque, and publish announcements.'}
       </Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -115,14 +115,14 @@ export default function MyMosquesScreen() {
               </Pressable>
               <View style={styles.actions}>
                 <Pressable
-                  style={styles.actionBtn}
+                  style={[styles.actionBtn, styles.actionAzan]}
                   onPress={() => router.push(`/admin/mosque/${m.id}/azan`)}>
-                  <Text style={styles.actionText}>Azan Dashboard</Text>
+                  <Text style={styles.actionText}>Azan dashboard</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.actionBtn, styles.actionBtnSecondary]}
+                  style={[styles.actionBtn, styles.actionTime]}
                   onPress={() => router.push(`/admin/mosque/${m.id}/timings`)}>
-                  <Text style={[styles.actionText, styles.actionTextSecondary]}>Prayer Timings</Text>
+                  <Text style={styles.actionText}>Edit prayer times</Text>
                 </Pressable>
               </View>
             </View>
@@ -173,16 +173,13 @@ const useStyles = makeStyles(({ colors }) => ({
   actions: { flexDirection: 'row', gap: 8, marginTop: 12 },
   actionBtn: {
     flex: 1,
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 12,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  actionBtnSecondary: {
-    backgroundColor: colors.surface0,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  actionText: { color: '#fff', fontWeight: '800', fontSize: 12 },
-  actionTextSecondary: { color: colors.primary },
+  actionAzan: { backgroundColor: colors.success },
+  actionTime: { backgroundColor: colors.primary },
+  actionText: { color: '#fff', fontWeight: '800', fontSize: 13, textAlign: 'center' },
 }))

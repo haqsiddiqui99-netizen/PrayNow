@@ -49,6 +49,7 @@ const en = {
   'tabs.ai': 'AI',
   'tabs.mosques': 'Mosques',
   'tabs.azan': 'Azan',
+  'tabs.myMosque': 'My mosque',
   'tabs.more': 'More',
 
   'timings.sunrise': 'Sunrise',
@@ -246,6 +247,7 @@ const hi: Record<TranslationKey, string> = {
   'tabs.ai': 'एआई',
   'tabs.mosques': 'मस्जिद',
   'tabs.azan': 'अज़ान',
+  'tabs.myMosque': 'मेरी मस्जिद',
   'tabs.more': 'अधिक',
 
   'timings.sunrise': 'सूर्योदय',
@@ -440,6 +442,7 @@ const ur: Record<TranslationKey, string> = {
   'tabs.ai': 'اے آئی',
   'tabs.mosques': 'مسجدیں',
   'tabs.azan': 'اذان',
+  'tabs.myMosque': 'میری مسجد',
   'tabs.more': 'مزید',
 
   'timings.sunrise': 'طلوعِ آفتاب',
@@ -634,6 +637,7 @@ const ar: Record<TranslationKey, string> = {
   'tabs.ai': 'المساعد',
   'tabs.mosques': 'المساجد',
   'tabs.azan': 'الأذان',
+  'tabs.myMosque': 'مسجدي',
   'tabs.more': 'المزيد',
 
   'timings.sunrise': 'الشروق',

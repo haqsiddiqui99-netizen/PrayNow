@@ -7,6 +7,7 @@ import { FacilitiesLine } from '@/src/components/FacilitiesLine'
 import { MosqueAnnouncementsSection } from '@/src/components/MosqueAnnouncementsSection'
 import { MosqueFridaySection } from '@/src/components/MosqueFridaySection'
 import { MosqueStaffContactsRow } from '@/src/components/MosqueStaffContactsRow'
+import { MosqueTabCard } from '@/src/components/MosqueTabCard'
 import { GoogleMapsButton } from '@/src/components/GoogleMapsButton'
 import { MosqueNotifyToggle } from '@/src/components/MosqueNotifyToggle'
 import { MosqueTimingsGrid } from '@/src/components/MosqueTimingsGrid'
@@ -58,6 +59,7 @@ export function MosqueCard({
   const cardStyle = ({ pressed }: { pressed: boolean }) => [
     styles.card,
     homeCompact && styles.cardHomeCompact,
+    (explore || homeCompact) && styles.cardExplore,
     compact && styles.cardCompact,
     staticCard && styles.cardStatic,
     !staticCard && onPress && pressed && styles.cardPressed,
@@ -66,54 +68,20 @@ export function MosqueCard({
 
   const body = (
     <>
-      <View style={[styles.accentBar, { backgroundColor: accentColor }]} />
+      {homeCompact || explore ? null : <View style={[styles.accentBar, { backgroundColor: accentColor }]} />}
 
-      <View style={[styles.body, compact && styles.bodyCompact]}>
+      <View style={[styles.body, compact && styles.bodyCompact, homeCompact && styles.bodyHome, (explore || homeCompact) && styles.bodyExplore]}>
         {explore ? (
           <>
-            <View style={styles.exploreHeader}>
-              <View style={styles.exploreTitleBlock}>
-                <Text style={styles.name} numberOfLines={2}>
-                  {placeName(mosque.name)}
-                </Text>
-                <Text style={[styles.address, styles.addressCompact]} numberOfLines={2}>
-                  {placeName(mosque.address)}
-                </Text>
-                {/* Wrapped rather than the single scrolling line elsewhere, so every
-                 * facility shows at once instead of needing a horizontal swipe. */}
-                <View
-                  {...(Platform.OS === 'web'
-                    ? { onMouseDown: (e: { stopPropagation?: () => void }) => e.stopPropagation?.() }
-                    : {})}>
-                  <FacilitiesLine
-                    facilities={mosque.facilities}
-                    capacity={mosque.capacity}
-                    hintBackgroundColor={colors.surface2}
-                    multiline
-                    bare
-                  />
-                </View>
-              </View>
-              <View style={styles.exploreNotify}>
-                <MosqueNotifyToggle mosqueId={mosque.id} />
-                <GoogleMapsButton
-                  mosque={mosque}
-                  travelMode={travelMode}
-                  caption={formatDistance(mosque.distance)}
-                  light
-                  style={styles.exploreMapsBtn}
-                />
-              </View>
+            <MosqueTabCard mosque={mosque} travelMode={travelMode} />
+            <View style={styles.exploreFollow}>
+              <MosqueFridaySection mosque={mosque} />
+              <MosqueAnnouncementsSection mosque={mosque} />
+              {showStaffContacts ? <MosqueStaffContactsRow mosque={mosque} /> : null}
             </View>
-            <MosqueTimingsGrid
-              mosque={mosque}
-              currentPrayer={currentPrayer?.name ?? null}
-              compact
-              dense
-            />
-            <MosqueFridaySection mosque={mosque} />
-            <MosqueAnnouncementsSection mosque={mosque} />
           </>
+        ) : homeCompact ? (
+          <MosqueTabCard mosque={mosque} travelMode={travelMode} />
         ) : (
           <View style={styles.topRow}>
             {!compact && (
@@ -143,26 +111,21 @@ export function MosqueCard({
               )}
             </View>
 
-            <View style={[styles.sideCol, compact && styles.sideColCompact]}>
+            <View style={styles.sideCol}>
               <View style={styles.notifyBlock}>
                 <MosqueNotifyToggle mosqueId={mosque.id} />
               </View>
-              <View style={[styles.sideDivider, compact && styles.sideDividerCompact]} />
+              <View style={styles.sideDivider} />
               <GoogleMapsButton
                 mosque={mosque}
                 travelMode={travelMode}
-                caption={
-                  compact
-                    ? formatDistance(mosque.distance)
-                    : `${travelMinutes} ${t('units.min')}`
-                }
-                light={compact}
+                caption={`${travelMinutes} ${t('units.min')}`}
               />
             </View>
           </View>
         )}
 
-        {explore ? null : compact ? (
+        {explore || homeCompact ? null : compact ? (
           <View
             style={styles.facilitiesWrap}
             {...(Platform.OS === 'web'
@@ -208,7 +171,7 @@ export function MosqueCard({
           </>
         )}
 
-        {showStaffContacts && <MosqueStaffContactsRow mosque={mosque} />}
+        {!explore && showStaffContacts && <MosqueStaffContactsRow mosque={mosque} />}
 
         {showContact && !showStaffContacts && (
           <View style={[styles.contactRow, compact && styles.contactRowCompact]}>
@@ -266,7 +229,7 @@ export function MosqueCard({
   )
 }
 
-const useStyles = makeStyles(({ colors, shadows }) => ({
+const useStyles = makeStyles(({ colors, shadows, mode }) => ({
   card: {
     backgroundColor: colors.surface2,
     borderRadius: radius.lg,
@@ -278,7 +241,21 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
     alignSelf: 'stretch',
     ...shadows.card,
   },
-  cardHomeCompact: { marginBottom: 10 },
+  cardHomeCompact: { marginBottom: 14, borderRadius: 28 },
+  cardExplore: {
+    backgroundColor: mode === 'dark' ? '#122027' : '#FFFFFF',
+    borderRadius: 28,
+    borderColor: mode === 'dark' ? '#24343A' : '#E3E8EF',
+    marginBottom: 16,
+    flexDirection: 'column',
+    shadowColor: '#0E2A2A',
+    shadowOpacity: mode === 'dark' ? 0.28 : 0.1,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 3,
+  },
+  bodyExplore: { padding: 0 },
+  exploreFollow: { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
   cardCompact: { marginBottom: 8 },
   cardStatic: { marginBottom: 0 },
   cardPressed: { opacity: 0.94, transform: [{ scale: 0.992 }] },
@@ -304,6 +281,7 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
   accentBar: { width: 4 },
   body: { flex: 1, minWidth: 0, padding: 14, paddingLeft: 12 },
   bodyCompact: { padding: 10, paddingLeft: 10 },
+  bodyHome: { paddingTop: 12, paddingHorizontal: 12, paddingBottom: 0 },
   exploreHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -317,6 +295,11 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
     width: 72,
     flexShrink: 0,
   },
+  exploreActions: {
+    alignItems: 'flex-end',
+    gap: 8,
+    flexShrink: 0,
+  },
   exploreNotifyLabel: {
     fontSize: 8,
     fontWeight: '700',
@@ -327,6 +310,43 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
   exploreMapsBtn: {
     alignSelf: 'center',
     minWidth: 44,
+  },
+  homeHead: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  homeNotify: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+    paddingLeft: 8,
+    paddingRight: 6,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface1,
+  },
+  homeFacilities: {
+    alignSelf: 'stretch',
+    marginTop: 2,
+  },
+  homeName: { flex: 1 },
+  homePrayer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
+    marginHorizontal: -12,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 12,
+    backgroundColor: mode === 'dark' ? '#3a3228' : '#f6efe4',
+  },
+  homePrayerMain: {
+    flex: 1,
+    minWidth: 0,
+    gap: 8,
   },
   topRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
   avatar: {

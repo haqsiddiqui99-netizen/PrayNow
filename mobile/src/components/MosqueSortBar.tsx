@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import {
   LayoutChangeEvent,
   NativeScrollEvent,
@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { ScrollRevealRow } from '@/src/components/ScrollRevealRow'
 import { radius } from '@/src/constants/theme'
 import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
@@ -19,15 +20,23 @@ export function MosqueSortBar({
   value,
   onChange,
   compact = false,
+  fullWidth = false,
   hintBackgroundColor,
   modes,
+  trailing,
+  showIcons = true,
 }: {
   value: MosqueSortMode
   onChange: (mode: MosqueSortMode) => void
   compact?: boolean
+  /** One scrolling line of pills, with a chevron at each end. */
+  fullWidth?: boolean
   hintBackgroundColor?: string
   /** Subset of sort chips to offer; omit for all of them. */
   modes?: ReadonlyArray<MosqueSortMode>
+  trailing?: ReactNode
+  /** Icon beside each label. Off when the labels need to stay on one line. */
+  showIcons?: boolean
 }) {
   const styles = useStyles()
   const { colors } = useTheme()
@@ -66,6 +75,29 @@ export function MosqueSortBar({
     refreshHints(scrollX, viewportWidth, width)
   }
 
+  if (fullWidth) {
+    return (
+      <ScrollRevealRow label="sort options">
+        {options.map(({ id, labelKey }) => {
+          const active = value === id
+          return (
+            <Pressable
+              key={id}
+              style={[styles.chip, styles.chipFixed, active && styles.chipActive]}
+              onPress={() => onChange(id)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}>
+              <Text style={[styles.chipText, styles.chipTextFull, active && styles.chipTextActive]} numberOfLines={1}>
+                {t(labelKey)}
+              </Text>
+            </Pressable>
+          )
+        })}
+        {trailing}
+      </ScrollRevealRow>
+    )
+  }
+
   return (
     <View style={[styles.wrap, compact && styles.wrapCompact]}>
       {!compact && <Text style={styles.label}>{t('sort.label')}</Text>}
@@ -86,11 +118,13 @@ export function MosqueSortBar({
                 key={id}
                 style={[styles.chip, compact && styles.chipCompact, active && styles.chipActive]}
                 onPress={() => onChange(id)}>
-                <Ionicons
-                  name={icon}
-                  size={compact ? 11 : 14}
-                  color={active ? colors.selectedText : colors.textMuted}
-                />
+                {showIcons ? (
+                  <Ionicons
+                    name={icon}
+                    size={16}
+                    color={active ? colors.selectedText : colors.textMuted}
+                  />
+                ) : null}
                 <Text
                   style={[styles.chipText, compact && styles.chipTextCompact, active && styles.chipTextActive]}>
                   {t(labelKey)}
@@ -98,6 +132,7 @@ export function MosqueSortBar({
               </Pressable>
             )
           })}
+          {trailing}
         </ScrollView>
 
         {showLeftHint ? (
@@ -120,9 +155,11 @@ export function MosqueSortBar({
 
 const useStyles = makeStyles(({ colors }) => ({
   wrap: { marginTop: 12 },
-  wrapCompact: { marginTop: 0, flex: 1, minWidth: 0 },
+  wrapCompact: { marginTop: 0, width: '100%', minWidth: 0 },
   scrollShell: {
     position: 'relative',
+    minWidth: 0,
+    overflow: 'hidden',
   },
   scrollShellCompact: {
     flex: 1,
@@ -139,31 +176,31 @@ const useStyles = makeStyles(({ colors }) => ({
     marginBottom: 8,
   },
   row: { paddingHorizontal: 16, gap: 8 },
-  rowCompact: { paddingHorizontal: 0, gap: 4, paddingRight: 4 },
+  rowCompact: { paddingHorizontal: 0, gap: 6, paddingRight: 2 },
+  chipFixed: { flexGrow: 0, flexShrink: 0, justifyContent: 'center' },
+  chipTextFull: { fontSize: 13, textAlign: 'center' },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderRadius: radius.pill,
     backgroundColor: colors.surface2,
     borderWidth: 1,
     borderColor: colors.border,
   },
   chipCompact: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    gap: 3,
-    backgroundColor: 'transparent',
-    borderColor: 'transparent',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 6,
   },
   chipActive: {
     backgroundColor: colors.selectedBg,
     borderColor: colors.selectedBg,
   },
-  chipText: { fontSize: 12, fontWeight: '700', color: colors.textSecondary },
-  chipTextCompact: { fontSize: 10, fontWeight: '600', color: colors.textSecondary },
+  chipText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
+  chipTextCompact: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
   chipTextActive: { color: colors.selectedText, fontWeight: '700' },
   edgeHint: {
     position: 'absolute',
@@ -181,7 +218,11 @@ const useStyles = makeStyles(({ colors }) => ({
     right: 0,
   },
   edgeFade: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     opacity: 0.94,
   },
   // `pointerEvents` as a prop is deprecated on web; `style.pointerEvents` replaces it.

@@ -74,33 +74,24 @@ function RadiusChipRow({
   }
 
   return (
-    <View style={styles.chipScrollWrap}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.chipScroll}
-        contentContainerStyle={[styles.chipRow, compact && styles.chipRowCompact]}
-        keyboardShouldPersistTaps="handled"
-        nestedScrollEnabled>
-        {MOSQUE_RADIUS_STOPS.map((stop) => {
-          const selected = value === stop.value
-          return (
-            <Pressable
-              key={String(stop.value)}
-              style={[styles.chip, compact && styles.chipCompact, selected && styles.chipActive]}
-              onPress={() => onChange(stop.value)}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              accessibilityLabel={stopA11y(stop.value)}>
-              <Text
-                style={[styles.chipText, compact && styles.chipTextCompact, selected && styles.chipTextActive]}>
-                {stopLabel(stop.value)}
-              </Text>
-            </Pressable>
-          )
-        })}
-      </ScrollView>
-    </View>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+      {MOSQUE_RADIUS_STOPS.map((stop) => {
+        const selected = value === stop.value
+        return (
+          <Pressable
+            key={String(stop.value)}
+            style={[styles.chip, selected && styles.chipActive]}
+            onPress={() => onChange(stop.value)}
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
+            accessibilityLabel={stopA11y(stop.value)}>
+            <Text style={[styles.chipText, selected && styles.chipTextActive]} numberOfLines={1}>
+              {stopLabel(stop.value)}
+            </Text>
+          </Pressable>
+        )
+      })}
+    </ScrollView>
   )
 }
 
@@ -432,18 +423,17 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   chipRow: {
     flexDirection: 'row',
-    gap: 5,
+    alignItems: 'center',
+    gap: 8,
     paddingVertical: 2,
-    paddingRight: 4,
   },
   chipRowCompact: {
-    gap: 4,
+    gap: 8,
   },
+  chipFixed: { flexGrow: 0, flexShrink: 0 },
   chip: {
-    minWidth: 56,
-    minHeight: 32,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.border,
@@ -452,24 +442,22 @@ const useStyles = makeStyles(({ colors }) => ({
     justifyContent: 'center',
   },
   chipCompact: {
-    minWidth: 0,
-    minHeight: 24,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
   chipActive: {
     backgroundColor: colors.selectedBg,
     borderColor: colors.selectedBg,
   },
   chipText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     color: colors.textSecondary,
     textAlign: 'center',
   },
   chipTextCompact: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     textAlign: 'center',
   },
   chipTextActive: {

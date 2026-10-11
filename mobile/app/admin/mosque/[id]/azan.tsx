@@ -12,7 +12,7 @@ import { radius } from '@/src/constants/theme'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { useAzanBroadcast } from '@/src/hooks/useAzanBroadcast'
 import { fetchManagerMosques } from '@/src/services/api'
-import { subscribeLiveSessions } from '@/src/store/liveAzanSessions'
+import { getLiveSession, refreshLiveSessions, subscribeLiveSessions } from '@/src/store/liveAzanSessions'
 import type { Mosque, PrayerName } from '@/src/types'
 
 const PRAYERS: PrayerName[] = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']
@@ -24,6 +24,7 @@ export default function AzanDashboardScreen() {
   const [mosque, setMosque] = useState<Mosque | null>(null)
   const [loading, setLoading] = useState(true)
   const broadcast = useAzanBroadcast(id ? String(id) : undefined)
+  const [listeners, setListeners] = useState(0)
 
   const load = useCallback(async () => {
     broadcast.setError('')
@@ -43,8 +44,18 @@ export default function AzanDashboardScreen() {
     useCallback(() => {
       setLoading(true)
       void load()
-      return subscribeLiveSessions(() => void broadcast.syncLive())
-    }, [broadcast.syncLive, load]),
+      const readCount = () => setListeners(getLiveSession(String(id))?.listeners ?? 0)
+      readCount()
+      const unsub = subscribeLiveSessions(() => {
+        void broadcast.syncLive()
+        readCount()
+      })
+      const timer = setInterval(() => void refreshLiveSessions(), 5000)
+      return () => {
+        unsub()
+        clearInterval(timer)
+      }
+    }, [broadcast.syncLive, id, load]),
   )
 
   if (loading) {
@@ -79,7 +90,7 @@ export default function AzanDashboardScreen() {
             <Text style={styles.statusTitle}>{broadcast.live ? 'ON AIR' : 'Offline'}</Text>
             <Text style={styles.statusMeta}>
               {broadcast.live
-                ? `Broadcasting · ${mm}:${ss}`
+                ? `Broadcasting · ${mm}:${ss} · ${listeners} listening`
                 : 'Not broadcasting — start when azan begins'}
             </Text>
           </View>
@@ -105,7 +116,7 @@ export default function AzanDashboardScreen() {
         <>
           <Text style={styles.label}>Prayer (optional)</Text>
           <View style={styles.prayerRow}>
-            {PRAYERS.map((p) => {
+            {(mosque.taraweeh?.enabled ? [...PRAYERS, 'Taraweeh' as const] : PRAYERS).map((p) => {
               const on = broadcast.prayer === p
               return (
                 <Pressable

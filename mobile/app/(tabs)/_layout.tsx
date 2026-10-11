@@ -5,6 +5,7 @@ import { TabBarBackground } from '@/src/components/TabBarBackground'
 import { SeparatedTabBarButton } from '@/src/components/SeparatedTabBarButton'
 import { TabBarIcon, type TabBarIconName } from '@/src/components/TabBarIcon'
 import { useAuth } from '@/src/context/AuthContext'
+import { isMosqueAdmin } from '@/src/utils/roles'
 import { useLanguage } from '@/src/context/LanguageContext'
 import { TAB_BAR_HEIGHT, tabBarBottomPadding } from '@/src/constants/layout'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
@@ -28,7 +29,7 @@ export default function TabLayout() {
   const styles = useStyles()
   const { colors } = useTheme()
   const insets = useSafeAreaInsets()
-  const { isReady, isAuthenticated } = useAuth()
+  const { isReady, isAuthenticated, user } = useAuth()
   const { t } = useLanguage()
   const bottomPad = tabBarBottomPadding(insets.bottom)
 
@@ -48,7 +49,7 @@ export default function TabLayout() {
     <Tabs
       initialRouteName="index"
       screenOptions={{
-        tabBarActiveTintColor: colors.tabActive,
+        tabBarActiveTintColor: colors.selectedBg,
         tabBarInactiveTintColor: colors.tabInactive,
         tabBarActiveBackgroundColor: 'transparent',
         tabBarInactiveBackgroundColor: 'transparent',
@@ -93,6 +94,7 @@ export default function TabLayout() {
           title: t('screens.aiTitle'),
           tabBarLabel: t('tabs.ai'),
           tabBarAccessibilityLabel: t('screens.aiTitle'),
+          tabBarHideOnKeyboard: true,
           tabBarIcon: ({ focused, color }) => (
             <TabImageIcon name="ai" focused={focused} color={color} />
           ),
@@ -117,6 +119,18 @@ export default function TabLayout() {
           tabBarAccessibilityLabel: t('screens.azanTitle'),
           tabBarIcon: ({ focused, color }) => (
             <TabImageIcon name="azan" focused={focused} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="my-mosque"
+        options={{
+          title: t('tabs.myMosque'),
+          tabBarLabel: t('tabs.myMosque'),
+          tabBarAccessibilityLabel: t('tabs.myMosque'),
+          href: isMosqueAdmin(user) ? '/my-mosque' : null,
+          tabBarIcon: ({ focused, color }) => (
+            <TabImageIcon name="manage" focused={focused} color={color} />
           ),
         }}
       />
