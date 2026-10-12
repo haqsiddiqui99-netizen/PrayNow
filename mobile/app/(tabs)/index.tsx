@@ -34,7 +34,6 @@ import {
   HOME_NEARBY_PREVIEW_LIMIT,
   type MosqueRadiusKm,
 } from '@/src/constants/mosqueRadius'
-import { useAuth } from '@/src/context/AuthContext'
 import { useCityPrayer } from '@/src/context/CityPrayerContext'
 import { useLanguage } from '@/src/context/LanguageContext'
 import { formatHijriDate } from '@/src/utils/hijriDate'
@@ -68,7 +67,6 @@ export default function HomeScreen() {
   const tabBarHeight = useBottomTabBarHeight()
   const scrollRef = useRef<ScrollView>(null)
   const scrollY = useRef(new Animated.Value(0)).current
-  const { user } = useAuth()
   const { t, formatRadius, placeName } = useLanguage()
   const { config: cityPrayer, reload: reloadCityPrayer } = useCityPrayer()
   const {
@@ -178,8 +176,6 @@ export default function HomeScreen() {
       Math.abs(item.lat - location.lat) < 0.02 &&
       Math.abs(item.lng - location.lng) < 0.02,
   )?.id ?? savedLocations[0]?.id ?? null
-
-  const greetingName = user?.name?.trim().split(/\s+/)[0] ?? t('common.guest')
 
   const headerLocationText = locLoading ? t('common.updating') : locationLine
 
@@ -363,7 +359,6 @@ export default function HomeScreen() {
           { transform: [{ translateY: headerTranslateY }] },
         ]}>
         <AppHeader
-          greetingName={greetingName}
           locationText={headerLocationText}
           onPressLocation={() => setCityPickerOpen(true)}
           topInset={insets.top}

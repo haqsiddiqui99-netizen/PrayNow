@@ -44,7 +44,7 @@ export default function NotificationsScreen() {
   if (!user) {
     return (
       <View style={styles.center}>
-        <Text style={styles.emptyTitle}>Sign in to see messages</Text>
+        <Text style={styles.emptyTitle}>Sign in to see notifications</Text>
         <Pressable style={styles.btn} onPress={() => router.push('/login')}>
           <Text style={styles.btnText}>Sign in</Text>
         </Pressable>
@@ -78,7 +78,7 @@ export default function NotificationsScreen() {
           onRefresh={() => void reload()}
           ListEmptyComponent={
             <Text style={styles.empty}>
-              No messages yet. Turn on the notify switch on a mosque to get timing updates and announcements.
+              No notifications yet. Turn on the notify switch on a mosque to get timing updates and announcements.
             </Text>
           }
           renderItem={({ item }) => (

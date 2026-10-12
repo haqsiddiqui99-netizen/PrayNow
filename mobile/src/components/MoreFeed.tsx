@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import { memo, useEffect, useState } from 'react'
+import { useFocusEffect } from 'expo-router'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native'
 import Animated, {
   Easing,
@@ -16,6 +17,8 @@ import { GradientFill } from '@/src/components/GradientFill'
 import { UserMenu } from '@/src/components/UserMenu'
 import { LANGUAGES, type LanguageCode } from '@/src/i18n/translations'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
+import { loadTracker, streakOf } from '@/src/services/prayerTracker'
+import { daysUntil, upcomingEvents } from '@/src/utils/hijriCalendar'
 import { calculateQiblaBearing } from '@/src/utils/qibla'
 
 const F = {
@@ -199,6 +202,9 @@ export function MoreFeed({
   onQibla,
   onAddMosque,
   onMessages,
+  onCalendar,
+  onTracker,
+  onHalal,
 }: {
   topInset: number
   bottomInset: number
@@ -217,6 +223,9 @@ export function MoreFeed({
   onQibla: () => void
   onAddMosque: () => void
   onMessages: () => void
+  onCalendar: () => void
+  onTracker: () => void
+  onHalal: () => void
 }) {
   const styles = useStyles()
   const { mode, setMode } = useTheme()
@@ -226,11 +235,23 @@ export function MoreFeed({
   const violet = dark ? '#9C8FFF' : '#6C5CE7'
   const blue = dark ? '#6DB6F5' : '#2E8FD0'
   const [alerts, setAlerts] = useState(true)
-  const [notify, setNotify] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const bearing = calculateQiblaBearing(lat, lon)
   const languageLabel = LANGUAGES.find((item) => item.code === language)?.nativeLabel ?? 'English'
+  const [streak, setStreak] = useState(0)
+  useFocusEffect(
+    useCallback(() => {
+      void loadTracker().then((store) => setStreak(streakOf(store)))
+    }, []),
+  )
+  const nextEvent = useMemo(() => upcomingEvents(new Date(), 1)[0], [])
+  const calendarSub = !nextEvent
+    ? 'Hijri dates'
+    : daysUntil(nextEvent.date) === 0
+      ? nextEvent.name + ' today'
+      : nextEvent.name + ' in ' + daysUntil(nextEvent.date) + 'd'
+  const trackerSub = streak > 0 ? streak + '-day streak' : 'Daily prayers'
   const showAdmin = showAppAdmin
 
   useEffect(() => {
@@ -313,51 +334,34 @@ export function MoreFeed({
               <Text style={styles.tileSub}>Request a missing mosque with photos and contact</Text>
             </View>
           </Pressable>
-          <Pressable onPress={onMessages} accessibilityRole="button" accessibilityLabel={`Messages, ${unread} unread`} style={[styles.card, styles.tile]}>
+          <Pressable onPress={onMessages} accessibilityRole="button" accessibilityLabel={`Notifications, ${unread} unread`} style={[styles.card, styles.tile]}>
             {unread > 0 ? (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
               </View>
             ) : null}
-            <IconChip icon="message-outline" size={42} bg={dark ? 'rgba(109,182,245,0.16)' : 'rgba(46,143,208,0.12)'} fg={blue} />
+            <IconChip icon="bell-outline" size={42} bg={dark ? 'rgba(109,182,245,0.16)' : 'rgba(46,143,208,0.12)'} fg={blue} />
             <View>
-              <Text style={styles.tileTitle}>Messages</Text>
+              <Text style={styles.tileTitle}>Notifications</Text>
               <Text style={styles.tileSub}>Mosque timing updates and announcements</Text>
             </View>
           </Pressable>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.duration(280).delay(160)} style={[styles.card, styles.soon]}>
-          <View style={styles.soonHead}>
-            <Text style={styles.soonTitle}>Coming soon</Text>
-            <Pressable
-              onPress={() => {
-                const next = !notify
-                setNotify(next)
-                say(next ? "We'll let you know when these launch" : 'Notification off')
-              }}
-              accessibilityRole="switch"
-              accessibilityState={{ checked: notify }}
-              style={[styles.notify, notify && styles.notifyOn]}>
-              <MaterialCommunityIcons name={notify ? 'bell-ring' : 'bell-outline'} size={15} color={notify ? '#FFFFFF' : muted} />
-              <Text style={[styles.notifyText, notify && { color: '#FFFFFF' }]}>{notify ? "You'll be notified" : 'Notify me'}</Text>
+        <Animated.View entering={FadeInDown.duration(280).delay(160)} style={styles.explore}>
+          {(
+            [
+              { icon: 'calendar-month-outline' as const, title: 'Calendar', sub: calendarSub, onPress: onCalendar },
+              { icon: 'checkbox-marked-circle-outline' as const, title: 'Tracker', sub: trackerSub, onPress: onTracker },
+              { icon: 'silverware-fork-knife' as const, title: 'Halal food', sub: 'Kitchens near you', onPress: onHalal },
+            ]
+          ).map((item) => (
+            <Pressable key={item.title} onPress={item.onPress} accessibilityRole="button" style={[styles.card, styles.exploreItem]}>
+              <IconChip icon={item.icon} size={36} bg={dark ? '#1C3330' : '#F3F1EC'} fg={dark ? '#EAF3F0' : '#0F1F2E'} />
+              <Text style={styles.exploreTitle}>{item.title}</Text>
+              <Text style={styles.exploreSub} numberOfLines={2}>{item.sub}</Text>
             </Pressable>
-          </View>
-          <View style={styles.soonGrid}>
-            {(
-              [
-                { icon: 'calendar-month-outline' as const, title: 'Calendar', sub: 'Hijri dates and events' },
-                { icon: 'checkbox-marked-outline' as const, title: 'Tracker', sub: 'Daily prayers' },
-                { icon: 'silverware-fork-knife' as const, title: 'Halal food', sub: 'Restaurants nearby' },
-              ]
-            ).map((item) => (
-              <View key={item.title} style={styles.soonItem}>
-                <IconChip icon={item.icon} size={36} bg={dark ? '#102230' : '#FFFFFF'} fg={muted} />
-                <Text style={styles.soonItemTitle}>{item.title}</Text>
-                <Text style={styles.soonItemSub}>{item.sub}</Text>
-              </View>
-            ))}
-          </View>
+          ))}
         </Animated.View>
 
         <Text style={styles.section}>SETTINGS</Text>
@@ -521,16 +525,10 @@ const useStyles = makeStyles(({ mode }) => {
       zIndex: 2,
     },
     badgeText: { fontFamily: F.heavy, fontSize: 11, color: '#FFFFFF' },
-    soon: { paddingTop: 12, paddingHorizontal: 14, paddingBottom: 14 },
-    soonHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-    soonTitle: { fontFamily: F.display, fontSize: 18, color: ink },
-    notify: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 7, paddingLeft: 10, paddingRight: 12, borderRadius: 999, backgroundColor: tile },
-    notifyOn: { backgroundColor: accent },
-    notifyText: { fontFamily: F.bold, fontSize: 12, color: muted },
-    soonGrid: { flexDirection: 'row', gap: 8, marginTop: 12 },
-    soonItem: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 4, borderRadius: 16, backgroundColor: tile },
-    soonItemTitle: { fontFamily: F.bold, fontSize: 13, color: ink },
-    soonItemSub: { fontFamily: F.body, fontSize: 11, lineHeight: 14, color: muted, textAlign: 'center' },
+    explore: { flexDirection: 'row', gap: 8 },
+    exploreItem: { flex: 1, minHeight: 132, alignItems: 'flex-start', padding: 12, gap: 8, marginBottom: 0 },
+    exploreTitle: { fontFamily: F.bold, fontSize: 14, color: ink },
+    exploreSub: { fontFamily: F.medium, fontSize: 11.5, lineHeight: 15, color: muted },
     section: { marginTop: 8, marginBottom: 8, marginHorizontal: 6, fontFamily: F.bold, fontSize: 12, letterSpacing: 0.4, color: muted },
     settingRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14 },
     settingTitle: { flex: 1, fontFamily: F.semi, fontSize: 15, color: ink },

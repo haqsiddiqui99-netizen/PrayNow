@@ -41,6 +41,9 @@ export default function MoreScreen() {
       onQibla={() => router.push('/(tabs)/qibla')}
       onAddMosque={() => router.push('/submit-mosque')}
       onMessages={() => router.push('/notifications')}
+      onCalendar={() => router.push('/calendar')}
+      onTracker={() => router.push('/tracker')}
+      onHalal={() => router.push('/halal')}
     />
   )
 }

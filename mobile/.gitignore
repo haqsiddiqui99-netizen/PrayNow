@@ -17,6 +17,8 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+# Firebase service-account key (uploaded to Expo, never committed)
+*firebase-adminsdk*.json
 
 # Metro
 .metro-health-check*

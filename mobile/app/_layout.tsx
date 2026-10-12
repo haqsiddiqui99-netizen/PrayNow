@@ -60,8 +60,11 @@ export default function RootLayout() {
                       <Stack.Screen name="mosque/[id]" options={{ headerShown: false }} />
                       <Stack.Screen
                         name="notifications"
-                        options={{ headerShown: true, title: 'Messages' }}
+                        options={{ headerShown: true, title: 'Notifications' }}
                       />
+                      <Stack.Screen name="calendar" options={{ headerShown: false }} />
+                      <Stack.Screen name="tracker" options={{ headerShown: false }} />
+                      <Stack.Screen name="halal" options={{ headerShown: false }} />
                       <Stack.Screen
                         name="submit-mosque"
                         options={{ headerShown: true, title: 'Add a mosque' }}

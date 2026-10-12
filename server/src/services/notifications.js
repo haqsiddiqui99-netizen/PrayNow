@@ -35,45 +35,67 @@ export async function notifyMosqueSubscribers(client, mosqueDbId, payload) {
   )
 
   if (tokens.length) {
-    await sendExpoPush(
+    const dead = await sendExpoPush(
       tokens.map((t) => t.token),
       title,
       body || (voiceNoteId ? 'Voice note from your mosque' : ''),
       { type, mosqueId: mosqueDbId },
     )
+    if (dead.length) {
+      await client
+        .query(`DELETE FROM user_push_tokens WHERE token = ANY($1::text[])`, [dead])
+        .catch((err) => console.warn('[push] token cleanup failed', err instanceof Error ? err.message : err))
+    }
   }
 
   return { notified: subs.length }
 }
 
+/** Expo accepts at most 100 messages per request. */
+const EXPO_PUSH_BATCH = 100
+
+/** Sends the push and resolves with tokens Expo reports as uninstalled. */
 async function sendExpoPush(tokens, title, body, data = {}) {
-  const messages = tokens
+  const messages = [...new Set(tokens)]
     .filter((t) => typeof t === 'string' && t.startsWith('ExponentPushToken'))
     .map((to) => ({
       to,
       sound: 'default',
+      channelId: 'default',
+      priority: 'high',
       title,
       body,
       data,
     }))
 
-  if (!messages.length) return
-
-  try {
-    const res = await fetch('https://exp.host/--/api/v2/push/send', {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Accept-Encoding': 'gzip, deflate',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(messages),
-    })
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      console.warn('[push] Expo push failed', res.status, text.slice(0, 200))
+  const dead = []
+  for (let i = 0; i < messages.length; i += EXPO_PUSH_BATCH) {
+    const batch = messages.slice(i, i + EXPO_PUSH_BATCH)
+    try {
+      const res = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Accept-Encoding': 'gzip, deflate',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(batch),
+      })
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        console.warn('[push] Expo push failed', res.status, text.slice(0, 200))
+        continue
+      }
+      const json = await res.json().catch(() => null)
+      const tickets = Array.isArray(json?.data) ? json.data : []
+      tickets.forEach((ticket, j) => {
+        if (ticket?.status === 'error' && ticket.details?.error === 'DeviceNotRegistered') {
+          dead.push(batch[j].to)
+        }
+      })
+    } catch (err) {
+      console.warn('[push] Expo push error', err instanceof Error ? err.message : err)
     }
-  } catch (err) {
-    console.warn('[push] Expo push error', err instanceof Error ? err.message : err)
   }
+  return dead
 }

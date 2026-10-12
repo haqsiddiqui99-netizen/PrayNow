@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "814718147563",
+    "project_id": "praynow-28e01",
+    "storage_bucket": "praynow-28e01.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:814718147563:android:3d91f6dc5de5fc372b57ae",
+        "android_client_info": {
+          "package_name": "com.praynow.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAh5SymOFkbXml29yXZw0kc_G3Tpk5vxAY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

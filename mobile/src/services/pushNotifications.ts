@@ -8,6 +8,35 @@ function isExpoGo() {
   return Constants.appOwnership === 'expo'
 }
 
+/**
+ * Calls `onOpen` when the user taps a push, including the tap that launched the app.
+ * Returns a cleanup function.
+ */
+export function listenForPushOpens(onOpen: () => void): () => void {
+  if (isExpoGo() || Platform.OS === 'web') return () => {}
+
+  let removed = false
+  let remove: (() => void) | null = null
+
+  void import('expo-notifications')
+    .then(async (Notifications) => {
+      if (removed) return
+      const sub = Notifications.addNotificationResponseReceivedListener(() => onOpen())
+      remove = () => sub.remove()
+      const launch = await Notifications.getLastNotificationResponseAsync()
+      if (launch && !removed) {
+        onOpen()
+        await Notifications.clearLastNotificationResponseAsync?.()
+      }
+    })
+    .catch(() => {})
+
+  return () => {
+    removed = true
+    remove?.()
+  }
+}
+
 /** Request permission and register Expo push token with the API (logged-in users). */
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
   if (isExpoGo()) {
@@ -34,7 +63,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'Mosque updates',
-        importance: Notifications.AndroidImportance.DEFAULT,
+        importance: Notifications.AndroidImportance.HIGH,
       })
     }
 

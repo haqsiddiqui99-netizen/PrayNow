@@ -8,6 +8,7 @@
  *   node server/scripts/fetch-city-mosques-places.mjs Kanpur
  *   node server/scripts/fetch-city-mosques-places.mjs --all
  *   node server/scripts/fetch-city-mosques-places.mjs Mumbai --grid
+ *   node server/scripts/fetch-city-mosques-places.mjs Delhi --force
  *
  * Notes:
  * - Uses Text Search ("mosque" / "masjid" in city) + optional Nearby Search grid.
@@ -224,9 +225,21 @@ function dedupe(places, city) {
   return mosques
 }
 
-async function fetchCity(city, { useGrid }) {
+async function fetchCity(city, { useGrid, force }) {
   const meta = CITY_CATALOG[city]
   if (!meta?.bbox) throw new Error(`No bbox for ${city}`)
+  const out = path.join(DATA_DIR, `${cityIdFromName(city)}-mosques-places.json`)
+  if (!force && fs.existsSync(out)) {
+    const saved = JSON.parse(fs.readFileSync(out, 'utf8'))
+    const count = saved.count ?? saved.mosques?.length ?? 0
+    console.log(`Skip ${city}: already saved (${count} mosques). Pass --force to fetch again.`)
+    return { city, count, out, skipped: true }
+  }
+  if (!API_KEY) {
+    throw new Error(
+      'Missing GOOGLE_PLACES_API_KEY (or GOOGLE_MAPS_API_KEY). Enable Places API (New) in Google Cloud and set the key.',
+    )
+  }
   console.log(`\n=== ${city} (Places) ===`)
 
   const raw = []
@@ -234,7 +247,6 @@ async function fetchCity(city, { useGrid }) {
   if (useGrid) raw.push(...(await searchNearbyGrid(city, meta)))
 
   const mosques = dedupe(raw, city)
-  const out = path.join(DATA_DIR, `${cityIdFromName(city)}-mosques-places.json`)
   const payload = {
     city,
     fetchedAt: new Date().toISOString(),
@@ -251,19 +263,14 @@ async function fetchCity(city, { useGrid }) {
 }
 
 async function main() {
-  if (!API_KEY) {
-    throw new Error(
-      'Missing GOOGLE_PLACES_API_KEY (or GOOGLE_MAPS_API_KEY). Enable Places API (New) in Google Cloud and set the key.',
-    )
-  }
-
   const argv = process.argv.slice(2)
+  const force = argv.includes('--force')
   const useGrid = argv.includes('--grid') || argv.includes('--all')
   const cities = resolveCities(argv)
   const results = []
   for (const city of cities) {
     try {
-      results.push(await fetchCity(city, { useGrid: useGrid || city === 'Kanpur' }))
+      results.push(await fetchCity(city, { useGrid: useGrid || city === 'Kanpur', force }))
     } catch (err) {
       console.error(`FAIL ${city}:`, err instanceof Error ? err.message : err)
       results.push({ city, count: 0, error: String(err) })

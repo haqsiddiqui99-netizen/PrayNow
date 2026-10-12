@@ -42,11 +42,44 @@ import {
 } from 'expo-audio'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { transcribeQuestion } from '@/src/services/islamicChat'
+import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 
 /* ========================================================================== */
 /*  Tokens                                                                     */
 /* ========================================================================== */
-const C = {
+type Palette = {
+  bg: string
+  card: string
+  ink: string
+  text: string
+  muted: string
+  faint: string
+  line: string
+  soft: string
+  v1: string
+  v2: string
+  v3: string
+  badge: string
+  warn: string
+  chip: string
+  chipText: string
+  srcText: string
+  panel: string
+  select: string
+  onSelect: string
+  userBg: string
+  onUser: string
+  sendOff: string
+  onSendOff: string
+  scrim: string
+  voice: string
+  glowA: string
+  glowB: string
+  glowC: string
+  glowOpacity: number
+}
+
+const LIGHT: Palette = {
   bg: '#F5F4F0',
   card: '#FFFFFF',
   ink: '#141414',
@@ -60,6 +93,59 @@ const C = {
   v3: '#5A47D8',
   badge: '#ECE9FF',
   warn: '#B34100',
+  chip: '#FFFFFF',
+  chipText: '#33333B',
+  srcText: '#3A3A44',
+  panel: '#FFFFFF',
+  select: '#141414',
+  onSelect: '#FFFFFF',
+  userBg: '#141414',
+  onUser: '#FFFFFF',
+  sendOff: '#D6D4CE',
+  onSendOff: '#FFFFFF',
+  scrim: 'rgba(20, 16, 40, 0.28)',
+  voice: '#128C7E',
+  glowA: '#9680FF',
+  glowB: '#C4B4FF',
+  glowC: '#FFD6BE',
+  glowOpacity: 0.1,
+}
+
+const DARK: Palette = {
+  bg: '#0C1020',
+  card: '#16182A',
+  ink: '#F6F3EC',
+  text: '#E7E2F4',
+  muted: '#A39BB8',
+  faint: '#7E7694',
+  line: 'rgba(230,224,255,0.12)',
+  soft: '#241F38',
+  v1: '#C4B4FF',
+  v2: '#C4B6FF',
+  v3: '#DDD6FF',
+  badge: 'rgba(179,167,255,0.18)',
+  warn: '#F0B15A',
+  chip: '#1A1830',
+  chipText: '#E8E4F4',
+  srcText: '#E8E4F4',
+  panel: '#141628',
+  select: '#E8E0FF',
+  onSelect: '#1A1433',
+  userBg: '#E8E0FF',
+  onUser: '#1A1433',
+  sendOff: '#2A2740',
+  onSendOff: '#8A84A8',
+  scrim: 'rgba(0, 0, 0, 0.55)',
+  voice: '#C4B6FF',
+  glowA: '#7C5CFF',
+  glowB: '#9B86FF',
+  glowC: '#C47A62',
+  glowOpacity: 0.22,
+}
+
+function useColors() {
+  const { mode } = useTheme()
+  return mode === 'dark' ? DARK : LIGHT
 }
 const F = {
   body: 'Figtree_400Regular',
@@ -82,6 +168,7 @@ function voiceLevel(metering?: number) {
 }
 
 function RecDot() {
+  const styles = useStyles()
   const pulse = useSharedValue(1)
   useEffect(() => {
     pulse.value = withRepeat(
@@ -189,7 +276,9 @@ function toBlocks(text: string): Block[] {
   return out
 }
 
-const Inline = ({ s }: { s: string }) => (
+const Inline = ({ s }: { s: string }) => {
+  const styles = useStyles()
+  return (
   <>
     {s.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
       part.startsWith('**') && part.endsWith('**') && part.length > 4 ? (
@@ -201,9 +290,11 @@ const Inline = ({ s }: { s: string }) => (
       ),
     )}
   </>
-)
+  )
+}
 
 const Rich = memo(function Rich({ text }: { text: string }) {
+  const styles = useStyles()
   const blocks = useMemo(() => toBlocks(text), [text])
   return (
     <View>
@@ -253,6 +344,7 @@ const GlowBlob = memo(function GlowBlob({
   dx,
   dy,
   duration,
+  opacity = 0.1,
 }: {
   size: number
   color: string
@@ -260,6 +352,7 @@ const GlowBlob = memo(function GlowBlob({
   dx: number
   dy: number
   duration: number
+  opacity?: number
 }) {
   const reduce = useReducedMotion()
   const p = useSharedValue(0)
@@ -286,7 +379,7 @@ const GlowBlob = memo(function GlowBlob({
               height: d,
               borderRadius: d / 2,
               backgroundColor: color,
-              opacity: 0.1,
+              opacity,
             }}
           />
         )
@@ -296,11 +389,13 @@ const GlowBlob = memo(function GlowBlob({
 })
 
 const Glow = memo(function Glow() {
+  const styles = useStyles()
+  const colors = useColors()
   return (
     <View pointerEvents="none" style={styles.glow}>
-      <GlowBlob size={380} color="#9680FF" style={{ right: -120, top: -130 }} dx={-26} dy={18} duration={10000} />
-      <GlowBlob size={330} color="#C4B4FF" style={{ left: -130, top: -110 }} dx={30} dy={10} duration={13000} />
-      <GlowBlob size={260} color="#FFD6BE" style={{ left: '28%', top: 10 }} dx={20} dy={-14} duration={15000} />
+      <GlowBlob size={380} color={colors.glowA} opacity={colors.glowOpacity} style={{ right: -120, top: -130 }} dx={-26} dy={18} duration={10000} />
+      <GlowBlob size={330} color={colors.glowB} opacity={colors.glowOpacity} style={{ left: -130, top: -110 }} dx={30} dy={10} duration={13000} />
+      <GlowBlob size={260} color={colors.glowC} opacity={colors.glowOpacity} style={{ left: '28%', top: 10 }} dx={20} dy={-14} duration={15000} />
     </View>
   )
 })
@@ -309,6 +404,7 @@ const Glow = memo(function Glow() {
 /*  Small pieces                                                               */
 /* ========================================================================== */
 const Dot = memo(function Dot({ delay }: { delay: number }) {
+  const styles = useStyles()
   const reduce = useReducedMotion()
   const v = useSharedValue(0)
   useEffect(() => {
@@ -321,6 +417,7 @@ const Dot = memo(function Dot({ delay }: { delay: number }) {
 })
 
 const Dots = memo(function Dots() {
+  const styles = useStyles()
   return (
     <View style={styles.thinking} accessibilityLabel="Thinking">
       <View style={styles.dots}>
@@ -334,13 +431,15 @@ const Dots = memo(function Dots() {
 })
 
 const QuestionLine = memo(function QuestionLine({ q, onPress, last }: { q: string; onPress: (q: string) => void; last?: boolean }) {
+  const styles = useStyles()
+  const colors = useColors()
   return (
     <Pressable
       onPress={() => onPress(q)}
       accessibilityRole="button"
       style={({ pressed }) => [styles.line, !last && styles.lineBorder, pressed && { opacity: 0.6 }]}>
       <Text style={styles.lineText}>{q}</Text>
-      <MaterialCommunityIcons name="arrow-top-right" size={19} color={C.faint} />
+      <MaterialCommunityIcons name="arrow-top-right" size={19} color={colors.faint} />
     </Pressable>
   )
 })
@@ -357,13 +456,15 @@ const AssistantMessage = memo(function AssistantMessage({
   onAsk: (q: string) => void
   onShare: (text: string) => void
 }) {
+  const styles = useStyles()
+  const colors = useColors()
   const { text, sources, follow } = useMemo(() => parseAnswer(msg.text), [msg.text])
   if (msg.status === 'thinking') return <Dots />
   const done = msg.status === 'done'
   return (
     <Animated.View entering={FadeInDown.duration(260)}>
       {msg.status === 'error' ? (
-        <Text style={[styles.ans, { color: C.warn, fontFamily: F.semi }]}>{text || 'Sorry, I couldn’t get an answer just now.'}</Text>
+        <Text style={[styles.ans, { color: colors.warn, fontFamily: F.semi }]}>{text || 'Sorry, I couldn’t get an answer just now.'}</Text>
       ) : (
         <Rich text={text || '…'} />
       )}
@@ -374,7 +475,7 @@ const AssistantMessage = memo(function AssistantMessage({
           <View style={styles.chips}>
             {sources.map((s) => (
               <View key={s} style={styles.srcChip}>
-                <MaterialCommunityIcons name="book-outline" size={15} color={C.v2} />
+                <MaterialCommunityIcons name="book-outline" size={15} color={colors.v2} />
                 <Text style={styles.srcText}>{s}</Text>
               </View>
             ))}
@@ -384,7 +485,7 @@ const AssistantMessage = memo(function AssistantMessage({
 
       {done && (
         <Pressable onPress={() => onShare(text)} accessibilityRole="button" accessibilityLabel="Share answer" style={styles.copy}>
-          <MaterialCommunityIcons name="share-variant-outline" size={16} color={C.muted} />
+          <MaterialCommunityIcons name="share-variant-outline" size={16} color={colors.muted} />
           <Text style={styles.copyText}>Share</Text>
         </Pressable>
       )}
@@ -449,6 +550,8 @@ async function writeChats(chats: SavedChat[]) {
 }
 
 export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuideScreenProps) {
+  const styles = useStyles()
+  const colors = useColors()
   const insets = useSafeAreaInsets()
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [input, setInput] = useState('')
@@ -774,7 +877,7 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
             accessibilityRole="button"
             accessibilityLabel="Chat history"
             style={styles.histBtn}>
-            <MaterialCommunityIcons name="menu" size={22} color={C.v2} />
+            <MaterialCommunityIcons name="menu" size={22} color={colors.v2} />
           </Pressable>
           <View>
             <Text style={styles.brand}>PRAYNOW</Text>
@@ -814,7 +917,7 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
             <Animated.View entering={FadeInDown.duration(180)} style={[styles.sheet, { maxHeight: sheetMax }]}>
               <View style={styles.sheetHead}>
                 <View style={styles.sheetTitle}>
-                  <MaterialCommunityIcons name={topic.icon} size={18} color={C.v2} />
+                  <MaterialCommunityIcons name={topic.icon} size={18} color={colors.v2} />
                   <Text style={styles.sheetTitleText}>{topic.name}</Text>
                 </View>
                 <Pressable
@@ -825,7 +928,7 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
                   accessibilityRole="button"
                   accessibilityLabel="Close"
                   style={styles.sheetX}>
-                  <MaterialCommunityIcons name="close" size={16} color={C.muted} />
+                  <MaterialCommunityIcons name="close" size={16} color={colors.muted} />
                 </Pressable>
               </View>
               <ScrollView showsVerticalScrollIndicator={false}>
@@ -850,8 +953,8 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
                   accessibilityRole="button"
                   accessibilityState={{ selected: on }}
                   style={[styles.tp, on && styles.tpOn]}>
-                  <MaterialCommunityIcons name={t.icon} size={17} color={on ? '#fff' : C.v2} />
-                  <Text style={[styles.tpText, on && { color: '#fff' }]}>{t.name}</Text>
+                  <MaterialCommunityIcons name={t.icon} size={17} color={on ? colors.onSelect : colors.v2} />
+                  <Text style={[styles.tpText, on && { color: colors.onSelect }]}>{t.name}</Text>
                 </Pressable>
               )
             })}
@@ -865,12 +968,12 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
               accessibilityLabel={listening ? 'Cancel recording' : 'Ask by voice'}
               style={[styles.mic, (busy || hearing) && styles.sendOff]}>
               {hearing ? (
-                <ActivityIndicator color={C.v2} size="small" />
+                <ActivityIndicator color={colors.v2} size="small" />
               ) : (
                 <MaterialCommunityIcons
                   name={listening ? 'delete-outline' : 'microphone'}
                   size={22}
-                  color={listening ? '#E23B3B' : C.v2}
+                  color={listening ? '#E23B3B' : colors.v2}
                 />
               )}
             </Pressable>
@@ -889,11 +992,11 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
                 value={input}
                 onChangeText={setInput}
                 placeholder={placeholder}
-                placeholderTextColor={C.faint}
+                placeholderTextColor={colors.faint}
                 multiline
                 editable={!hearing}
                 underlineColorAndroid="transparent"
-                style={styles.input}
+                style={[styles.input, Platform.OS === 'web' ? ({ outlineWidth: 0, outlineStyle: 'none' } as object) : null]}
                 accessibilityLabel="Ask a question"
                 onFocus={() => setSheet(false)}
               />
@@ -904,7 +1007,7 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
               accessibilityRole="button"
               accessibilityLabel={listening ? 'Send voice question' : busy ? 'Stop' : 'Send'}
               style={[styles.send, !listening && !busy && !canSend && styles.sendOff]}>
-              <MaterialCommunityIcons name={busy && !listening ? 'stop' : 'arrow-up'} size={busy && !listening ? 20 : 23} color="#fff" />
+              <MaterialCommunityIcons name={busy && !listening ? 'stop' : 'arrow-up'} size={busy && !listening ? 20 : 23} color={!listening && !busy && !canSend ? colors.onSendOff : colors.onSelect} />
             </Pressable>
           </View>
         </View>
@@ -925,11 +1028,11 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
                 accessibilityRole="button"
                 accessibilityLabel="Close"
                 style={styles.sheetX}>
-                <MaterialCommunityIcons name="close" size={16} color={C.muted} />
+                <MaterialCommunityIcons name="close" size={16} color={colors.muted} />
               </Pressable>
             </View>
             <Pressable onPress={startNewChat} accessibilityRole="button" accessibilityLabel="New chat" style={styles.histNew}>
-              <MaterialCommunityIcons name="square-edit-outline" size={18} color={C.v2} />
+              <MaterialCommunityIcons name="square-edit-outline" size={18} color={colors.v2} />
               <Text style={styles.histNewText}>New chat</Text>
             </Pressable>
             <ScrollView
@@ -960,7 +1063,7 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
                         accessibilityLabel={`Delete ${chat.title}`}
                         hitSlop={8}
                         style={styles.histDel}>
-                        <MaterialCommunityIcons name="trash-can-outline" size={18} color={C.muted} />
+                        <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.muted} />
                       </Pressable>
                     </View>
                   )
@@ -978,7 +1081,9 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
 /* ========================================================================== */
 /*  Styles                                                                     */
 /* ========================================================================== */
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ mode }) => {
+  const C = mode === 'dark' ? DARK : LIGHT
+  return {
   screen: { flex: 1, backgroundColor: C.bg, overflow: 'hidden' },
   glow: { position: 'absolute', left: 0, right: 0, top: 0, height: 380 },
 
@@ -998,11 +1103,11 @@ const styles = StyleSheet.create({
     maxWidth: 360,
     height: '100%',
     flexDirection: 'column',
-    backgroundColor: '#fff',
+    backgroundColor: C.panel,
     paddingHorizontal: 16,
     paddingBottom: 12,
   },
-  histDim: { flex: 1, backgroundColor: 'rgba(20, 16, 40, 0.28)' },
+  histDim: { flex: 1, backgroundColor: C.scrim },
   histScroll: { flex: 1 },
   histHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   histTitle: { fontFamily: F.display, fontSize: 26, color: C.ink },
@@ -1029,8 +1134,8 @@ const styles = StyleSheet.create({
   title: { fontFamily: F.display, fontSize: 23, lineHeight: 26, letterSpacing: -0.2, color: C.ink, marginTop: 1 },
   pad: { paddingHorizontal: 22, paddingTop: 18, paddingBottom: 30, gap: 34, flexGrow: 1 },
   userRow: { alignItems: 'flex-end' },
-  user: { maxWidth: '78%', alignSelf: 'flex-end', backgroundColor: C.ink, borderRadius: 16, paddingVertical: 6, paddingHorizontal: 12 },
-  userText: { fontFamily: F.medium, fontSize: 16, lineHeight: 21, color: '#fff' },
+  user: { maxWidth: '78%', alignSelf: 'flex-end', backgroundColor: C.userBg, borderRadius: 16, paddingVertical: 6, paddingHorizontal: 12 },
+  userText: { fontFamily: F.medium, fontSize: 16, lineHeight: 21, color: C.onUser },
   ans: { fontFamily: F.body, fontSize: 18.5, lineHeight: 31, color: C.text },
   bold: { fontFamily: F.bold, color: C.ink },
   gapP: { marginBottom: 17 },
@@ -1048,8 +1153,8 @@ const styles = StyleSheet.create({
   lab: { fontFamily: F.bold, fontSize: 13, letterSpacing: 0.3, color: C.muted },
   srcs: { marginTop: 20, gap: 9 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  srcChip: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 8, paddingLeft: 11, paddingRight: 14, borderRadius: 999, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line },
-  srcText: { fontFamily: F.semi, fontSize: 14, color: '#3A3A44' },
+  srcChip: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 8, paddingLeft: 11, paddingRight: 14, borderRadius: 999, backgroundColor: C.chip, borderWidth: 1, borderColor: C.line },
+  srcText: { fontFamily: F.semi, fontSize: 14, color: C.srcText },
   copy: { flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start', marginTop: 12, paddingVertical: 8, paddingRight: 12 },
   copyText: { fontFamily: F.semi, fontSize: 14, color: C.muted },
 
@@ -1059,16 +1164,16 @@ const styles = StyleSheet.create({
 
   comp: { paddingHorizontal: 16, paddingTop: 6 },
   topicRow: { gap: 8, paddingBottom: 10, paddingTop: 2 },
-  tp: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 10, paddingLeft: 12, paddingRight: 15, borderRadius: 999, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line },
-  tpOn: { backgroundColor: C.ink, borderColor: C.ink },
-  tpText: { fontFamily: F.semi, fontSize: 14.5, color: '#33333B' },
+  tp: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 10, paddingLeft: 12, paddingRight: 15, borderRadius: 999, backgroundColor: C.chip, borderWidth: 1, borderColor: C.line },
+  tpOn: { backgroundColor: C.select, borderColor: C.select },
+  tpText: { fontFamily: F.semi, fontSize: 14.5, color: C.chipText },
   sheet: {
     position: 'absolute',
     left: 16,
     right: 16,
     bottom: '100%',
     marginBottom: 2,
-    backgroundColor: '#fff',
+    backgroundColor: C.panel,
     borderRadius: 26,
     paddingTop: 14,
     paddingHorizontal: 18,
@@ -1096,7 +1201,7 @@ const styles = StyleSheet.create({
   recDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#E23B3B' },
   recTime: { fontFamily: F.semi, fontSize: 15, color: '#E23B3B', fontVariant: ['tabular-nums'], width: 38 },
   voiceLine: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 2, height: 28, overflow: 'hidden' },
-  voiceBar: { width: 3, borderRadius: 2, backgroundColor: '#128C7E' },
+  voiceBar: { width: 3, borderRadius: 2, backgroundColor: C.voice },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1106,7 +1211,9 @@ const styles = StyleSheet.create({
     paddingLeft: 6,
     paddingRight: 6,
     borderRadius: 30,
-    backgroundColor: '#fff',
+    backgroundColor: C.chip,
+    borderWidth: mode === 'dark' ? 1 : 0,
+    borderColor: C.line,
     shadowColor: '#46379A',
     shadowOpacity: 0.18,
     shadowRadius: 16,
@@ -1127,8 +1234,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 0,
     textAlignVertical: 'center',
-    ...(Platform.OS === 'web' ? { outlineWidth: 0, outlineStyle: 'none' as const } : null),
   },
-  send: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
-  sendOff: { backgroundColor: '#D6D4CE' },
-})
+  send: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.select, alignItems: 'center', justifyContent: 'center' },
+  sendOff: { backgroundColor: C.sendOff },
+}})

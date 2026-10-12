@@ -5,6 +5,7 @@
  *   node server/scripts/fetch-city-mosques-osm.mjs Kanpur
  *   node server/scripts/fetch-city-mosques-osm.mjs --all
  *   node server/scripts/fetch-city-mosques-osm.mjs Mumbai Lucknow
+ *   node server/scripts/fetch-city-mosques-osm.mjs Delhi --force
  *
  * Note: OSM coverage varies; jamat times are NOT available from OSM.
  */
@@ -239,13 +240,19 @@ function resolveCities(argv) {
   })
 }
 
-async function fetchCity(city) {
+async function fetchCity(city, { force }) {
   const meta = CITY_CATALOG[city]
   if (!meta?.bbox) throw new Error(`No bbox for ${city}`)
+  const out = path.join(DATA_DIR, `${cityIdFromName(city)}-mosques-osm.json`)
+  if (!force && fs.existsSync(out)) {
+    const saved = JSON.parse(fs.readFileSync(out, 'utf8'))
+    const count = saved.count ?? saved.mosques?.length ?? 0
+    console.log(`Skip ${city}: already saved (${count} mosques). Pass --force to fetch again.`)
+    return { city, count, out, skipped: true }
+  }
   console.log(`\n=== ${city} (bbox ${meta.bbox}) ===`)
   const json = await fetchOverpass(meta.bbox)
   const mosques = mapElements(json.elements, city)
-  const out = path.join(DATA_DIR, `${cityIdFromName(city)}-mosques-osm.json`)
   const payload = {
     city,
     fetchedAt: new Date().toISOString(),
@@ -261,12 +268,15 @@ async function fetchCity(city) {
 }
 
 async function main() {
-  const cities = resolveCities(process.argv.slice(2))
+  const argv = process.argv.slice(2)
+  const force = argv.includes('--force')
+  const cities = resolveCities(argv)
   const results = []
   for (const city of cities) {
     try {
-      results.push(await fetchCity(city))
-      await new Promise((r) => setTimeout(r, 1500))
+      const result = await fetchCity(city, { force })
+      results.push(result)
+      if (!result.skipped) await new Promise((r) => setTimeout(r, 1500))
     } catch (err) {
       console.error(`FAIL ${city}:`, err instanceof Error ? err.message : err)
       results.push({ city, count: 0, error: String(err) })

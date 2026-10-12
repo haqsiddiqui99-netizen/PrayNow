@@ -30,6 +30,7 @@ import type { CityPrayerConfig } from '@/src/config/cityPrayerConfig';
 import type { PrayerName } from '@/src/types';
 import { parseTime } from '@/src/utils/prayerSchedule';
 import { loadReminderKeys, setReminder, syncReminders, type ReminderItem } from '@/src/services/prayerReminders';
+import { makeStyles, useTheme } from '@/src/context/ThemeContext';
 
 /* ========================================================================== */
 /*  Live sky conditions: weather (Open-Meteo) + moon phase                    */
@@ -189,7 +190,30 @@ export function useSkyConditions({ lat, lon, refreshMs = 15 * 60 * 1000, storage
 /* ========================================================================== */
 /*  Tokens                                                                     */
 /* ========================================================================== */
-const C = {
+type Palette = {
+  card: string
+  ink: string
+  muted: string
+  faint: string
+  line: string
+  tile: string
+  dark: string
+  sel: string
+  onDark: string
+  onPillSoft: string
+  onAccent: string
+  accent: string
+  accentSoft: string
+  amber: string
+  amberSoft: string
+  warmInk: string
+  curIcon: string
+  sun: [string, string, string]
+  sunrise: string
+  sehri: string
+}
+
+const LIGHT: Palette = {
   card: '#FFFFFF',
   ink: '#0F1F2E',
   muted: '#5F6B7A',
@@ -197,14 +221,48 @@ const C = {
   line: '#E7EBF1',
   tile: '#F5F7FA',
   dark: '#14232F',
+  sel: '#FFFFFF',
   onDark: '#FFFFFF',
+  onPillSoft: 'rgba(255,255,255,0.72)',
+  onAccent: '#FFFFFF',
   accent: '#1F7A68',
   accentSoft: 'rgba(31,122,104,0.12)',
   amber: '#F59E0B',
   amberSoft: 'rgba(245,158,11,0.14)',
   warmInk: '#B34100',
   curIcon: '#FFB020',
-};
+  sun: ['#FFF7EB', '#FFFFFF', '#F2F4FF'],
+  sunrise: '#E58A1F',
+  sehri: '#5B65C9',
+}
+
+const DARK: Palette = {
+  card: '#101820',
+  ink: '#F4F1EA',
+  muted: '#9AA8B6',
+  faint: '#66788A',
+  line: 'rgba(244,241,234,0.10)',
+  tile: '#182632',
+  dark: '#F4EFE4',
+  sel: '#243444',
+  onDark: '#1C160E',
+  onPillSoft: 'rgba(28,22,14,0.62)',
+  onAccent: '#06241C',
+  accent: '#7ED9C4',
+  accentSoft: 'rgba(126,217,196,0.16)',
+  amber: '#F5B83D',
+  amberSoft: 'rgba(245,184,61,0.16)',
+  warmInk: '#F0B15A',
+  curIcon: '#C9842A',
+  sun: ['#2C2418', '#15202A', '#171428'],
+  sunrise: '#F0B15A',
+  sehri: '#B7BEF5',
+}
+
+function useColors() {
+  const { mode } = useTheme()
+  return mode === 'dark' ? DARK : LIGHT
+}
 const F = {
   body: 'Figtree_400Regular',
   medium: 'Figtree_500Medium',
@@ -398,6 +456,7 @@ const SkyLayer = memo(function SkyLayer({ colors, active }: { colors: [string, s
 });
 
 const Star = memo(function Star({ x, y, opacity }: { x: number; y: number; opacity: number }) {
+  const styles = useStyles();
   const o = useSharedValue(opacity);
   useEffect(() => {
     o.value = withTiming(opacity, TIMING);
@@ -410,6 +469,7 @@ const STARS = [
 ] as const;
 
 const Drop = memo(function Drop({ left, delay, duration, height }: { left: number; delay: number; duration: number; height: number }) {
+  const styles = useStyles();
   const p = useSharedValue(0);
   useEffect(() => {
     p.value = 0;
@@ -461,6 +521,8 @@ type HeroProps = {
 };
 
 const Hero = memo(function Hero(p: HeroProps) {
+  const styles = useStyles();
+  const colors = useColors();
   const [w, setW] = useState(0);
   const cfg = SKY[p.sky];
   const night = p.sky === 'isha';
@@ -527,13 +589,13 @@ const Hero = memo(function Hero(p: HeroProps) {
 
           <View style={[styles.cd, { backgroundColor: cfg.glass, borderColor: cfg.glassLine }]} accessibilityRole="timer">
             {p.cd.kind === 'done' ? (
-              <MaterialCommunityIcons name="check" size={24} color={C.accent} />
+              <MaterialCommunityIcons name="check" size={24} color={colors.accent} />
             ) : (
               <Text style={[styles.cdBig, { color: cfg.ink }, p.cd.text.length > 5 && { fontSize: 18 }]}>{p.cd.text}</Text>
             )}
             <Text style={[styles.cdLab, { color: cfg.ink2 }]}>{p.cd.sub}</Text>
             <View style={[styles.cdTrack, { backgroundColor: cfg.track }]}>
-              <Animated.View style={[styles.cdFill, { backgroundColor: p.cd.kind === 'done' ? C.accent : '#FF7A3D' }, barSt]} />
+              <Animated.View style={[styles.cdFill, { backgroundColor: p.cd.kind === 'done' ? colors.accent : '#FF7A3D' }, barSt]} />
             </View>
           </View>
         </View>
@@ -576,6 +638,8 @@ const Strip = memo(function Strip({
   reminders: ReadonlySet<string>;
   onSelect: (i: number) => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.strip} accessibilityRole="tablist">
       {prayers.map((p, i) => {
@@ -593,11 +657,11 @@ const Strip = memo(function Strip({
             style={[styles.pc, isCur && styles.pcCur, isSel && !isCur && styles.pcSel]}
           >
             {mark && (
-              <MaterialCommunityIcons name={mark} size={10} color={isCur ? C.curIcon : C.accent} style={styles.pcMark} />
+              <MaterialCommunityIcons name={mark} size={10} color={isCur ? colors.curIcon : colors.accent} style={styles.pcMark} />
             )}
-            <MaterialCommunityIcons name={p.icon} size={19} color={isCur ? C.curIcon : isSel ? C.ink : C.muted} />
-            <Text style={[styles.pcName, isCur && { color: 'rgba(255,255,255,0.72)' }]}>{p.name}</Text>
-            <Text style={[styles.pcTime, done && { color: C.muted, fontFamily: F.bold }, isCur && { color: C.onDark }]}>
+            <MaterialCommunityIcons name={p.icon} size={19} color={isCur ? colors.curIcon : isSel ? colors.ink : colors.muted} />
+            <Text style={[styles.pcName, isCur && { color: colors.onPillSoft }]}>{p.name}</Text>
+            <Text style={[styles.pcTime, done && { color: colors.muted, fontFamily: F.bold }, isCur && { color: colors.onDark }]}>
               {hm(p.start)}
             </Text>
           </Pressable>
@@ -611,6 +675,7 @@ const Strip = memo(function Strip({
 /*  Sun & Fasting                                                              */
 /* ========================================================================== */
 function SfSide({ icon, label, time, end, tint }: { icon: IconName; label: string; time: number; end?: boolean; tint: string }) {
+  const styles = useStyles();
   return (
     <View style={[styles.sfSide, end && { alignItems: 'flex-end' }]}>
       <View style={styles.sfLabelRow}>
@@ -624,25 +689,27 @@ function SfSide({ icon, label, time, end, tint }: { icon: IconName; label: strin
 }
 
 const SunFasting = memo(function SunFasting({ sun, nowMin }: { sun: PrayerDay['sun']; nowMin: number }) {
+  const styles = useStyles();
+  const colors = useColors();
   const prog = (a: number, b: number) => clamp01((nowMin - a) / (b - a));
   return (
     <View style={styles.sf}>
-      <GradientFill colors={['#FFF7EB', '#FFFFFF', '#F2F4FF']} vertical />
+      <GradientFill colors={colors.sun} vertical />
       <View style={styles.sfRow}>
-        <SfSide icon="weather-sunset-up" label="Sunrise" time={sun.sunrise} tint="#E58A1F" />
+        <SfSide icon="weather-sunset-up" label="Sunrise" time={sun.sunrise} tint={colors.sunrise} />
         <View style={styles.sfMid}>
-          <SunArc progress={prog(sun.sunrise, sun.sunset)} line={C.line} faint={C.faint} />
+          <SunArc progress={prog(sun.sunrise, sun.sunset)} line={colors.line} faint={colors.faint} />
           <Text style={styles.sfMidText}>{dur(sun.sunset - sun.sunrise)} daylight</Text>
         </View>
-        <SfSide icon="weather-sunset-down" label="Sunset" time={sun.sunset} end tint="#E58A1F" />
+        <SfSide icon="weather-sunset-down" label="Sunset" time={sun.sunset} end tint={colors.sunrise} />
       </View>
       <View style={[styles.sfRow, styles.sfRowBorder]}>
-        <SfSide icon="weather-night" label="Sehri" time={sun.sehri} tint="#5B65C9" />
+        <SfSide icon="weather-night" label="Sehri" time={sun.sehri} tint={colors.sehri} />
         <View style={styles.sfMid}>
-          <FastLine progress={prog(sun.sehri, sun.iftar)} faint={C.faint} />
+          <FastLine progress={prog(sun.sehri, sun.iftar)} faint={colors.faint} />
           <Text style={styles.sfMidText}>{dur(sun.iftar - sun.sehri)} fast</Text>
         </View>
-        <SfSide icon="coffee-outline" label="Iftar" time={sun.iftar} end tint="#5B65C9" />
+        <SfSide icon="coffee-outline" label="Iftar" time={sun.iftar} end tint={colors.sehri} />
       </View>
     </View>
   );
@@ -664,6 +731,8 @@ const MoreTimings = memo(function MoreTimings({
   reminders: ReadonlySet<string>;
   onToggle: (w: ExtraWindow) => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const [open, setOpen] = useState(false);
   const toggle = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.create(260, 'easeInEaseOut', 'opacity'));
@@ -677,7 +746,7 @@ const MoreTimings = memo(function MoreTimings({
           <Text style={styles.accSub}>Optional and avoid times</Text>
         </View>
         <View style={styles.chev}>
-          <MaterialCommunityIcons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={C.muted} />
+          <MaterialCommunityIcons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />
         </View>
       </Pressable>
       {open && (
@@ -687,8 +756,8 @@ const MoreTimings = memo(function MoreTimings({
             const now = (nowMin >= w.start && nowMin < w.end) || (nowMin + 1440 >= w.start && nowMin + 1440 < w.end);
             return (
               <View key={w.name} style={[styles.it, i > 0 && styles.itDivider]}>
-                <View style={[styles.itIcon, avoid && { backgroundColor: C.amberSoft }]}>
-                  <MaterialCommunityIcons name={w.icon} size={15} color={avoid ? C.warmInk : C.accent} />
+                <View style={[styles.itIcon, avoid && { backgroundColor: colors.amberSoft }]}>
+                  <MaterialCommunityIcons name={w.icon} size={15} color={avoid ? colors.warmInk : colors.accent} />
                 </View>
                 <View style={styles.itBody}>
                   <View style={styles.itNameRow}>
@@ -697,14 +766,14 @@ const MoreTimings = memo(function MoreTimings({
                     </Text>
                     {avoid && <Text style={styles.avoidTag}>AVOID</Text>}
                     {now && (
-                      <Text style={[styles.nowChip, avoid && { backgroundColor: C.amber, color: '#2A1A00' }]}>Now</Text>
+                      <Text style={[styles.nowChip, avoid && { backgroundColor: colors.amber, color: '#2A1A00' }]}>Now</Text>
                     )}
                   </View>
                   <Text style={styles.itNote} numberOfLines={1}>
                     {w.note}
                   </Text>
                 </View>
-                <Text style={[styles.itTime, avoid && { color: C.warmInk }]} numberOfLines={1}>
+                <Text style={[styles.itTime, avoid && { color: colors.warmInk }]} numberOfLines={1}>
                   {range(w.start, w.end)}
                 </Text>
                 <Pressable
@@ -717,7 +786,7 @@ const MoreTimings = memo(function MoreTimings({
                   <MaterialCommunityIcons
                     name={reminders.has(extraKey(w)) ? 'bell-ring' : 'bell-outline'}
                     size={14}
-                    color={reminders.has(extraKey(w)) ? '#fff' : C.muted}
+                    color={reminders.has(extraKey(w)) ? colors.onAccent : colors.muted}
                   />
                 </Pressable>
               </View>
@@ -753,6 +822,8 @@ export function PrayerHomeCard({
   onToast,
   nowOverride,
 }: PrayerHomeCardProps) {
+  const styles = useStyles();
+  const colors = useColors();
   const sec = useNowSeconds(nowOverride);
   const nowMin = Math.floor(sec / 60);
   const conditions = useSkyConditions({ lat, lon, storage });
@@ -902,8 +973,8 @@ export function PrayerHomeCard({
               accessibilityLabel={`${remOn ? 'Turn off reminder for' : 'Remind me for'} ${tp.name}`}
               style={[styles.remBtn, remOn && styles.remBtnOn]}
             >
-              <MaterialCommunityIcons name={remOn ? 'bell-ring' : 'bell-outline'} size={15} color={remOn ? '#fff' : C.muted} />
-              <Text style={[styles.remBtnText, remOn && { color: '#fff' }]}>{remOn ? 'On' : 'Remind'}</Text>
+              <MaterialCommunityIcons name={remOn ? 'bell-ring' : 'bell-outline'} size={15} color={remOn ? colors.onAccent : colors.muted} />
+              <Text style={[styles.remBtnText, remOn && { color: colors.onAccent }]}>{remOn ? 'On' : 'Remind'}</Text>
             </Pressable>
           </>
         )}
@@ -912,7 +983,7 @@ export function PrayerHomeCard({
       <SunFasting sun={data.sun} nowMin={nowMin} />
       {notice ? (
         <View style={styles.notice}>
-          <MaterialCommunityIcons name="bell-check-outline" size={14} color={C.accent} />
+          <MaterialCommunityIcons name="bell-check-outline" size={14} color={colors.accent} />
           <Text style={styles.noticeText} numberOfLines={2}>
             {notice}
           </Text>
@@ -928,7 +999,9 @@ export function PrayerHomeCard({
 /* ========================================================================== */
 const glassBase = { borderWidth: 1, borderRadius: 999 } as const;
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ mode }) => {
+  const C = mode === 'dark' ? DARK : LIGHT
+  return {
   card: {
     backgroundColor: C.card,
     borderTopLeftRadius: 28,
@@ -969,13 +1042,13 @@ const styles = StyleSheet.create({
   pc: { flex: 1, alignItems: 'center', paddingTop: 10, paddingBottom: 9, borderRadius: 18 },
   pcCur: {
     backgroundColor: C.dark,
-    shadowColor: '#0F1F2E',
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
+    shadowColor: mode === 'dark' ? '#F4EFE4' : '#0F1F2E',
+    shadowOpacity: mode === 'dark' ? 0.22 : 0.45,
+    shadowRadius: mode === 'dark' ? 12 : 10,
     shadowOffset: { width: 0, height: 8 },
     elevation: 6,
   },
-  pcSel: { backgroundColor: C.card, shadowColor: '#0F1F2E', shadowOpacity: 0.14, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
+  pcSel: { backgroundColor: C.sel, shadowColor: '#0F1F2E', shadowOpacity: 0.14, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
   pcMark: { position: 'absolute', top: 5, right: 6 },
   pcName: { fontFamily: F.semi, fontSize: 12, color: C.muted, marginTop: 5 },
   pcTime: { fontFamily: F.heavy, fontSize: 15, color: C.ink, marginTop: 1, letterSpacing: -0.3, fontVariant: ['tabular-nums'] },
@@ -1028,5 +1101,5 @@ const styles = StyleSheet.create({
   notice: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 14, marginTop: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 14, backgroundColor: C.tile },
   noticeText: { flex: 1, fontFamily: F.semi, fontSize: 12.5, color: C.ink },
   avoidTag: { overflow: 'hidden', fontFamily: F.heavy, fontSize: 9, letterSpacing: 0.5, color: C.warmInk, backgroundColor: C.amberSoft, paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 999 },
-  nowChip: { overflow: 'hidden', fontFamily: F.heavy, fontSize: 9.5, color: '#fff', backgroundColor: C.accent, paddingHorizontal: 7, paddingVertical: 1.5, borderRadius: 999 },
-});
+  nowChip: { overflow: 'hidden', fontFamily: F.heavy, fontSize: 9.5, color: C.onAccent, backgroundColor: C.accent, paddingHorizontal: 7, paddingVertical: 1.5, borderRadius: 999 },
+}})

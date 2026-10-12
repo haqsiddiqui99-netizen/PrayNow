@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { AppState } from 'react-native'
+import { router } from 'expo-router'
 import { useAuth } from '@/src/context/AuthContext'
 import {
   fetchMyNotifications,
@@ -15,7 +16,7 @@ import {
   markNotificationRead,
   type AppNotification,
 } from '@/src/services/api'
-import { registerForPushNotificationsAsync } from '@/src/services/pushNotifications'
+import { listenForPushOpens, registerForPushNotificationsAsync } from '@/src/services/pushNotifications'
 
 interface InboxContextValue {
   notifications: AppNotification[]
@@ -55,6 +56,14 @@ export function InboxProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void reload()
     if (user) void registerForPushNotificationsAsync()
+  }, [user, reload])
+
+  useEffect(() => {
+    if (!user) return
+    return listenForPushOpens(() => {
+      void reload()
+      router.push('/notifications')
+    })
   }, [user, reload])
 
   useEffect(() => {

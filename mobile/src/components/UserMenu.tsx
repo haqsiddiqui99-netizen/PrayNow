@@ -15,15 +15,13 @@ export { userInitials } from '@/src/components/UserMenu.utils'
  * Header account control. Sign-in lives here. Messages, appearance, and language
  * stay on the More page.
  */
-export function UserMenu({ greetingName }: { greetingName?: string }) {
+export function UserMenu() {
   const styles = useStyles()
   const { colors } = useTheme()
   const router = useRouter()
   const { user, isGuest, logout } = useAuth()
   const { t } = useLanguage()
   const [open, setOpen] = useState(false)
-
-  const displayName = greetingName ?? user?.name?.trim().split(/\s+/)[0] ?? t('common.guest')
 
   const close = () => {
     setOpen(false)
@@ -55,9 +53,6 @@ export function UserMenu({ greetingName }: { greetingName?: string }) {
             <Ionicons name="person" size={13} color={colors.primary} />
           )}
         </View>
-        <Text style={styles.triggerName} numberOfLines={1}>
-          {displayName}
-        </Text>
         <Ionicons name="chevron-down" size={13} color={colors.textMuted} />
       </Pressable>
 
@@ -133,12 +128,6 @@ const useStyles = makeStyles(({ colors }) => ({
     justifyContent: 'center',
   },
   triggerInitials: { fontSize: 10, fontWeight: '800', color: colors.primary },
-  triggerName: {
-    flexShrink: 1,
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15,23,42,0.35)',

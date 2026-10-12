@@ -148,7 +148,6 @@ export function LocationProvider({ children }: { children: ReactNode }) {
   const [location, setLocation] = useState<UserLocation>(defaultLocation)
   const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([])
   const [loading, setLoading] = useState(true)
-  const [hydrated, setHydrated] = useState(false)
 
   useEffect(() => {
     void (async () => {
@@ -156,7 +155,6 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       if (saved.length === 0) {
         const seeded = await persistLocation(defaultLocation)
         setSavedLocations(seeded)
-        setHydrated(true)
         return
       }
       setSavedLocations(saved)
@@ -171,8 +169,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
           isLive: false,
         }),
       )
-      setHydrated(true)
-    })()
+    })().finally(() => setLoading(false))
   }, [])
 
   const applyLocation = useCallback(async (next: UserLocation) => {
@@ -252,12 +249,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     }
   }, [applyLocation])
 
-  // Wait for saved location, then try GPS in background (failures stay silent)
-  useEffect(() => {
-    if (!hydrated) return
-    void refresh()
-  }, [hydrated, refresh])
-
+  // Saved city is used as-is. GPS and reverse geocode run only when refresh() is called.
   useEffect(() => {
     setLocation((prev) => ({
       ...prev,

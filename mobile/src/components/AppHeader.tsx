@@ -76,7 +76,6 @@ export function LocationPill({
 }
 
 type AppHeaderProps = {
-  greetingName: string
   locationText: string
   onPressLocation: () => void
   topInset: number
@@ -84,12 +83,11 @@ type AppHeaderProps = {
 }
 
 /**
- * Home header is one row: a greeting on the left, the city pill and account
+ * Home header is one row: the app name on the left, the city pill and account
  * menu on the right. Appearance, language and messages live inside the account
  * menu rather than as separate header controls.
  */
 export function AppHeader({
-  greetingName,
   locationText,
   onPressLocation,
   topInset,
@@ -101,15 +99,12 @@ export function AppHeader({
     <HeaderShell topInset={topInset} onMeasureHeight={onMeasureHeight}>
       <View style={styles.homeRow}>
         <View style={styles.greetingBlock}>
-          <Text style={styles.greetingKicker} numberOfLines={1}>
-            PrayNow
-          </Text>
           <Text style={styles.greetingName} numberOfLines={1}>
-            {greetingName}
+            PrayNow
           </Text>
         </View>
         <LocationPill text={locationText} onPress={onPressLocation} style={styles.homeLocation} />
-        <UserMenu greetingName={greetingName} />
+        <UserMenu />
       </View>
     </HeaderShell>
   )
@@ -218,13 +213,6 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
   greetingBlock: {
     flex: 1,
     minWidth: 0,
-  },
-  greetingKicker: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    color: colors.textSecondary,
   },
   greetingName: {
     fontSize: 18,
