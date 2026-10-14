@@ -16,9 +16,13 @@ import Animated, {
 import { GradientFill } from '@/src/components/GradientFill'
 import { UserMenu } from '@/src/components/UserMenu'
 import { LANGUAGES, type LanguageCode } from '@/src/i18n/translations'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { loadTracker, streakOf } from '@/src/services/prayerTracker'
-import { daysUntil, upcomingEvents } from '@/src/utils/hijriCalendar'
+import { loadTasbih } from '@/src/services/tasbih'
+import { juzOf, loadQuran } from '@/src/services/quranTracker'
+import { calendarAlertText, loadCalendarAlerts, syncCalendarAlerts } from '@/src/services/calendarAlerts'
+import { daysUntil, eventKeys, upcomingEvents } from '@/src/utils/hijriCalendar'
 import { calculateQiblaBearing } from '@/src/utils/qibla'
 
 const F = {
@@ -31,15 +35,9 @@ const F = {
   italic: 'Newsreader_500Medium',
 } as const
 
-const DIRS = ['North', 'North-east', 'East', 'South-east', 'South', 'South-west', 'West', 'North-west']
-
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name']
 
 export type DailyItem = { arabic?: string; translation: string; source: string }
-
-function direction(deg: number) {
-  return DIRS[Math.round(deg / 45) % 8]
-}
 
 const IconChip = memo(function IconChip({
   icon,
@@ -124,6 +122,7 @@ function DailyCard({
   onToast: (message: string) => void
 }) {
   const styles = useStyles()
+  const { t } = useLanguage()
   const { mode } = useTheme()
   const dark = mode === 'dark'
   const [kind, setKind] = useState<'verse' | 'hadith'>('verse')
@@ -136,7 +135,7 @@ function DailyCard({
     try {
       await Share.share({ message: text })
     } catch {
-      onToast('Could not open share')
+      onToast(t('more.shareFail'))
     }
   }
 
@@ -162,7 +161,7 @@ function DailyCard({
                 accessibilityRole="tab"
                 accessibilityState={{ selected: on }}
                 style={[styles.segBtn, on && styles.segBtnOn]}>
-                <Text style={[styles.segText, on && styles.segTextOn]}>{key === 'verse' ? 'Verse' : 'Hadith'}</Text>
+                <Text style={[styles.segText, on && styles.segTextOn]}>{key === 'verse' ? t('more.verse') : t('more.hadith')}</Text>
               </Pressable>
             )
           })}
@@ -175,7 +174,7 @@ function DailyCard({
           <Text style={styles.source} numberOfLines={2}>
             {item.source}
           </Text>
-          <Pressable onPress={() => void share()} accessibilityRole="button" accessibilityLabel="Share" style={styles.iconBtn}>
+          <Pressable onPress={() => void share()} accessibilityRole="button" accessibilityLabel={t('common.share')} style={styles.iconBtn}>
             <MaterialCommunityIcons name="share-variant-outline" size={18} color={dark ? '#9BAEC0' : '#5F6B7A'} />
           </Pressable>
         </View>
@@ -205,6 +204,9 @@ export function MoreFeed({
   onCalendar,
   onTracker,
   onHalal,
+  onDuas,
+  onQuran,
+  onZakat,
 }: {
   topInset: number
   bottomInset: number
@@ -226,8 +228,12 @@ export function MoreFeed({
   onCalendar: () => void
   onTracker: () => void
   onHalal: () => void
+  onDuas: () => void
+  onQuran: () => void
+  onZakat: () => void
 }) {
   const styles = useStyles()
+  const { t } = useLanguage()
   const { mode, setMode } = useTheme()
   const dark = mode === 'dark'
   const accent = dark ? '#5BC9B0' : '#1F7A68'
@@ -240,18 +246,29 @@ export function MoreFeed({
   const bearing = calculateQiblaBearing(lat, lon)
   const languageLabel = LANGUAGES.find((item) => item.code === language)?.nativeLabel ?? 'English'
   const [streak, setStreak] = useState(0)
+  const [dhikrToday, setDhikrToday] = useState(0)
+  const [quranPage, setQuranPage] = useState(0)
   useFocusEffect(
     useCallback(() => {
       void loadTracker().then((store) => setStreak(streakOf(store)))
-    }, []),
+      void loadTasbih().then((store) => setDhikrToday(store.today))
+      void loadQuran().then((store) => setQuranPage(store.page))
+      void loadCalendarAlerts().then((keys) => {
+        if (keys.length) void syncCalendarAlerts(keys, calendarAlertText(t))
+      })
+    }, [t]),
   )
   const nextEvent = useMemo(() => upcomingEvents(new Date(), 1)[0], [])
+  const nextKeys = nextEvent ? eventKeys(nextEvent.month, nextEvent.day) : null
+  const nextName = nextKeys ? t(nextKeys.name) : nextEvent?.name ?? ''
   const calendarSub = !nextEvent
-    ? 'Hijri dates'
+    ? t('more.hijriShort')
     : daysUntil(nextEvent.date) === 0
-      ? nextEvent.name + ' today'
-      : nextEvent.name + ' in ' + daysUntil(nextEvent.date) + 'd'
-  const trackerSub = streak > 0 ? streak + '-day streak' : 'Daily prayers'
+      ? t('more.eventToday', { name: nextName })
+      : t('more.eventIn', { name: nextName, days: daysUntil(nextEvent.date) })
+  const quranSub = quranPage > 0 ? t('more.quranAt', { page: quranPage, juz: juzOf(quranPage) }) : t('more.quranSub')
+  const duasSub = dhikrToday > 0 ? t('more.duasToday', { count: dhikrToday }) : t('more.duasSub')
+  const trackerSub = streak > 0 ? t('more.streak', { count: streak }) : t('more.daily')
   const showAdmin = showAppAdmin
 
   useEffect(() => {
@@ -267,7 +284,7 @@ export function MoreFeed({
       <View style={[styles.head, { paddingTop: topInset + 8 }]}>
         <View>
           <Text style={styles.brand}>PRAYNOW</Text>
-          <Text style={styles.title}>More</Text>
+          <Text style={styles.title}>{t('tabs.more')}</Text>
         </View>
         <UserMenu />
       </View>
@@ -277,14 +294,14 @@ export function MoreFeed({
           <Animated.View entering={FadeInDown.duration(260)} style={styles.card}>
             <View style={styles.adminHead}>
               <MaterialCommunityIcons name="shield-check-outline" size={15} color={accent} />
-              <Text style={styles.adminHeadText}>ADMIN TOOLS</Text>
+              <Text style={styles.adminHeadText}>{t('more.adminTools')}</Text>
             </View>
             {showAppAdmin ? (
               <Pressable onPress={onAppAdmin} accessibilityRole="button" style={styles.adminRow}>
                 <IconChip icon="shield-outline" bg={dark ? 'rgba(109,182,245,0.16)' : 'rgba(46,143,208,0.12)'} fg={blue} />
                 <View style={styles.flex}>
-                  <Text style={styles.rowTitle}>App Admin</Text>
-                  <Text style={styles.rowSub}>Mosques, mosque admins and city schedule</Text>
+                  <Text style={styles.rowTitle}>{t('more.appAdmin')}</Text>
+                  <Text style={styles.rowSub}>{t('more.appAdminSub')}</Text>
                 </View>
                 <MaterialCommunityIcons name="chevron-right" size={20} color={muted} />
               </Pressable>
@@ -296,11 +313,11 @@ export function MoreFeed({
           <Animated.View entering={FadeInDown.duration(260)} style={[styles.card, styles.banner]}>
             <IconChip icon="login" size={42} bg={dark ? 'rgba(91,201,176,0.15)' : 'rgba(31,122,104,0.12)'} fg={accent} />
             <View style={styles.flex}>
-              <Text style={styles.rowTitle}>Sync your PrayNow</Text>
-              <Text style={styles.rowSub}>Sign in to save your mosques and reminders.</Text>
+              <Text style={styles.rowTitle}>{t('more.syncTitle')}</Text>
+              <Text style={styles.rowSub}>{t('more.syncSub')}</Text>
             </View>
             <Pressable onPress={onSignIn} accessibilityRole="button" style={styles.signBtn}>
-              <Text style={styles.signText}>Sign in</Text>
+              <Text style={styles.signText}>{t('auth.signIn')}</Text>
             </Pressable>
           </Animated.View>
         ) : null}
@@ -310,16 +327,12 @@ export function MoreFeed({
         </Animated.View>
 
         <Animated.View entering={FadeInDown.duration(280).delay(80)}>
-          <Pressable onPress={onQibla} accessibilityRole="button" accessibilityLabel="Qibla direction" style={[styles.card, styles.qibla]}>
+          <Pressable onPress={onQibla} accessibilityRole="button" accessibilityLabel={t('more.qibla')} style={[styles.card, styles.qibla]}>
             <Compass bearing={bearing} />
             <View style={styles.flex}>
-              <Text style={styles.qiblaTitle}>Qibla Direction</Text>
+              <Text style={styles.qiblaTitle}>{t('more.qibla')}</Text>
               <Text style={styles.qiblaSub}>
-                Face the Kaaba:{' '}
-                <Text style={styles.qiblaEm}>
-                  {Math.round(bearing)}° {direction(bearing)}
-                </Text>{' '}
-                from {city}
+                {t('more.face', { bearing: Math.round(bearing), direction: t((['dir.n', 'dir.ne', 'dir.e', 'dir.se', 'dir.s', 'dir.sw', 'dir.w', 'dir.nw'] as const)[Math.round(bearing / 45) % 8]), city })}
               </Text>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={20} color={muted} />
@@ -330,11 +343,11 @@ export function MoreFeed({
           <Pressable onPress={onAddMosque} accessibilityRole="button" style={[styles.card, styles.tile]}>
             <IconChip icon="plus-circle-outline" size={42} bg={dark ? 'rgba(156,143,255,0.16)' : 'rgba(108,92,231,0.12)'} fg={violet} />
             <View>
-              <Text style={styles.tileTitle}>Add a mosque</Text>
-              <Text style={styles.tileSub}>Request a missing mosque with photos and contact</Text>
+              <Text style={styles.tileTitle}>{t('addMosque.title')}</Text>
+              <Text style={styles.tileSub}>{t('more.addSub')}</Text>
             </View>
           </Pressable>
-          <Pressable onPress={onMessages} accessibilityRole="button" accessibilityLabel={`Notifications, ${unread} unread`} style={[styles.card, styles.tile]}>
+          <Pressable onPress={onMessages} accessibilityRole="button" accessibilityLabel={t('inbox.unread', { count: unread })} style={[styles.card, styles.tile]}>
             {unread > 0 ? (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
@@ -342,8 +355,8 @@ export function MoreFeed({
             ) : null}
             <IconChip icon="bell-outline" size={42} bg={dark ? 'rgba(109,182,245,0.16)' : 'rgba(46,143,208,0.12)'} fg={blue} />
             <View>
-              <Text style={styles.tileTitle}>Notifications</Text>
-              <Text style={styles.tileSub}>Mosque timing updates and announcements</Text>
+              <Text style={styles.tileTitle}>{t('more.notifications')}</Text>
+              <Text style={styles.tileSub}>{t('more.noteSub')}</Text>
             </View>
           </Pressable>
         </Animated.View>
@@ -351,12 +364,15 @@ export function MoreFeed({
         <Animated.View entering={FadeInDown.duration(280).delay(160)} style={styles.explore}>
           {(
             [
-              { icon: 'calendar-month-outline' as const, title: 'Calendar', sub: calendarSub, onPress: onCalendar },
-              { icon: 'checkbox-marked-circle-outline' as const, title: 'Tracker', sub: trackerSub, onPress: onTracker },
-              { icon: 'silverware-fork-knife' as const, title: 'Halal food', sub: 'Kitchens near you', onPress: onHalal },
+              { key: 'calendar', icon: 'calendar-month-outline' as const, title: t('more.calendar'), sub: calendarSub, onPress: onCalendar },
+              { key: 'tracker', icon: 'checkbox-marked-circle-outline' as const, title: t('more.tracker'), sub: trackerSub, onPress: onTracker },
+              { key: 'halal', icon: 'silverware-fork-knife' as const, title: t('more.halal'), sub: t('more.kitchens'), onPress: onHalal },
+              { key: 'duas', icon: 'hands-pray' as const, title: t('more.duas'), sub: duasSub, onPress: onDuas },
+              { key: 'quran', icon: 'book-open-page-variant-outline' as const, title: t('more.quran'), sub: quranSub, onPress: onQuran },
+              { key: 'zakat', icon: 'hand-coin-outline' as const, title: t('more.zakat'), sub: t('more.zakatSub'), onPress: onZakat },
             ]
           ).map((item) => (
-            <Pressable key={item.title} onPress={item.onPress} accessibilityRole="button" style={[styles.card, styles.exploreItem]}>
+            <Pressable key={item.key} onPress={item.onPress} accessibilityRole="button" style={[styles.card, styles.exploreItem]}>
               <IconChip icon={item.icon} size={36} bg={dark ? '#1C3330' : '#F3F1EC'} fg={dark ? '#EAF3F0' : '#0F1F2E'} />
               <Text style={styles.exploreTitle}>{item.title}</Text>
               <Text style={styles.exploreSub} numberOfLines={2}>{item.sub}</Text>
@@ -364,28 +380,28 @@ export function MoreFeed({
           ))}
         </Animated.View>
 
-        <Text style={styles.section}>SETTINGS</Text>
+        <Text style={styles.section}>{t('more.settings')}</Text>
         <Animated.View entering={FadeInDown.duration(280).delay(200)} style={styles.card}>
           <View style={styles.settingRow}>
             <IconChip icon="bell-outline" size={36} bg={dark ? 'rgba(91,201,176,0.15)' : 'rgba(31,122,104,0.12)'} fg={accent} />
-            <Text style={styles.settingTitle}>Azan alerts</Text>
+            <Text style={styles.settingTitle}>{t('more.azanAlerts')}</Text>
             <Toggle
               on={alerts}
-              label="Azan alerts"
+              label={t('more.azanAlerts')}
               onChange={(value) => {
                 setAlerts(value)
-                say(value ? 'Azan alerts on' : 'Azan alerts off')
+                say(value ? t('more.azanOn') : t('more.azanOff'))
               }}
             />
           </View>
           <View style={[styles.settingRow, styles.rowBorder]}>
             <IconChip icon="weather-night" size={36} bg={dark ? 'rgba(156,143,255,0.16)' : 'rgba(108,92,231,0.12)'} fg={violet} />
-            <Text style={styles.settingTitle}>Dark mode</Text>
-            <Toggle on={dark} label="Dark mode" onChange={(value) => setMode(value ? 'dark' : 'light')} />
+            <Text style={styles.settingTitle}>{t('theme.dark')}</Text>
+            <Toggle on={dark} label={t('theme.dark')} onChange={(value) => setMode(value ? 'dark' : 'light')} />
           </View>
           <Pressable onPress={() => setLangOpen((open) => !open)} accessibilityRole="button" style={[styles.settingRow, styles.rowBorder]}>
             <IconChip icon="earth" size={36} bg={dark ? 'rgba(109,182,245,0.16)' : 'rgba(46,143,208,0.12)'} fg={blue} />
-            <Text style={styles.settingTitle}>Language</Text>
+            <Text style={styles.settingTitle}>{t('lang.button')}</Text>
             <Text style={styles.settingValue}>{languageLabel}</Text>
             <MaterialCommunityIcons name={langOpen ? 'chevron-up' : 'chevron-right'} size={20} color={muted} />
           </Pressable>
@@ -409,10 +425,14 @@ export function MoreFeed({
         </Animated.View>
 
         <View style={styles.links}>
-          {(['Help and feedback', 'Privacy', 'About'] as const).map((label, index) => (
-            <View key={label} style={styles.linkWrap}>
+          {([
+            ['help', t('more.help')],
+            ['privacy', t('more.privacy')],
+            ['about', t('more.about')],
+          ] as const).map(([key, label], index) => (
+            <View key={key} style={styles.linkWrap}>
               {index > 0 ? <Text style={styles.linkDot}>·</Text> : null}
-              <Pressable onPress={() => say('Coming soon')} accessibilityRole="button" style={styles.link}>
+              <Pressable onPress={() => say(t('more.soon'))} accessibilityRole="button" style={styles.link}>
                 <Text style={styles.linkText}>{label}</Text>
               </Pressable>
             </View>
@@ -525,8 +545,8 @@ const useStyles = makeStyles(({ mode }) => {
       zIndex: 2,
     },
     badgeText: { fontFamily: F.heavy, fontSize: 11, color: '#FFFFFF' },
-    explore: { flexDirection: 'row', gap: 8 },
-    exploreItem: { flex: 1, minHeight: 132, alignItems: 'flex-start', padding: 12, gap: 8, marginBottom: 0 },
+    explore: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    exploreItem: { flexBasis: '47%', flexGrow: 1, minHeight: 124, alignItems: 'flex-start', padding: 12, gap: 8, marginBottom: 0 },
     exploreTitle: { fontFamily: F.bold, fontSize: 14, color: ink },
     exploreSub: { fontFamily: F.medium, fontSize: 11.5, lineHeight: 15, color: muted },
     section: { marginTop: 8, marginBottom: 8, marginHorizontal: 6, fontFamily: F.bold, fontSize: 12, letterSpacing: 0.4, color: muted },

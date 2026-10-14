@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { GradientFill } from '@/src/components/GradientFill'
+import { MosqueEventsManager } from '@/src/components/MosqueEventsManager'
 import { TabLiveButton } from '@/src/components/MosqueTabCard'
 import { TimePickerField } from '@/src/components/TimePickerField'
 import { VoiceNotePlayer } from '@/src/components/VoiceNotePlayer'
@@ -125,7 +126,7 @@ export default function MyMosqueTab() {
   const { mode } = useTheme()
   const insets = useSafeAreaInsets()
   const { user } = useAuth()
-  const { prayerName, placeName } = useLanguage()
+  const { prayerName, placeName, t, facilityName, digits } = useLanguage()
   const muted = mode === 'dark' ? '#9DBAB4' : '#5A6676'
 
   const [mosque, setMosque] = useState<Mosque | null>(null)
@@ -177,7 +178,7 @@ export default function MyMosqueTab() {
       if (next[0]) applyMosque(next[0])
       else setMosque(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load your mosque')
+      setError(e instanceof Error ? e.message : t('admin.loadFail'))
     } finally {
       setLoading(false)
     }
@@ -232,13 +233,13 @@ export default function MyMosqueTab() {
       return
     }
     setAlertOn(true)
-    setAlertNote('Alerting subscribers…')
+    setAlertNote(t('admin.alerting'))
     try {
       const result = await sendAzanAlert(mosque.id, prayerName(selected))
-      setAlertNote(`${result.notified} subscriber${result.notified === 1 ? '' : 's'} told azan starts soon`)
+      setAlertNote(result.notified === 1 ? t('admin.toldOne') : t('admin.toldMany', { count: result.notified }))
     } catch (e) {
       setAlertOn(false)
-      setAlertNote(e instanceof Error ? e.message : 'Could not alert subscribers')
+      setAlertNote(e instanceof Error ? e.message : t('admin.alertFail'))
     }
   }
 
@@ -246,7 +247,7 @@ export default function MyMosqueTab() {
     setMessageNote('')
     const permission = await requestRecordingPermissionsAsync()
     if (!permission.granted) {
-      setMessageNote('Allow the microphone to record a voice note')
+      setMessageNote(t('admin.micAllow'))
       return
     }
     try {
@@ -263,7 +264,7 @@ export default function MyMosqueTab() {
         if (elapsed >= MAX_VOICE_MS) void stopRecording()
       }, 250)
     } catch {
-      setMessageNote('The microphone could not start')
+      setMessageNote(t('admin.micFail'))
     }
   }
 
@@ -277,7 +278,7 @@ export default function MyMosqueTab() {
       if (recorder.isRecording || recorder.getStatus().isRecording) await recorder.stop()
       setVoiceUri(recorder.uri ?? null)
     } catch {
-      setMessageNote('Could not save the recording')
+      setMessageNote(t('admin.recordFail'))
     } finally {
       setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {})
     }
@@ -286,7 +287,7 @@ export default function MyMosqueTab() {
   const sendMessage = async () => {
     if (!mosque) return
     if (!title.trim() && !message.trim() && !voiceUri) {
-      setMessageNote('Write a message or record a voice note')
+      setMessageNote(t('admin.needMessage'))
       return
     }
     setSending(true)
@@ -301,9 +302,9 @@ export default function MyMosqueTab() {
       setTitle('')
       setMessage('')
       setVoiceUri(null)
-      setMessageNote(`Sent to ${result.notified} subscriber${result.notified === 1 ? '' : 's'}`)
+      setMessageNote(result.notified === 1 ? t('admin.sentOne') : t('admin.sentMany', { count: result.notified }))
     } catch (e) {
-      setMessageNote(e instanceof Error ? e.message : 'Could not send')
+      setMessageNote(e instanceof Error ? e.message : t('admin.sendFail'))
     } finally {
       setSending(false)
     }
@@ -328,9 +329,9 @@ export default function MyMosqueTab() {
       })
       applyMosque({ ...saved, taraweeh: nextTaraweeh })
       setEditing(false)
-      setTimesNote('Saved · subscribers notified')
+      setTimesNote(t('admin.savedNote'))
     } catch (e) {
-      setTimesNote(e instanceof Error ? e.message : 'Could not save prayer times')
+      setTimesNote(e instanceof Error ? e.message : t('admin.timesFail'))
     } finally {
       setSavingTimes(false)
     }
@@ -351,7 +352,7 @@ export default function MyMosqueTab() {
       setFeatureNote(changeNote)
     } catch (e) {
       setFeatures(previous)
-      setFeatureNote(e instanceof Error ? e.message : 'Could not update features')
+      setFeatureNote(e instanceof Error ? e.message : t('admin.featureFail'))
     }
   }
 
@@ -359,13 +360,13 @@ export default function MyMosqueTab() {
     const trimmed = name.trim()
     if (!trimmed || features.some((row) => row.name.toLowerCase() === trimmed.toLowerCase())) return
     setFeatureDraft('')
-    void saveFeatures([...features, { name: trimmed, enabled: true }], `${trimmed} added · subscribers notified`)
+    void saveFeatures([...features, { name: trimmed, enabled: true }], t('admin.featureAdded', { name: facilityName(trimmed) }))
   }
 
   if (!isMosqueAdmin(user)) {
     return (
       <View style={styles.center}>
-        <Text style={styles.muted}>This tab is for mosque admins.</Text>
+        <Text style={styles.muted}>{t('admin.notAdmin')}</Text>
       </View>
     )
   }
@@ -380,13 +381,13 @@ export default function MyMosqueTab() {
       keyboardShouldPersistTaps="handled"
       contentContainerStyle={{ paddingTop: insets.top + 14, paddingBottom: insets.bottom + 110 }}>
       {loading && !mosque ? <ActivityIndicator color="#0F1F2E" style={{ marginTop: 40 }} /> : null}
-      {!loading && !mosque ? <Text style={styles.muted}>No mosque is assigned to this login yet.</Text> : null}
+      {!loading && !mosque ? <Text style={styles.muted}>{t('admin.noneLogin')}</Text> : null}
       {error ? <Text style={styles.warn}>{error}</Text> : null}
 
       {mosque && timings ? (
         <>
           <View style={styles.header}>
-            <Text style={styles.kicker}>Your mosque</Text>
+            <Text style={styles.kicker}>{t('admin.yours')}</Text>
             <Text style={styles.name} numberOfLines={2}>
               {placeName(mosque.name)}
             </Text>
@@ -403,9 +404,9 @@ export default function MyMosqueTab() {
                   {prayerName(selected)}
                 </Text>
                 <Text style={styles.pSub} numberOfLines={1}>
-                  {azanClock.time}
-                  {azanClock.mer ? ` ${azanClock.mer}` : ''} azan · {jamatClock.time}
-                  {jamatClock.mer ? ` ${jamatClock.mer}` : ''} namaz
+                  {digits(azanClock.time)}
+                  {azanClock.mer ? ` ${azanClock.mer}` : ''} {t('mosque.azan')} · {digits(jamatClock.time)}
+                  {jamatClock.mer ? ` ${jamatClock.mer}` : ''} {t('mosque.namaz')}
                 </Text>
               </View>
               <View style={[styles.alertPill, alertOn && styles.alertPillOn]}>
@@ -414,12 +415,12 @@ export default function MyMosqueTab() {
                   size={14}
                   color={alertOn ? '#0F1F2E' : muted}
                 />
-                <Text style={[styles.alertText, alertOn && styles.alertTextOn]}>{alertOn ? 'ON' : 'OFF'}</Text>
-                <Switch on={alertOn} onPress={() => void toggleAlert()} label="Tell subscribers azan starts soon" />
+                <Text style={[styles.alertText, alertOn && styles.alertTextOn]}>{(alertOn ? t('admin.stateOn') : t('admin.stateOff')).toUpperCase()}</Text>
+                <Switch on={alertOn} onPress={() => void toggleAlert()} label={t('admin.alertSwitch')} />
               </View>
             </View>
             <Text style={styles.hint}>
-              {alertNote || 'Turn the alert ON a few minutes before azan so subscribers are ready to listen.'}
+              {alertNote || t('admin.alertHint')}
             </Text>
 
             <View style={styles.liveWrap}>
@@ -428,9 +429,9 @@ export default function MyMosqueTab() {
                 isPlaying={broadcast.live}
                 listeners={listeners}
                 azanTime={selectedTimes.azan}
-                title={broadcast.busy ? 'Please wait\u2026' : broadcast.live ? 'Live \u00b7 tap to stop' : 'Start azan'}
+                title={broadcast.busy ? t('admin.wait') : broadcast.live ? t('admin.live') : t('admin.startAzan', { name: prayerName(selected) })}
                 icon={broadcast.live ? 'stop' : 'mic'}
-                actionLabel={broadcast.live ? 'Stop live azan' : `Start ${prayerName(selected)} azan`}
+                actionLabel={broadcast.live ? t('admin.stopLive') : t('admin.startAzan', { name: prayerName(selected) })}
                 onPress={() => {
                   if (broadcast.busy) return
                   void (broadcast.live ? broadcast.onStop() : broadcast.onStart(selected))
@@ -444,22 +445,22 @@ export default function MyMosqueTab() {
           <Panel>
             <View style={styles.sectionHead}>
               <View style={styles.sectionTitleWrap}>
-                <Text style={styles.sectionTitle}>Message followers</Text>
-                <Text style={styles.sectionSub}>Text, voice note, or both. Goes to every subscriber.</Text>
+                <Text style={styles.sectionTitle}>{t('admin.message')}</Text>
+                <Text style={styles.sectionSub}>{t('admin.messageSub')}</Text>
               </View>
             </View>
             <TextInput
               style={styles.input}
               value={title}
               onChangeText={setTitle}
-              placeholder="Title (optional)"
+              placeholder={t('admin.titlePh')}
               placeholderTextColor={muted}
             />
             <TextInput
               style={[styles.input, styles.inputMulti]}
               value={message}
               onChangeText={setMessage}
-              placeholder="Write a notice, reminder, or gazette"
+              placeholder={t('admin.noticePh')}
               placeholderTextColor={muted}
               multiline
             />
@@ -467,15 +468,15 @@ export default function MyMosqueTab() {
             {recording ? (
               <Pressable style={[styles.voiceRow, styles.voiceRowLive]} onPress={() => void stopRecording()}>
                 <View style={styles.recDot} />
-                <Text style={styles.voiceLive}>Recording {formatMs(recordMs)}</Text>
-                <Text style={styles.voiceStop}>Tap to stop</Text>
+                <Text style={styles.voiceLive}>{t('admin.recording', { time: formatMs(recordMs) })}</Text>
+                <Text style={styles.voiceStop}>{t('admin.tapStop')}</Text>
               </Pressable>
             ) : voiceUri ? (
               <View style={styles.voicePreview}>
                 <View style={{ flex: 1 }}>
                   <VoiceNotePlayer source={voiceUri} />
                 </View>
-                <Pressable hitSlop={8} onPress={() => setVoiceUri(null)} accessibilityLabel="Remove voice note">
+                <Pressable hitSlop={8} onPress={() => setVoiceUri(null)} accessibilityLabel={t('admin.removeVoice')}>
                   <Ionicons name="trash-outline" size={18} color="#C2321F" />
                 </Pressable>
               </View>
@@ -484,8 +485,8 @@ export default function MyMosqueTab() {
                 <View style={styles.micKnob}>
                   <Ionicons name="mic" size={16} color="#fff" />
                 </View>
-                <Text style={styles.voiceText}>Record a voice note</Text>
-                <Text style={styles.voiceLimit}>up to 2 min</Text>
+                <Text style={styles.voiceText}>{t('admin.voice')}</Text>
+                <Text style={styles.voiceLimit}>{t('admin.voiceHint')}</Text>
               </Pressable>
             )}
 
@@ -494,42 +495,46 @@ export default function MyMosqueTab() {
               disabled={sending || recording}
               onPress={() => void sendMessage()}>
               <Ionicons name="paper-plane" size={16} color="#fff" />
-              <Text style={styles.sendText}>{sending ? 'Sending…' : 'Send to subscribers'}</Text>
+              <Text style={styles.sendText}>{sending ? t('admin.sending') : t('admin.send')}</Text>
             </Pressable>
             {messageNote ? <Text style={styles.ok}>{messageNote}</Text> : null}
+          </Panel>
+
+          <Panel>
+            <MosqueEventsManager mosqueId={mosque.id} />
           </Panel>
 
           {/* Prayer times */}
           <Panel>
             <View style={styles.sectionHead}>
               <View style={styles.sectionTitleWrap}>
-                <Text style={styles.sectionTitle}>Prayer times</Text>
+                <Text style={styles.sectionTitle}>{t('admin.prayerTimes')}</Text>
                 <Text style={styles.sectionSub}>
-                  {editing ? 'Tap a time to change it' : 'What subscribers see today'}
+                  {editing ? t('admin.tapTime') : t('admin.todaySee')}
                 </Text>
               </View>
               {editing ? (
                 <View style={styles.editActions}>
                   <Pressable onPress={cancelEdit} hitSlop={6}>
-                    <Text style={styles.cancelText}>Cancel</Text>
+                    <Text style={styles.cancelText}>{t('admin.cancel')}</Text>
                   </Pressable>
                   <Pressable style={styles.editBtn} disabled={savingTimes} onPress={() => void saveTimes()}>
                     <Ionicons name="checkmark" size={14} color="#fff" />
-                    <Text style={styles.editBtnText}>{savingTimes ? 'Saving' : 'Save'}</Text>
+                    <Text style={styles.editBtnText}>{savingTimes ? t('admin.saving') : t('admin.save')}</Text>
                   </Pressable>
                 </View>
               ) : (
                 <Pressable style={styles.editBtn} onPress={() => setEditing(true)}>
                   <Ionicons name="create-outline" size={14} color="#fff" />
-                  <Text style={styles.editBtnText}>Edit</Text>
+                  <Text style={styles.editBtnText}>{t('admin.edit')}</Text>
                 </Pressable>
               )}
             </View>
 
             <View style={styles.rowHead}>
-              <Text style={styles.rowHeadName}>Prayer</Text>
-              <Text style={styles.rowHeadTime}>Azan</Text>
-              <Text style={styles.rowHeadTime}>Namaz</Text>
+              <Text style={styles.rowHeadName}>{t('admin.prayer')}</Text>
+              <Text style={styles.rowHeadTime}>{t('admin.azan')}</Text>
+              <Text style={styles.rowHeadTime}>{t('admin.namaz')}</Text>
             </View>
             {PRAYERS.map((name) => {
               const active = name === focus
@@ -564,10 +569,10 @@ export default function MyMosqueTab() {
             })}
 
             <View style={styles.subHead}>
-              <Text style={styles.rowHeadName}>Friday</Text>
-              <Text style={styles.jumaHead}>Azan</Text>
-              <Text style={styles.jumaHead}>Khutba</Text>
-              <Text style={styles.jumaHead}>Namaz</Text>
+              <Text style={styles.rowHeadName}>{t('admin.friday')}</Text>
+              <Text style={styles.jumaHead}>{t('admin.azan')}</Text>
+              <Text style={styles.jumaHead}>{t('admin.khutba')}</Text>
+              <Text style={styles.jumaHead}>{t('admin.namaz')}</Text>
             </View>
             {jumaSessions.map((session, index) => (
               <View key={`juma-${index}`} style={styles.row}>
@@ -601,23 +606,23 @@ export default function MyMosqueTab() {
             {editing ? (
               <View style={styles.inlineActions}>
                 <Pressable onPress={() => setJumaSessions((prev) => [...prev, { azan: '', khutba: '', namaz: '' }])}>
-                  <Text style={styles.link}>+ Add Juma sitting</Text>
+                  <Text style={styles.link}>{t('admin.addJuma')}</Text>
                 </Pressable>
                 {jumaSessions.length > 1 ? (
                   <Pressable onPress={() => setJumaSessions((prev) => prev.slice(0, -1))}>
-                    <Text style={styles.removeText}>Remove last</Text>
+                    <Text style={styles.removeText}>{t('admin.removeLast')}</Text>
                   </Pressable>
                 ) : null}
               </View>
             ) : null}
 
             <View style={styles.subHead}>
-              <Text style={styles.rowHeadName}>Taraweeh</Text>
+              <Text style={styles.rowHeadName}>{t('admin.taraweeh')}</Text>
               {editing ? (
                 <Switch
                   on={taraweeh.enabled}
                   onPress={() => setTaraweeh((prev) => ({ ...prev, enabled: !prev.enabled }))}
-                  label="Taraweeh on or off"
+                  label={t('admin.taraweehSwitch')}
                 />
               ) : null}
             </View>
@@ -625,18 +630,18 @@ export default function MyMosqueTab() {
               <View style={styles.row}>
                 <Text style={styles.rowName}>
                   {taraweeh.enabled
-                    ? `Night ${taraweeh.night} of ${taraweeh.nights} · ${taraweeh.rakahs} rak‘ahs`
-                    : 'Not running'}
+                    ? t('admin.nightLine', { night: taraweeh.night, nights: taraweeh.nights, rakahs: taraweeh.rakahs })
+                    : t('admin.notRunning')}
                 </Text>
                 <Text style={styles.rowTime}>{taraweeh.enabled ? taraweeh.startTime : ''}</Text>
               </View>
             ) : taraweeh.enabled ? (
               <View style={styles.taraweehEdit}>
                 <View style={styles.row}>
-                  <Text style={styles.rowName}>Starts</Text>
+                  <Text style={styles.rowName}>{t('admin.starts')}</Text>
                   <View style={styles.editCells}>
                     <TimePickerField
-                      label="Taraweeh start"
+                      label={t('admin.taraweehStart')}
                       layout="inline"
                       hideLabel
                       value={taraweeh.startTime}
@@ -644,37 +649,37 @@ export default function MyMosqueTab() {
                     />
                   </View>
                 </View>
-                <Text style={styles.fieldLabel}>Nights to finish</Text>
+                <Text style={styles.fieldLabel}>{t('admin.nights')}</Text>
                 <View style={styles.wrapRow}>
                   {TARAWEH_NIGHTS.map((nights) => (
                     <Pressable
                       key={nights}
                       style={[styles.chip, taraweeh.nights === nights && styles.chipOn]}
                       onPress={() => setTaraweeh((prev) => ({ ...prev, nights, night: Math.min(prev.night, nights) }))}>
-                      <Text style={[styles.chipText, taraweeh.nights === nights && styles.chipTextOn]}>{nights}</Text>
+                      <Text style={[styles.chipText, taraweeh.nights === nights && styles.chipTextOn]}>{digits(nights)}</Text>
                     </Pressable>
                   ))}
                 </View>
-                <Text style={styles.fieldLabel}>Rak‘ahs</Text>
+                <Text style={styles.fieldLabel}>{t('admin.rakahs')}</Text>
                 <View style={styles.wrapRow}>
                   {TARAWEH_RAKAHS.map((rakahs) => (
                     <Pressable
                       key={rakahs}
                       style={[styles.chip, taraweeh.rakahs === rakahs && styles.chipOn]}
                       onPress={() => setTaraweeh((prev) => ({ ...prev, rakahs }))}>
-                      <Text style={[styles.chipText, taraweeh.rakahs === rakahs && styles.chipTextOn]}>{rakahs}</Text>
+                      <Text style={[styles.chipText, taraweeh.rakahs === rakahs && styles.chipTextOn]}>{digits(rakahs)}</Text>
                     </Pressable>
                   ))}
                 </View>
                 <View style={styles.stepRow}>
-                  <Text style={styles.rowName}>Tonight</Text>
+                  <Text style={styles.rowName}>{t('admin.tonight')}</Text>
                   <Pressable
                     style={styles.step}
                     onPress={() => setTaraweeh((prev) => ({ ...prev, night: Math.max(1, prev.night - 1) }))}>
                     <Ionicons name="remove" size={16} color="#0F1F2E" />
                   </Pressable>
                   <Text style={styles.stepValue}>
-                    {taraweeh.night} / {taraweeh.nights}
+                    {digits(taraweeh.night)} / {digits(taraweeh.nights)}
                   </Text>
                   <Pressable
                     style={styles.step}
@@ -691,8 +696,8 @@ export default function MyMosqueTab() {
           <Panel>
             <View style={styles.sectionHead}>
               <View style={styles.sectionTitleWrap}>
-                <Text style={styles.sectionTitle}>Features</Text>
-                <Text style={styles.sectionSub}>Subscribers are told when one is turned off, added, or removed.</Text>
+                <Text style={styles.sectionTitle}>{t('admin.features')}</Text>
+                <Text style={styles.sectionSub}>{t('admin.featuresSub')}</Text>
               </View>
             </View>
             {features.map((row) => (
@@ -702,28 +707,28 @@ export default function MyMosqueTab() {
                 </View>
                 <View style={styles.featureCopy}>
                   <Text style={[styles.featureName, !row.enabled && styles.featureNameOff]} numberOfLines={1}>
-                    {row.name}
+                    {facilityName(row.name)}
                   </Text>
-                  <Text style={styles.featureState}>{row.enabled ? 'Available' : 'Not available'}</Text>
+                  <Text style={styles.featureState}>{row.enabled ? t('admin.available') : t('admin.unavailable')}</Text>
                 </View>
                 <Switch
                   on={row.enabled}
-                  label={`${row.name} available`}
+                  label={t('admin.featureSwitch', { name: facilityName(row.name) })}
                   onPress={() =>
                     void saveFeatures(
                       features.map((item) => (item.name === row.name ? { ...item, enabled: !item.enabled } : item)),
-                      `${row.name} turned ${row.enabled ? 'off' : 'on'} · subscribers notified`,
+                      t('admin.featureToggled', { name: facilityName(row.name), state: row.enabled ? t('admin.stateOff') : t('admin.stateOn') }),
                     )
                   }
                 />
                 <Pressable
                   hitSlop={8}
                   style={styles.trash}
-                  accessibilityLabel={`Delete ${row.name}`}
+                  accessibilityLabel={t('admin.deleteFeature', { name: facilityName(row.name) })}
                   onPress={() =>
                     void saveFeatures(
                       features.filter((item) => item.name !== row.name),
-                      `${row.name} removed · subscribers notified`,
+                      t('admin.removed', { name: facilityName(row.name) }),
                     )
                   }>
                   <Ionicons name="trash-outline" size={17} color="#C2321F" />
@@ -735,7 +740,7 @@ export default function MyMosqueTab() {
                 {suggestions.map((name) => (
                   <Pressable key={name} style={styles.addChip} onPress={() => addFeature(name)}>
                     <Ionicons name="add" size={13} color="#0F1F2E" />
-                    <Text style={styles.addChipText}>{name}</Text>
+                    <Text style={styles.addChipText}>{facilityName(name)}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -745,7 +750,7 @@ export default function MyMosqueTab() {
                 style={[styles.input, styles.addInput]}
                 value={featureDraft}
                 onChangeText={setFeatureDraft}
-                placeholder="Add another feature"
+                placeholder={t('admin.addFeature')}
                 placeholderTextColor={muted}
                 onSubmitEditing={() => addFeature(featureDraft)}
                 returnKeyType="done"

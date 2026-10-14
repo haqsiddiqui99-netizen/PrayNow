@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { PermissionsAndroid, Platform } from 'react-native'
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { AzanBroadcaster, isAgoraNativeAvailable } from '@/src/services/agoraClient'
 import { startMosqueAzan, stopMosqueAzan } from '@/src/services/api'
 import { isMosqueLive, refreshLiveSessions } from '@/src/store/liveAzanSessions'
@@ -37,6 +38,7 @@ async function ensureMicPermission(): Promise<boolean> {
 }
 
 export function useAzanBroadcast(mosqueId: string | undefined) {
+  const { t } = useLanguage()
   const broadcasterRef = useRef<AzanBroadcaster | null>(null)
   const [live, setLive] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -78,12 +80,12 @@ export function useAzanBroadcast(mosqueId: string | undefined) {
     try {
       if (isAgoraNativeAvailable()) {
         const micOk = await ensureMicPermission()
-        if (!micOk) throw new Error('Microphone permission is required to broadcast live azan.')
+        if (!micOk) throw new Error(t('cast.micNeeded'))
       }
 
       const result = await startMosqueAzan(mosqueId, chosen)
       if (!result.agora?.configured || !result.agora.appId) {
-        throw new Error('Live audio is not configured on the server. Add AGORA_APP_ID to server/.env.')
+        throw new Error(t('cast.notConfigured'))
       }
 
       if (isAgoraNativeAvailable()) {
@@ -91,11 +93,9 @@ export function useAzanBroadcast(mosqueId: string | undefined) {
         await broadcaster.start(result.agora)
         broadcasterRef.current = broadcaster
         await holdScreenAwake()
-        setHint('Mic is live. Keep this screen open until you tap Stop Azan.')
+        setHint(t('cast.micLive'))
       } else {
-        setHint(
-          'Session is LIVE for app users. Mic streaming needs a dev build (npm run eas:preview) — or use web admin.',
-        )
+        setHint(t('cast.devOnly'))
       }
 
       await refreshLiveSessions()
@@ -105,11 +105,11 @@ export function useAzanBroadcast(mosqueId: string | undefined) {
       broadcasterRef.current = null
       releaseScreenAwake()
       await stopMosqueAzan(mosqueId).catch(() => {})
-      setError(e instanceof Error ? e.message : 'Could not start azan')
+      setError(e instanceof Error ? e.message : t('cast.startFail'))
     } finally {
       setBusy(false)
     }
-  }, [mosqueId, prayer])
+  }, [mosqueId, prayer, t])
 
   const onStop = useCallback(async () => {
     if (!mosqueId) return
@@ -122,13 +122,13 @@ export function useAzanBroadcast(mosqueId: string | undefined) {
       await stopMosqueAzan(mosqueId)
       await refreshLiveSessions()
       setLive(false)
-      setHint('Azan stopped.')
+      setHint(t('cast.stopped'))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not stop azan')
+      setError(e instanceof Error ? e.message : t('cast.stopFail'))
     } finally {
       setBusy(false)
     }
-  }, [mosqueId])
+  }, [mosqueId, t])
 
   return {
     live,

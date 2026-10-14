@@ -60,7 +60,8 @@ export function HomeMosqueCard({
   const styles = useStyles()
   const { colors } = useTheme()
   const router = useRouter()
-  const { t, prayerName, formatDistance, formatDuration, placeName } = useLanguage()
+  const { t, prayerName, formatDistance, formatDuration, placeName, digits } = useLanguage()
+  const merLabel = (mer: string) => (mer === 'PM' ? t('time.pm') : mer === 'AM' ? t('time.am') : mer)
   const { isSubscribed, toggle } = useMosqueNotify()
   const now = useNow()
   const broadcast = useMosqueLive(mosque.id)
@@ -88,34 +89,34 @@ export function HomeMosqueCard({
   const onNotify = async () => {
     const result = await toggle(mosque.id)
     if (result === 'need_login') {
-      Alert.alert('Sign in required', 'Log in to get notifications for this mosque.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Log in', onPress: () => router.push('/login') },
+      Alert.alert(t('mosque.signInTitle'), t('mosque.signInBody'), [
+        { text: t('admin.cancel'), style: 'cancel' },
+        { text: t('mosque.logIn'), onPress: () => router.push('/login') },
       ])
     }
   }
 
   const onLive = () => {
     void toggleLiveAzan(mosque.id, `${mosque.id}-live`).catch((error) => {
-      Alert.alert('Live azan', error instanceof Error ? error.message : 'Could not play live azan')
+      Alert.alert(t('mosque.liveTitle'), error instanceof Error ? error.message : t('mosque.liveFail'))
     })
   }
 
   const status =
     phase === 'live'
-      ? 'Azan is live now'
+      ? t('mosque.liveNow')
       : phase === 'after'
-        ? `Namaz at ${jamat}`
-        : `${prayerName(focus)} azan in ${formatDuration(minsToAzan)}`
+        ? t('mosque.namazAt', { time: jamat })
+        : t('mosque.azanIn', { name: prayerName(focus), duration: formatDuration(minsToAzan) })
 
   const subtitle =
     phase === 'live'
-      ? `Azan has begun. Jamaat in ${formatDuration(minsToJamat)}`
+      ? t('mosque.begun', { duration: formatDuration(minsToJamat) })
       : phase === 'after'
         ? minsToJamat > 0
-          ? `Azan ended. Jamaat in ${formatDuration(minsToJamat)}`
-          : 'Namaz time has passed'
-        : `Jamaat in ${formatDuration(minsToJamat)}`
+          ? t('mosque.endedWait', { duration: formatDuration(minsToJamat) })
+          : t('mosque.passed')
+        : t('mosque.jamaatIn', { duration: formatDuration(minsToJamat) })
 
   return (
     <View>
@@ -168,7 +169,7 @@ export function HomeMosqueCard({
           <View style={[styles.badge, phase === 'live' && styles.badgeLive]}>
             {phase === 'live' ? <View style={styles.badgeDot} /> : null}
             <Text style={[styles.badgeText, phase === 'live' && styles.badgeTextLive]}>
-              {phase === 'live' ? 'LIVE' : phase === 'after' ? 'Ended' : 'Upcoming'}
+              {phase === 'live' ? t('mosque.liveBadge') : phase === 'after' ? t('mosque.ended') : t('mosque.upcoming')}
             </Text>
           </View>
         </View>
@@ -190,17 +191,17 @@ export function HomeMosqueCard({
 
         <View style={styles.times}>
           <View style={[styles.tile, phase === 'live' && styles.tileLive, phase === 'before' && styles.tileSoon]}>
-            <Text style={styles.tileLabel}>{phase === 'live' ? 'Azan · live now' : t('mosque.azan')}</Text>
+            <Text style={styles.tileLabel}>{phase === 'live' ? t('mosque.azanLive') : t('mosque.azan')}</Text>
             <Text style={styles.tileTime}>
-              {azanClock.time}
-              {azanClock.mer ? <Text style={styles.mer}> {azanClock.mer}</Text> : null}
+              {digits(azanClock.time)}
+              {azanClock.mer ? <Text style={styles.mer}> {merLabel(azanClock.mer)}</Text> : null}
             </Text>
           </View>
           <View style={[styles.tile, phase === 'after' && styles.tileSoon]}>
             <Text style={styles.tileLabel}>{t('mosque.namaz')}</Text>
             <Text style={styles.tileTime}>
-              {jamatClock.time}
-              {jamatClock.mer ? <Text style={styles.mer}> {jamatClock.mer}</Text> : null}
+              {digits(jamatClock.time)}
+              {jamatClock.mer ? <Text style={styles.mer}> {merLabel(jamatClock.mer)}</Text> : null}
             </Text>
           </View>
         </View>
@@ -211,7 +212,7 @@ export function HomeMosqueCard({
             event.stopPropagation?.()
             setOpen((value) => !value)
           }}>
-          <Text style={styles.moreText}>{open ? 'Hide prayers' : 'All prayers today'}</Text>
+          <Text style={styles.moreText}>{open ? t('mosque.hidePrayers') : t('mosque.allToday')}</Text>
           <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color="#4B6662" />
         </Pressable>
         {open
@@ -221,8 +222,8 @@ export function HomeMosqueCard({
               return (
                 <View key={name} style={styles.row}>
                   <Text style={[styles.rowName, active && styles.rowOn]}>{prayerName(name)}</Text>
-                  <Text style={[styles.rowTime, active && styles.rowOn]}>{times.azan}</Text>
-                  <Text style={[styles.rowTime, active && styles.rowOn]}>{times.jamat}</Text>
+                  <Text style={[styles.rowTime, active && styles.rowOn]}>{digits(times.azan)}</Text>
+                  <Text style={[styles.rowTime, active && styles.rowOn]}>{digits(times.jamat)}</Text>
                 </View>
               )
             })

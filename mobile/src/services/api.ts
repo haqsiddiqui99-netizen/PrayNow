@@ -1,7 +1,7 @@
 import { getApiBaseUrl } from '@/src/config/api'
 import type { ApiCitySettingsResponse } from '@/src/config/cityPrayerConfig'
 import { MOCK_MOSQUES } from '@/src/data/mockData'
-import type { BroadcastPrayer, Mosque, MosqueTimings, NightTimings, TaraweehSettings } from '@/src/types'
+import type { BroadcastPrayer, Mosque, MosqueTimings, NightTimings, PrayerName, TaraweehSettings } from '@/src/types'
 import { getStoredToken, type AppUser } from '@/src/services/authStorage'
 
 export type { AppUser }
@@ -429,13 +429,62 @@ export async function generateAdminCityYear(
 
 // --- User mosque notifications ---
 
-export async function fetchMySubscriptions(): Promise<string[]> {
+export type JamaatLead = 0 | 5 | 10 | 15 | 30
+
+export type MosqueReminderPrefs = {
+  /** Ring before jamaat; `lead` is the minutes before. */
+  jamaat: boolean
+  lead: JamaatLead
+  /** Ring at the mosque's azan time. */
+  azan: boolean
+  /** Ring when it is time to set off; `travel` is the trip in minutes, measured when saved. */
+  leave: boolean
+  travel: number
+  /** Ring before Taraweeh on Ramadan nights, for mosques that hold it. */
+  taraweeh: boolean
+  prayers: PrayerName[]
+}
+
+export type ReminderMosque = {
+  name: string
+  timings: Mosque['timings']
+  jumaTimings?: Mosque['jumaTimings']
+  taraweeh?: Mosque['taraweeh']
+}
+
+export type MosqueSubscription = {
+  mosqueId: string
+  reminders: MosqueReminderPrefs
+  /** Present only when a reminder is on, so the device can schedule it. */
+  mosque: ReminderMosque | null
+}
+
+export async function fetchMySubscriptions(): Promise<MosqueSubscription[]> {
   const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/me/subscriptions`, {
     headers: await authHeaders(false),
   })
   if (!res.ok) await parseError(res, 'Failed to load subscriptions')
-  const data = (await res.json()) as { mosqueIds?: string[] }
-  return data.mosqueIds ?? []
+  const data = (await res.json()) as { mosqueIds?: string[]; subscriptions?: MosqueSubscription[] }
+  if (data.subscriptions) return data.subscriptions
+  return (data.mosqueIds ?? []).map((mosqueId) => ({
+    mosqueId,
+    reminders: { jamaat: false, lead: 10, azan: false, leave: false, travel: 0, taraweeh: false, prayers: [] },
+    mosque: null,
+  }))
+}
+
+export async function saveMosqueReminders(
+  mosqueId: string,
+  prefs: MosqueReminderPrefs,
+): Promise<MosqueSubscription> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/me/subscriptions/${mosqueId}/reminders`, {
+    method: 'PUT',
+    headers: await authHeaders(),
+    body: JSON.stringify(prefs),
+  })
+  if (!res.ok) await parseError(res, 'Failed to save reminders')
+  const data = (await res.json()) as { reminders: MosqueReminderPrefs; mosque: ReminderMosque | null }
+  return { mosqueId, reminders: data.reminders, mosque: data.mosque }
 }
 
 export async function subscribeMosque(mosqueId: string): Promise<void> {
@@ -520,6 +569,65 @@ export async function postMosqueAnnouncement(
   })
   if (!res.ok) await parseError(res, 'Failed to post announcement')
   return (await res.json()) as { ok: boolean; notified: number }
+}
+
+export type MosqueStats = {
+  followers: number
+  newThisWeek: number
+  withReminders: number
+  jamaat: number
+  azan: number
+  leave: number
+  taraweeh: number
+  prayers: Record<PrayerName, number>
+}
+
+export async function fetchMosqueStats(mosqueId: string): Promise<MosqueStats> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/manager/mosques/${mosqueId}/stats`, {
+    headers: await authHeaders(false),
+  })
+  if (!res.ok) await parseError(res, 'Failed to load stats')
+  return (await res.json()) as MosqueStats
+}
+
+// --- Mosque events (classes, talks, iftars) ---
+
+export type MosqueEvent = {
+  id: string
+  mosqueId: string
+  title: string
+  details: string
+  /** ISO time of the first (or only) session. */
+  startsAt: string
+  weekly: boolean
+}
+
+export async function fetchUpcomingMosqueEvents(): Promise<MosqueEvent[]> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/mosque-events`)
+  if (!res.ok) await parseError(res, 'Failed to load events')
+  const data = (await res.json()) as { events?: MosqueEvent[] }
+  return Array.isArray(data.events) ? data.events : []
+}
+
+export async function createMosqueEvent(
+  mosqueId: string,
+  body: { title: string; details: string; startsAt: string; weekly: boolean },
+): Promise<{ event: MosqueEvent; notified: number }> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/manager/mosques/${mosqueId}/events`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) await parseError(res, 'Failed to add event')
+  return (await res.json()) as { event: MosqueEvent; notified: number }
+}
+
+export async function deleteMosqueEvent(mosqueId: string, eventId: string): Promise<void> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/manager/mosques/${mosqueId}/events/${eventId}`, {
+    method: 'DELETE',
+    headers: await authHeaders(false),
+  })
+  if (!res.ok) await parseError(res, 'Failed to remove event')
 }
 
 // --- "Add this mosque" requests from users ---

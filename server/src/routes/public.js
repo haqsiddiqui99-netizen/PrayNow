@@ -5,6 +5,7 @@ import { getPool } from '../db/pool.js'
 import { signToken } from '../middleware/auth.js'
 import { fetchMosqueRows, fetchMosqueById, resolveMosqueDbId } from '../services/mosques.js'
 import { buildLiveAzanFeeds } from '../services/liveAzan.js'
+import { listUpcomingEvents } from '../services/mosqueEvents.js'
 import { getLiveSessions, getLiveSessionForMosque, getLatestRecording, joinLiveListener, leaveLiveListener } from '../services/liveAzanSessions.js'
 import { buildAgoraCredentials } from '../services/agora.js'
 import { askOpenAiIslamicQuestion, transcribeOpenAiAudio } from '../services/islamicChat.js'
@@ -176,6 +177,34 @@ router.get('/mosques', async (_req, res) => {
   try {
     await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
     res.json(await fetchMosqueRows(client))
+  } finally {
+    client.release()
+  }
+})
+
+router.get('/mosque-events', async (_req, res) => {
+  const client = await pool.connect()
+  try {
+    await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+    res.json({ events: await listUpcomingEvents(client) })
+  } catch (err) {
+    console.error('mosque events failed', err)
+    res.status(500).json({ error: err.message || 'Failed to load events' })
+  } finally {
+    client.release()
+  }
+})
+
+router.get('/mosques/:id/events', async (req, res) => {
+  const client = await pool.connect()
+  try {
+    await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+    const dbId = await resolveMosqueDbId(client, req.params.id)
+    if (!dbId) return res.status(404).json({ error: 'Not found' })
+    res.json({ events: await listUpcomingEvents(client, dbId) })
+  } catch (err) {
+    console.error('mosque events failed', err)
+    res.status(500).json({ error: err.message || 'Failed to load events' })
   } finally {
     client.release()
   }

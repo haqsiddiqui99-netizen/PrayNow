@@ -63,7 +63,7 @@ export function MosqueCurrentNextTimings({
   omitControls?: boolean
 }) {
   const styles = useStyles()
-  const { t, prayerName } = useLanguage()
+  const { t, prayerName, digits } = useLanguage()
   // Re-render periodically so the "Live" state flips on automatically at azan time.
   const now = useNowTick(30000)
   // Real broadcast session (mosque admin is streaming azan right now).
@@ -88,7 +88,7 @@ export function MosqueCurrentNextTimings({
 
       <View style={styles.currentRow}>
         <Text style={styles.currentRowLabel}>{t('mosque.azan')}</Text>
-        <Text style={styles.currentRowTime}>{azan}</Text>
+        <Text style={styles.currentRowTime}>{digits(azan)}</Text>
         {prominent || omitControls ? null : (
           <AzanControls mosqueId={mosque.id} sessionKey={azanId} live={azanStarted} />
         )}
@@ -97,7 +97,7 @@ export function MosqueCurrentNextTimings({
       {!azanOnly ? (
         <View style={styles.currentRow}>
           <Text style={styles.currentRowLabel}>{t('mosque.namaz')}</Text>
-          <Text style={styles.currentRowTime}>{namaz}</Text>
+          <Text style={styles.currentRowTime}>{digits(namaz)}</Text>
         </View>
       ) : null}
 
@@ -181,7 +181,7 @@ function AzanControls({
 
   const onToggle = () => {
     void toggleLiveAzan(mosqueId, sessionKey).catch((e) => {
-      Alert.alert('Live azan', e instanceof Error ? e.message : 'Could not play live azan')
+      Alert.alert(t('mosque.liveTitle'), e instanceof Error ? e.message : t('mosque.liveFail'))
     })
   }
 
@@ -271,7 +271,7 @@ export function MosqueTimingsGrid({
 }) {
   const styles = useStyles()
   const gridStyles = useTimingGridStyles()
-  const { t, prayerName } = useLanguage()
+  const { t, prayerName, digits } = useLanguage()
 
   if (currentAndNext && nextPrayer) {
     return (
@@ -302,10 +302,10 @@ export function MosqueTimingsGrid({
                 {prayerName(shortLabel(name))}
               </Text>
               <Text style={[styles.tileTime, active && styles.tileTimeActive]} numberOfLines={1}>
-                {formatTime(getAzanTime(mosque, name))}
+                {digits(formatTime(getAzanTime(mosque, name)))}
               </Text>
               <Text style={[styles.tileSubTime, active && styles.tileSubTimeActive]} numberOfLines={1}>
-                {formatTime(getJamatTime(mosque, name))}
+                {digits(formatTime(getJamatTime(mosque, name)))}
               </Text>
             </View>
           )
@@ -342,7 +342,7 @@ export function MosqueTimingsGrid({
             const active = currentPrayer === name
             return (
               <View key={name} style={[gridStyles.timeCell, active && gridStyles.colActive]}>
-                <Text style={gridStyles.timeValue}>{formatTime(row.getTime(name))}</Text>
+                <Text style={gridStyles.timeValue}>{digits(formatTime(row.getTime(name)))}</Text>
               </View>
             )
           })}
@@ -360,7 +360,7 @@ export function MosqueTimingsTable({
   currentPrayer?: PrayerName | null
 }) {
   const styles = useStyles()
-  const { t, prayerName } = useLanguage()
+  const { t, prayerName, digits } = useLanguage()
 
   return (
     <View style={styles.table}>
@@ -383,9 +383,9 @@ export function MosqueTimingsTable({
             <Text style={[styles.tablePrayerCol, styles.tablePrayerName, active && styles.tableActiveText]}>
               {prayerName(label)}
             </Text>
-            <Text style={styles.tableCell}>{azan}</Text>
-            <Text style={styles.tableCell}>{jamat}</Text>
-            <Text style={styles.tableCell}>{slot.end}</Text>
+            <Text style={styles.tableCell}>{digits(azan)}</Text>
+            <Text style={styles.tableCell}>{digits(jamat)}</Text>
+            <Text style={styles.tableCell}>{digits(slot.end)}</Text>
           </View>
         )
       })}

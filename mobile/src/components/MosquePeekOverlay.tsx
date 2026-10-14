@@ -43,7 +43,7 @@ export function MosquePeekOverlay({
   const styles = useStyles()
   const { colors } = useTheme()
   const insets = useSafeAreaInsets()
-  const { t, formatDistance, placeName } = useLanguage()
+  const { t, formatDistance, placeName, digits } = useLanguage()
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current
   const dragY = useRef(new Animated.Value(0)).current
   const backdropOpacity = useRef(new Animated.Value(0)).current
@@ -107,7 +107,7 @@ export function MosquePeekOverlay({
       <View style={styles.root}>
         <Animated.View style={[styles.backdropWrap, { opacity: backdropOpacity }]}>
           <BlurView intensity={45} tint="dark" style={StyleSheet.absoluteFill} />
-          <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} accessibilityLabel="Close preview" />
+          <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} accessibilityLabel={t('common.closePreview')} />
         </Animated.View>
 
         <Animated.View
@@ -134,7 +134,7 @@ export function MosquePeekOverlay({
             <View style={styles.metaRow}>
               <View style={styles.metaChip}>
                 <Ionicons name="star" size={11} color="#f59e0b" />
-                <Text style={styles.metaChipText}>{mosque.rating.toFixed(1)}</Text>
+                <Text style={styles.metaChipText}>{digits(mosque.rating.toFixed(1))}</Text>
               </View>
               <View style={styles.metaChip}>
                 <Ionicons name="location-outline" size={11} color={colors.textSecondary} />
@@ -142,7 +142,7 @@ export function MosquePeekOverlay({
               </View>
               <View style={styles.metaChip}>
                 <Ionicons name="people-outline" size={11} color={colors.textSecondary} />
-                <Text style={styles.metaChipText}>{formatCapacity(mosque.capacity)}</Text>
+                <Text style={styles.metaChipText}>{digits(formatCapacity(mosque.capacity))}</Text>
               </View>
               <View style={styles.metaChip}>
                 <Ionicons name="car-outline" size={11} color={colors.textSecondary} />

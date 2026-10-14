@@ -8,9 +8,11 @@ import {
   AppState,
   LayoutAnimation,
   LayoutChangeEvent,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -29,7 +31,19 @@ import { Cloud, FastLine, MoonDisc, MoonOrb, Skyline, SunArc, SunOrb, moonShape,
 import type { CityPrayerConfig } from '@/src/config/cityPrayerConfig';
 import type { PrayerName } from '@/src/types';
 import { parseTime } from '@/src/utils/prayerSchedule';
-import { loadReminderKeys, setReminder, syncReminders, type ReminderItem } from '@/src/services/prayerReminders';
+import { ramadanDayOf } from '@/src/utils/hijriCalendar';
+import {
+  DEFAULT_SEHRI_LEAD,
+  loadReminderKeys,
+  loadSehriLead,
+  saveSehriLead,
+  setReminder,
+  syncReminders,
+  type ReminderItem,
+  type ReminderMessage,
+} from '@/src/services/prayerReminders';
+import { useLanguage } from '@/src/context/LanguageContext';
+import type { TranslationKey } from '@/src/i18n/translations';
 import { makeStyles, useTheme } from '@/src/context/ThemeContext';
 
 /* ========================================================================== */
@@ -351,8 +365,6 @@ export function prayerDayFromConfig(config: CityPrayerConfig, hijri: string): Pr
 const mer = (min: number) => (Math.floor(min / 60) % 24 < 12 ? 'AM' : 'PM');
 const hm = (min: number) =>
   `${(((Math.floor(min / 60) % 24) + 11) % 12) + 1}:${String(min % 60).padStart(2, '0')}`;
-const t12 = (min: number) => `${hm(min)} ${mer(min)}`;
-const range = (a: number, b: number) => (mer(a) === mer(b) ? `${hm(a)} – ${hm(b)} ${mer(b)}` : `${t12(a)} – ${t12(b)}`);
 const pad = (n: number) => String(n).padStart(2, '0');
 const mmss = (s: number) => {
   const v = Math.max(0, Math.floor(s));
@@ -361,9 +373,51 @@ const mmss = (s: number) => {
   const x = v % 60;
   return h ? `${h}:${pad(mi)}:${pad(x)}` : `${pad(mi)}:${pad(x)}`;
 };
-const inText = (mins: number) => (mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`);
-const dur = (mins: number) => (mins % 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${Math.floor(mins / 60)}h`);
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+const MOON_KEYS: Record<string, TranslationKey> = {
+  'New moon': 'moon.new',
+  'Waxing crescent': 'moon.waxingCrescent',
+  'First quarter': 'moon.firstQuarter',
+  'Waxing gibbous': 'moon.waxingGibbous',
+  'Full moon': 'moon.full',
+  'Waning gibbous': 'moon.waningGibbous',
+  'Last quarter': 'moon.lastQuarter',
+  'Waning crescent': 'moon.waningCrescent',
+};
+
+const EXTRA_NOTES: Record<string, TranslationKey> = {
+  Tahajjud: 'extra.nightPrayer',
+  'Tulu Aftab': 'extra.sunRising',
+  Ishraq: 'extra.afterSunrise',
+  Chasht: 'extra.forenoon',
+  Zawal: 'extra.sunPeak',
+};
+
+function useClock() {
+  const { t, prayerName, formatDuration, language, digits } = useLanguage();
+  return useMemo(() => {
+    const am = t('time.am');
+    const pm = t('time.pm');
+    const merL = (min: number) => (Math.floor(min / 60) % 24 < 12 ? am : pm);
+    const hmL = (min: number) => digits(hm(min));
+    const mmssL = (s: number) => digits(mmss(s));
+    const t12L = (min: number) => `${hmL(min)} ${merL(min)}`;
+    const rangeL = (a: number, b: number) =>
+      mer(a) === mer(b) ? `${hmL(a)} – ${hmL(b)} ${merL(b)}` : `${t12L(a)} – ${t12L(b)}`;
+    const nameOf = (name: string) => (name === 'Tulu Aftab' ? t('timings.tuluAftab') : prayerName(name));
+    const noteOf = (name: string, fallback: string) => {
+      const key = EXTRA_NOTES[name];
+      return key ? t(key) : fallback;
+    };
+    const moonOf = (name: string) => {
+      const key = MOON_KEYS[name];
+      return key ? t(key) : name;
+    };
+    const locale = language === 'hi' ? 'hi-IN' : language === 'ur' ? 'ur-PK' : language === 'ar' ? 'ar' : 'en-US';
+    return { t, formatDuration, locale, mer: merL, t12: t12L, range: rangeL, nameOf, noteOf, moonOf, hm: hmL, mmss: mmssL, digits };
+  }, [t, prayerName, formatDuration, language, digits]);
+}
+
 
 /** seconds since local midnight, ticking every second (or a fixed value for testing) */
 function useNowSeconds(override?: number): number {
@@ -523,6 +577,7 @@ type HeroProps = {
 const Hero = memo(function Hero(p: HeroProps) {
   const styles = useStyles();
   const colors = useColors();
+  const clock = useClock();
   const [w, setW] = useState(0);
   const cfg = SKY[p.sky];
   const night = p.sky === 'isha';
@@ -573,9 +628,9 @@ const Hero = memo(function Hero(p: HeroProps) {
         <View style={styles.hcTop}>
           <View style={[styles.glass, { backgroundColor: cfg.glass, borderColor: cfg.glassLine }]}>
             <MaterialCommunityIcons name="moon-waning-crescent" size={13} color={cfg.ink} />
-            <Text style={[styles.glassText, { color: cfg.ink }]}>{p.hijri}</Text>
+            <Text style={[styles.glassText, { color: cfg.ink }]} numberOfLines={1}>{p.hijri}</Text>
           </View>
-          <Text style={[styles.clock, { color: cfg.ink2 }]}>{p.clockText}</Text>
+          <Text style={[styles.clock, { color: cfg.ink2 }]} numberOfLines={1}>{p.clockText}</Text>
         </View>
 
         <View style={styles.hcMain}>
@@ -605,15 +660,15 @@ const Hero = memo(function Hero(p: HeroProps) {
         <View style={[styles.glass, styles.chipSm, { backgroundColor: cfg.glass, borderColor: cfg.glassLine }]}>
           <MaterialCommunityIcons name={p.weatherLoading ? 'weather-cloudy' : wx.icon} size={14} color={cfg.ink} />
           <Text style={[styles.glassTextSm, { color: cfg.ink }]}>
-            {p.weatherLoading || p.tempC == null ? 'Checking weather…' : `${p.tempC}° ${wx.name}`}
+            {p.weatherLoading || p.tempC == null ? clock.t('home.checkingWeather') : clock.digits(`${p.tempC}° ${clock.t(`weather.${p.weather}` as TranslationKey)}`)}
           </Text>
         </View>
         {showMoonChip && (
           <View style={[styles.glass, styles.chipSm, { backgroundColor: cfg.glass, borderColor: cfg.glassLine }]}>
             <MoonDisc shape={p.moon.shape} size={12} tiny />
             <Text style={[styles.glassTextSm, { color: cfg.ink }]}>
-              {p.moon.name}
-              {illum > 0.03 && illum < 0.97 ? ` · ${Math.round(illum * 100)}%` : ''}
+              {clock.moonOf(p.moon.name)}
+              {illum > 0.03 && illum < 0.97 ? clock.digits(` · ${Math.round(illum * 100)}%`) : ''}
             </Text>
           </View>
         )}
@@ -640,6 +695,7 @@ const Strip = memo(function Strip({
 }) {
   const styles = useStyles();
   const colors = useColors();
+  const clock = useClock();
   return (
     <View style={styles.strip} accessibilityRole="tablist">
       {prayers.map((p, i) => {
@@ -653,16 +709,16 @@ const Strip = memo(function Strip({
             onPress={() => onSelect(i)}
             accessibilityRole="tab"
             accessibilityState={{ selected: isSel }}
-            accessibilityLabel={`${p.name} ${t12(p.start)}`}
+            accessibilityLabel={`${clock.nameOf(p.name)} ${clock.t12(p.start)}`}
             style={[styles.pc, isCur && styles.pcCur, isSel && !isCur && styles.pcSel]}
           >
             {mark && (
               <MaterialCommunityIcons name={mark} size={10} color={isCur ? colors.curIcon : colors.accent} style={styles.pcMark} />
             )}
             <MaterialCommunityIcons name={p.icon} size={19} color={isCur ? colors.curIcon : isSel ? colors.ink : colors.muted} />
-            <Text style={[styles.pcName, isCur && { color: colors.onPillSoft }]}>{p.name}</Text>
+            <Text style={[styles.pcName, isCur && { color: colors.onPillSoft }]}>{clock.nameOf(p.name)}</Text>
             <Text style={[styles.pcTime, done && { color: colors.muted, fontFamily: F.bold }, isCur && { color: colors.onDark }]}>
-              {hm(p.start)}
+              {clock.hm(p.start)}
             </Text>
           </Pressable>
         );
@@ -676,6 +732,7 @@ const Strip = memo(function Strip({
 /* ========================================================================== */
 function SfSide({ icon, label, time, end, tint }: { icon: IconName; label: string; time: number; end?: boolean; tint: string }) {
   const styles = useStyles();
+  const clock = useClock();
   return (
     <View style={[styles.sfSide, end && { alignItems: 'flex-end' }]}>
       <View style={styles.sfLabelRow}>
@@ -683,7 +740,7 @@ function SfSide({ icon, label, time, end, tint }: { icon: IconName; label: strin
         <Text style={styles.sfLabel}>{label}</Text>
         {end && <MaterialCommunityIcons name={icon} size={14} color={tint} />}
       </View>
-      <Text style={styles.sfTime}>{hm(time)}</Text>
+      <Text style={styles.sfTime}>{clock.hm(time)}</Text>
     </View>
   );
 }
@@ -691,25 +748,191 @@ function SfSide({ icon, label, time, end, tint }: { icon: IconName; label: strin
 const SunFasting = memo(function SunFasting({ sun, nowMin }: { sun: PrayerDay['sun']; nowMin: number }) {
   const styles = useStyles();
   const colors = useColors();
+  const clock = useClock();
   const prog = (a: number, b: number) => clamp01((nowMin - a) / (b - a));
   return (
     <View style={styles.sf}>
       <GradientFill colors={colors.sun} vertical />
       <View style={styles.sfRow}>
-        <SfSide icon="weather-sunset-up" label="Sunrise" time={sun.sunrise} tint={colors.sunrise} />
+        <SfSide icon="weather-sunset-up" label={clock.t('timings.sunrise')} time={sun.sunrise} tint={colors.sunrise} />
         <View style={styles.sfMid}>
           <SunArc progress={prog(sun.sunrise, sun.sunset)} line={colors.line} faint={colors.faint} />
-          <Text style={styles.sfMidText}>{dur(sun.sunset - sun.sunrise)} daylight</Text>
+          <Text style={styles.sfMidText}>{clock.t('home.daylight', { duration: clock.formatDuration(sun.sunset - sun.sunrise) })}</Text>
         </View>
-        <SfSide icon="weather-sunset-down" label="Sunset" time={sun.sunset} end tint={colors.sunrise} />
+        <SfSide icon="weather-sunset-down" label={clock.t('timings.sunset')} time={sun.sunset} end tint={colors.sunrise} />
       </View>
       <View style={[styles.sfRow, styles.sfRowBorder]}>
-        <SfSide icon="weather-night" label="Sehri" time={sun.sehri} tint={colors.sehri} />
+        <SfSide icon="weather-night" label={clock.t('timings.sehri')} time={sun.sehri} tint={colors.sehri} />
         <View style={styles.sfMid}>
           <FastLine progress={prog(sun.sehri, sun.iftar)} faint={colors.faint} />
-          <Text style={styles.sfMidText}>{dur(sun.iftar - sun.sehri)} fast</Text>
+          <Text style={styles.sfMidText}>{clock.t('home.fast', { duration: clock.formatDuration(sun.iftar - sun.sehri) })}</Text>
         </View>
-        <SfSide icon="coffee-outline" label="Iftar" time={sun.iftar} end tint={colors.sehri} />
+        <SfSide icon="coffee-outline" label={clock.t('timings.eftari')} time={sun.iftar} end tint={colors.sehri} />
+      </View>
+    </View>
+  );
+});
+
+/* ========================================================================== */
+/*  Ramadan                                                                    */
+/* ========================================================================== */
+/** Shows the Ramadan strip outside Ramadan for testing. Set to false before release. */
+const SEHRI_LEADS = [60, 30, 15, 5];
+const MAX_SEHRI_LEAD = 180;
+
+const SehriLeadSheet = memo(function SehriLeadSheet({
+  visible,
+  lead,
+  on,
+  onClose,
+  onSave,
+  onTurnOff,
+}: {
+  visible: boolean;
+  lead: number;
+  on: boolean;
+  onClose: () => void;
+  onSave: (minutes: number) => void;
+  onTurnOff: () => void;
+}) {
+  const styles = useStyles();
+  const colors = useColors();
+  const clock = useClock();
+  const [pick, setPick] = useState<number | 'custom'>(lead);
+  const [custom, setCustom] = useState('');
+
+  useEffect(() => {
+    if (!visible) return;
+    setPick(SEHRI_LEADS.includes(lead) ? lead : 'custom');
+    setCustom(SEHRI_LEADS.includes(lead) ? '' : String(lead));
+  }, [visible, lead]);
+
+  const customMinutes = Math.round(Number(custom.replace(/[^0-9]/g, '')));
+  const valid = pick !== 'custom' || (customMinutes >= 1 && customMinutes <= MAX_SEHRI_LEAD);
+  const save = () => {
+    if (!valid) return;
+    onSave(pick === 'custom' ? customMinutes : pick);
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+      <View style={styles.slBackdrop} onStartShouldSetResponder={() => true}>
+        <Pressable style={styles.slDismiss} onPress={onClose} />
+        <View style={styles.slSheet}>
+          <View style={styles.slHead}>
+            <MaterialCommunityIcons name="weather-night" size={18} color={colors.sehri} />
+            <Text style={styles.slTitle}>{clock.t('ramadan.sehriAsk')}</Text>
+            <Pressable onPress={onClose} hitSlop={10} style={styles.slClose}>
+              <MaterialCommunityIcons name="close" size={18} color={colors.ink} />
+            </Pressable>
+          </View>
+          <View style={styles.slChips}>
+            {[...SEHRI_LEADS, 'custom' as const].map((option) => {
+              const selected = pick === option;
+              return (
+                <Pressable
+                  key={String(option)}
+                  onPress={() => setPick(option)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                  style={[styles.slChip, selected && styles.slChipOn]}>
+                  <Text style={[styles.slChipText, selected && styles.slChipTextOn]} numberOfLines={1}>
+                    {option === 'custom' ? clock.t('ramadan.custom') : clock.formatDuration(option)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {pick === 'custom' ? (
+            <View style={styles.slCustom}>
+              <TextInput
+                value={custom}
+                onChangeText={setCustom}
+                keyboardType="number-pad"
+                maxLength={3}
+                placeholder="45"
+                placeholderTextColor={colors.faint}
+                style={styles.slInput}
+                autoFocus
+                onSubmitEditing={save}
+              />
+              <Text style={styles.slInputHint}>{clock.t('ramadan.customHint', { max: MAX_SEHRI_LEAD })}</Text>
+            </View>
+          ) : null}
+          <View style={styles.slActions}>
+            {on ? (
+              <Pressable onPress={onTurnOff} style={[styles.slBtn, styles.slBtnGhost]} accessibilityRole="button">
+                <Text style={styles.slBtnGhostText}>{clock.t('ramadan.turnOff')}</Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              onPress={save}
+              disabled={!valid}
+              style={[styles.slBtn, styles.slBtnMain, !valid && { opacity: 0.4 }]}
+              accessibilityRole="button">
+              <Text style={styles.slBtnMainText}>{clock.t('reminder.save')}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+});
+
+const RamadanStrip = memo(function RamadanStrip({
+  sun,
+  nowMin,
+  day,
+  reminders,
+  sehriLead,
+  onSehri,
+  onToggle,
+}: {
+  sun: PrayerDay['sun'];
+  nowMin: number;
+  day: number;
+  reminders: Set<string>;
+  sehriLead: number;
+  onSehri: () => void;
+  onToggle: (which: 'sehri' | 'iftar') => void;
+}) {
+  const styles = useStyles();
+  const colors = useColors();
+  const clock = useClock();
+  const toSehri = sun.sehri - nowMin;
+  const toIftar = sun.iftar - nowMin;
+  const fasting = toSehri <= 0 && toIftar > 0;
+  const left = fasting ? toIftar : toSehri > 0 ? toSehri : sun.sehri + 1440 - nowMin;
+  return (
+    <View style={styles.ram}>
+      <View style={styles.ramHead}>
+        <MaterialCommunityIcons name="moon-waning-crescent" size={16} color={colors.sehri} />
+        <Text style={styles.ramTitle}>{clock.t('ramadan.day', { day })}</Text>
+        <Text style={styles.ramCount} numberOfLines={1}>
+          {clock.t(fasting ? 'ramadan.iftarIn' : 'ramadan.sehriIn', { duration: clock.formatDuration(left) })}
+        </Text>
+      </View>
+      <View style={styles.ramBells}>
+        {(['sehri', 'iftar'] as const).map((which) => {
+          const on = reminders.has(`ramadan:${which}`);
+          return (
+            <Pressable
+              key={which}
+              onPress={() => (which === 'sehri' ? onSehri() : onToggle(which))}
+              accessibilityRole={which === 'sehri' ? 'button' : 'switch'}
+              accessibilityState={{ checked: on }}
+              style={[styles.remBtn, styles.ramBtn, on && styles.remBtnOn]}>
+              <MaterialCommunityIcons name={on ? 'bell-ring' : 'bell-outline'} size={15} color={on ? colors.onAccent : colors.muted} />
+              <Text style={[styles.remBtnText, on && { color: colors.onAccent }]} numberOfLines={1}>
+                {which === 'iftar'
+                  ? clock.t('ramadan.iftarAlert')
+                  : on
+                    ? clock.t('ramadan.sehriAlert', { when: clock.formatDuration(sehriLead) })
+                    : clock.t('ramadan.sehriOff')}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
@@ -733,6 +956,7 @@ const MoreTimings = memo(function MoreTimings({
 }) {
   const styles = useStyles();
   const colors = useColors();
+  const clock = useClock();
   const [open, setOpen] = useState(false);
   const toggle = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.create(260, 'easeInEaseOut', 'opacity'));
@@ -742,8 +966,8 @@ const MoreTimings = memo(function MoreTimings({
     <View style={styles.acc}>
       <Pressable onPress={toggle} style={styles.accHead} accessibilityRole="button" accessibilityState={{ expanded: open }}>
         <View>
-          <Text style={styles.accTitle}>More timings</Text>
-          <Text style={styles.accSub}>Optional and avoid times</Text>
+          <Text style={styles.accTitle}>{clock.t('home.moreTimings')}</Text>
+          <Text style={styles.accSub}>{clock.t('home.optionalAvoid')}</Text>
         </View>
         <View style={styles.chev}>
           <MaterialCommunityIcons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />
@@ -762,26 +986,26 @@ const MoreTimings = memo(function MoreTimings({
                 <View style={styles.itBody}>
                   <View style={styles.itNameRow}>
                     <Text style={styles.itName} numberOfLines={1}>
-                      {w.name}
+                      {clock.nameOf(w.name)}
                     </Text>
-                    {avoid && <Text style={styles.avoidTag}>AVOID</Text>}
+                    {avoid && <Text style={styles.avoidTag}>{clock.t('home.avoid')}</Text>}
                     {now && (
-                      <Text style={[styles.nowChip, avoid && { backgroundColor: colors.amber, color: '#2A1A00' }]}>Now</Text>
+                      <Text style={[styles.nowChip, avoid && { backgroundColor: colors.amber, color: '#2A1A00' }]}>{clock.t('home.now')}</Text>
                     )}
                   </View>
                   <Text style={styles.itNote} numberOfLines={1}>
-                    {w.note}
+                    {clock.noteOf(w.name, w.note)}
                   </Text>
                 </View>
                 <Text style={[styles.itTime, avoid && { color: colors.warmInk }]} numberOfLines={1}>
-                  {range(w.start, w.end)}
+                  {clock.range(w.start, w.end)}
                 </Text>
                 <Pressable
                   onPress={() => onToggle(w)}
                   hitSlop={6}
                   accessibilityRole="switch"
                   accessibilityState={{ checked: reminders.has(extraKey(w)) }}
-                  accessibilityLabel={`${reminders.has(extraKey(w)) ? 'Turn off reminder for' : 'Remind me for'} ${w.name}`}
+                  accessibilityLabel={clock.t(reminders.has(extraKey(w)) ? 'home.remindOffA11y' : 'home.remindOnA11y', { name: clock.nameOf(w.name) })}
                   style={[styles.itBell, reminders.has(extraKey(w)) && styles.itBellOn]}>
                   <MaterialCommunityIcons
                     name={reminders.has(extraKey(w)) ? 'bell-ring' : 'bell-outline'}
@@ -824,21 +1048,38 @@ export function PrayerHomeCard({
 }: PrayerHomeCardProps) {
   const styles = useStyles();
   const colors = useColors();
+  const clock = useClock();
   const sec = useNowSeconds(nowOverride);
   const nowMin = Math.floor(sec / 60);
   const conditions = useSkyConditions({ lat, lon, storage });
-  const { cur, t } = locate(data.prayers, sec);
+  const { cur, t: nowSec } = locate(data.prayers, sec);
 
   const [sel, setSel] = useState<number | null>(null);
   const [reminders, setReminders] = useState<Set<string>>(() => new Set(initialReminders));
   const [notice, setNotice] = useState('');
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [sehriLead, setSehriLead] = useState(DEFAULT_SEHRI_LEAD);
+  const [sehriSheet, setSehriSheet] = useState(false);
+  useEffect(() => {
+    void loadSehriLead().then(setSehriLead);
+  }, []);
+  const ramadanDay = useMemo(() => {
+    return ramadanDayOf(new Date());
+    // Re-check as the clock moves so the strip appears on 1 Ramadan without a restart.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nowMin]);
   const reminderItems = useMemo<ReminderItem[]>(
     () => [
       ...data.prayers.map((w) => ({ key: w.key, name: w.name, start: w.start, end: w.end, kind: 'prayer' as const })),
       ...data.extras.map((w) => ({ key: extraKey(w), name: w.name, start: w.start, end: w.end, kind: w.kind })),
+      ...(ramadanDay
+        ? [
+            { key: 'ramadan:sehri', name: clock.t('timings.sehri'), start: data.sun.sehri - sehriLead, end: data.sun.sehri, kind: 'sehri' as const },
+            { key: 'ramadan:iftar', name: clock.t('timings.eftari'), start: data.sun.iftar, end: data.sun.iftar, kind: 'iftar' as const },
+          ]
+        : []),
     ],
-    [data],
+    [data, ramadanDay, clock, sehriLead],
   );
   useEffect(() => {
     let alive = true;
@@ -849,9 +1090,28 @@ export function PrayerHomeCard({
       alive = false;
     };
   }, []);
+  const reminderMessage = useCallback<ReminderMessage>(
+    (item) => {
+      const name = clock.nameOf(item.name);
+      if (item.kind === 'sehri') {
+        return { title: clock.t('ramadan.sehriTitle', { time: clock.t12(item.end) }), body: clock.t('ramadan.sehriBody', { when: clock.formatDuration(Math.round(item.end - item.start)) }) };
+      }
+      if (item.kind === 'iftar') {
+        return { title: clock.t('ramadan.iftarTitle'), body: clock.t('ramadan.iftarBody', { time: clock.t12(item.start) }) };
+      }
+      if (item.kind === 'avoid') {
+        return { title: clock.t('reminder.avoidTitle', { name }), body: clock.t('reminder.avoidBody', { time: clock.t12(item.end) }) };
+      }
+      if (item.kind === 'optional') {
+        return { title: clock.t('reminder.prayerTitle', { name }), body: clock.t('reminder.optionalBody', { name, time: clock.t12(item.end) }) };
+      }
+      return { title: clock.t('reminder.prayerTitle', { name }), body: clock.t('reminder.prayerBody', { name, time: clock.t12(item.start) }) };
+    },
+    [clock],
+  );
   useEffect(() => {
-    void syncReminders(reminderItems);
-  }, [reminderItems]);
+    void syncReminders(reminderItems, reminderMessage);
+  }, [reminderItems, reminderMessage]);
   useEffect(() => () => {
     if (noticeTimer.current) clearTimeout(noticeTimer.current);
   }, []);
@@ -864,31 +1124,55 @@ export function PrayerHomeCard({
     },
     [onToast],
   );
-  const toggleItem = useCallback(
-    async (item: ReminderItem) => {
-      const on = !reminders.has(item.key);
+  const applyItem = useCallback(
+    async (item: ReminderItem, on: boolean) => {
       setReminders((prev) => {
         const next = new Set(prev);
         if (on) next.add(item.key);
         else next.delete(item.key);
         return next;
       });
-      const result = await setReminder(item, on);
+      const result = await setReminder(item, on, reminderMessage);
       if (result === 'denied') {
         setReminders((prev) => {
           const next = new Set(prev);
           next.delete(item.key);
           return next;
         });
-        showNotice('Allow notifications in Settings to get reminders');
+        showNotice(clock.t('home.allowNotifications'));
         return;
       }
-      if (!on) showNotice(`Reminder off for ${item.name}`);
-      else if (result === 'unsupported') showNotice(`${item.name} reminder saved \u00b7 alerts ring on the phone app`);
-      else showNotice(`We\u2019ll remind you daily for ${item.name} at ${t12(item.start)}`);
+      if (!on) showNotice(clock.t('home.reminderOff', { name: clock.nameOf(item.name) }));
+      else if (result === 'unsupported') showNotice(clock.t('home.reminderPhone', { name: clock.nameOf(item.name) }));
+      else showNotice(clock.t('home.reminderDaily', { name: clock.nameOf(item.name), time: clock.t12(item.start) }));
     },
-    [reminders, showNotice],
+    [showNotice, clock, reminderMessage],
   );
+  const toggleItem = useCallback(
+    (item: ReminderItem) => applyItem(item, !reminders.has(item.key)),
+    [applyItem, reminders],
+  );
+  const toggleRamadan = useCallback(
+    (which: 'sehri' | 'iftar') => {
+      const item = reminderItems.find((entry) => entry.key === `ramadan:${which}`);
+      if (item) void toggleItem(item);
+    },
+    [reminderItems, toggleItem],
+  );
+  const sehriItem = reminderItems.find((entry) => entry.key === 'ramadan:sehri');
+  const saveSehri = useCallback(
+    (minutes: number) => {
+      setSehriSheet(false);
+      setSehriLead(minutes);
+      void saveSehriLead(minutes);
+      if (sehriItem) void applyItem({ ...sehriItem, start: sehriItem.end - minutes }, true);
+    },
+    [sehriItem, applyItem],
+  );
+  const turnOffSehri = useCallback(() => {
+    setSehriSheet(false);
+    if (sehriItem) void applyItem(sehriItem, false);
+  }, [sehriItem, applyItem]);
   const toggleExtra = useCallback(
     (w: ExtraWindow) => {
       const item = reminderItems.find((entry) => entry.key === extraKey(w));
@@ -908,27 +1192,25 @@ export function PrayerHomeCard({
 
   const cd = useMemo(() => {
     if (selected === cur) {
-      const left = p.end * 60 - t;
-      return { kind: 'now' as const, text: mmss(left), sub: 'left', progress: clamp01((t - p.start * 60) / ((p.end - p.start) * 60)) };
+      const left = p.end * 60 - nowSec;
+      return { kind: 'now' as const, text: clock.mmss(left), sub: clock.t('home.left'), progress: clamp01((nowSec - p.start * 60) / ((p.end - p.start) * 60)) };
     }
-    if (selected < cur) return { kind: 'done' as const, text: '', sub: 'Completed', progress: 1 };
-    const secs = p.start * 60 - t;
-    const h = Math.floor(secs / 3600);
-    const mi = Math.floor((secs % 3600) / 60);
-    return { kind: 'later' as const, text: h ? `${h}h ${mi}m` : `${mi}m`, sub: 'to start', progress: 0 };
-  }, [selected, cur, p, t]);
+    if (selected < cur) return { kind: 'done' as const, text: '', sub: clock.t('home.completed'), progress: 1 };
+    const secs = p.start * 60 - nowSec;
+    return { kind: 'later' as const, text: clock.formatDuration(Math.max(1, Math.ceil(secs / 60))), sub: clock.t('home.toStart'), progress: 0 };
+  }, [selected, cur, p, nowSec, clock]);
 
-  const label = selected === cur ? 'Now' : selected < cur ? 'Earlier today' : 'Later today';
+  const label = selected === cur ? clock.t('home.now') : selected < cur ? clock.t('home.earlierToday') : clock.t('home.laterToday');
   const clockText = (() => {
     const d = new Date();
-    const wd = d.toLocaleDateString('en-US', { weekday: 'short' });
-    const mo = d.toLocaleDateString('en-US', { month: 'short' });
-    return `${wd}, ${mo} ${d.getDate()} · ${hm(nowMin)} ${mer(nowMin)}`;
+    const wd = d.toLocaleDateString(clock.locale, { weekday: 'short' });
+    const mo = d.toLocaleDateString(clock.locale, { month: 'short' });
+    return clock.digits(`${wd}, ${mo} ${d.getDate()} · ${hm(nowMin)} ${clock.mer(nowMin)}`);
   })();
 
   const target = selected === cur ? (cur + 1) % data.prayers.length : selected;
   const tp = data.prayers[target];
-  let untilSec = tp.start * 60 - t;
+  let untilSec = tp.start * 60 - nowSec;
   if (untilSec <= 0) untilSec += 86400;
   const remOn = reminders.has(tp.key);
 
@@ -948,8 +1230,8 @@ export function PrayerHomeCard({
         hijri={data.hijri}
         clockText={clockText}
         label={label}
-        title={p.name}
-        windowText={range(p.start, p.end)}
+        title={clock.nameOf(p.name)}
+        windowText={clock.range(p.start, p.end)}
         cd={cd}
       />
 
@@ -958,28 +1240,49 @@ export function PrayerHomeCard({
       <View style={styles.rem}>
         {selected < cur ? (
           <Text style={styles.remText} numberOfLines={1}>
-            <Text style={styles.remBold}>{p.name}</Text> completed · {t12(p.start)}
+            <Text style={styles.remBold}>{clock.nameOf(p.name)}</Text> {clock.t('home.completed')} · {clock.t12(p.start)}
           </Text>
         ) : (
           <>
             <Text style={styles.remText} numberOfLines={1}>
-              {selected === cur ? 'Next · ' : ''}
-              <Text style={styles.remBold}>{tp.name}</Text> {t12(tp.start)} · in {inText(Math.ceil(untilSec / 60))}
+              {selected === cur ? `${clock.t('home.next')} · ` : ''}
+              <Text style={styles.remBold}>{clock.nameOf(tp.name)}</Text> {clock.t12(tp.start)} · {clock.t('home.inDuration', { duration: clock.formatDuration(Math.max(1, Math.ceil(untilSec / 60))) })}
             </Text>
             <Pressable
               onPress={toggleReminder}
               accessibilityRole="switch"
               accessibilityState={{ checked: remOn }}
-              accessibilityLabel={`${remOn ? 'Turn off reminder for' : 'Remind me for'} ${tp.name}`}
+              accessibilityLabel={clock.t(remOn ? 'home.remindOffA11y' : 'home.remindOnA11y', { name: clock.nameOf(tp.name) })}
               style={[styles.remBtn, remOn && styles.remBtnOn]}
             >
               <MaterialCommunityIcons name={remOn ? 'bell-ring' : 'bell-outline'} size={15} color={remOn ? colors.onAccent : colors.muted} />
-              <Text style={[styles.remBtnText, remOn && { color: colors.onAccent }]}>{remOn ? 'On' : 'Remind'}</Text>
+              <Text style={[styles.remBtnText, remOn && { color: colors.onAccent }]}>{remOn ? clock.t('home.on') : clock.t('home.remind')}</Text>
             </Pressable>
           </>
         )}
       </View>
 
+      {ramadanDay ? (
+        <>
+          <RamadanStrip
+            sun={data.sun}
+            nowMin={nowMin}
+            day={ramadanDay}
+            reminders={reminders}
+            sehriLead={sehriLead}
+            onSehri={() => setSehriSheet(true)}
+            onToggle={toggleRamadan}
+          />
+          <SehriLeadSheet
+            visible={sehriSheet}
+            lead={sehriLead}
+            on={reminders.has('ramadan:sehri')}
+            onClose={() => setSehriSheet(false)}
+            onSave={saveSehri}
+            onTurnOff={turnOffSehri}
+          />
+        </>
+      ) : null}
       <SunFasting sun={data.sun} nowMin={nowMin} />
       {notice ? (
         <View style={styles.notice}>
@@ -1026,7 +1329,7 @@ const useStyles = makeStyles(({ mode }) => {
   chipSm: { paddingVertical: 4, paddingLeft: 7, paddingRight: 9, gap: 5 },
   glassText: { fontFamily: F.bold, fontSize: 12 },
   glassTextSm: { fontFamily: F.bold, fontSize: 12 },
-  clock: { fontFamily: F.semi, fontSize: 12, fontVariant: ['tabular-nums'] },
+  clock: { fontFamily: F.semi, fontSize: 12, fontVariant: ['tabular-nums'], flexShrink: 1, marginLeft: 8, textAlign: 'right' },
   hcMain: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginTop: 12 },
   nowLabel: { fontFamily: F.semi, fontSize: 12.5 },
   name: { fontFamily: F.displayLight, fontSize: 40, lineHeight: 44, letterSpacing: -1, marginTop: 1 },
@@ -1060,6 +1363,32 @@ const useStyles = makeStyles(({ mode }) => {
   remBtnOn: { backgroundColor: C.accent },
   remBtnText: { fontFamily: F.bold, fontSize: 12.5, color: C.muted },
 
+  ram: { marginHorizontal: 8, marginTop: 8, paddingVertical: 12, paddingHorizontal: 14, gap: 10, borderRadius: 22, borderWidth: 1, borderColor: C.line, backgroundColor: C.card },
+  ramHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  ramTitle: { fontFamily: F.bold, fontSize: 14, color: C.ink },
+  ramCount: { flex: 1, textAlign: 'right', fontFamily: F.semi, fontSize: 12.5, color: C.muted },
+  ramBells: { flexDirection: 'row', gap: 8 },
+  ramBtn: { flex: 1, justifyContent: 'center' },
+  slBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(6,14,20,0.45)' },
+  slDismiss: { flex: 1 },
+  slSheet: { paddingTop: 18, paddingHorizontal: 18, paddingBottom: 28, gap: 14, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: C.card },
+  slHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  slTitle: { flex: 1, fontFamily: F.display, fontSize: 21, lineHeight: 25, color: C.ink, letterSpacing: -0.3 },
+  slClose: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: C.tile },
+  slChips: { flexDirection: 'row', gap: 8 },
+  slChip: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 999, backgroundColor: C.tile },
+  slChipOn: { backgroundColor: C.ink },
+  slChipText: { fontFamily: F.bold, fontSize: 13, color: C.ink },
+  slChipTextOn: { color: C.card },
+  slCustom: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  slInput: { width: 84, height: 44, borderRadius: 14, paddingHorizontal: 12, borderWidth: 1, borderColor: C.line, backgroundColor: C.tile, fontFamily: F.bold, fontSize: 18, color: C.ink, textAlign: 'center' },
+  slInputHint: { flex: 1, fontFamily: F.semi, fontSize: 12.5, color: C.muted },
+  slActions: { flexDirection: 'row', gap: 10 },
+  slBtn: { flex: 1, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  slBtnGhost: { backgroundColor: C.tile },
+  slBtnGhostText: { fontFamily: F.bold, fontSize: 15, color: C.ink },
+  slBtnMain: { backgroundColor: C.ink },
+  slBtnMainText: { fontFamily: F.bold, fontSize: 15, color: C.card },
   sf: { marginHorizontal: 8, marginTop: 8, borderRadius: 22, borderWidth: 1, borderColor: C.line, overflow: 'hidden' },
   sfRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 11, paddingHorizontal: 14 },
   sfRowBorder: { borderTopWidth: 1, borderTopColor: C.line },

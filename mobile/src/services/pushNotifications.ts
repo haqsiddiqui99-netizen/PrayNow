@@ -64,6 +64,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
       await Notifications.setNotificationChannelAsync('default', {
         name: 'Mosque updates',
         importance: Notifications.AndroidImportance.HIGH,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       })
     }
 

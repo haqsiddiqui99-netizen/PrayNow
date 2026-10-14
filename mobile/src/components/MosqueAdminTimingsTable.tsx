@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { timingTextStyle } from '@/src/constants/theme'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles } from '@/src/context/ThemeContext'
 import type { Mosque, PrayerName } from '@/src/types'
 import { getJumaSessions } from '@/src/utils/jumaTimings'
@@ -18,6 +19,7 @@ type Props = {
  */
 export function MosqueAdminTimingsTable({ mosque, showHeader = true }: Props) {
   const styles = useStyles()
+  const { t, prayerName, formatClock } = useLanguage()
   const router = useRouter()
   const editPath = `/admin/mosque/${mosque.id}/timings` as const
   const jumaSessions = getJumaSessions(
@@ -29,53 +31,53 @@ export function MosqueAdminTimingsTable({ mosque, showHeader = true }: Props) {
     <View style={styles.wrap}>
       {showHeader ? (
         <View style={styles.timingsHead}>
-          <Text style={styles.sectionLabel}>Prayer Timings</Text>
+          <Text style={styles.sectionLabel}>{t('admin.prayerTimes')}</Text>
           <Pressable style={styles.editBtn} onPress={() => router.push(editPath)}>
-            <Text style={styles.editBtnText}>Edit</Text>
+            <Text style={styles.editBtnText}>{t('admin.edit')}</Text>
           </Pressable>
         </View>
       ) : null}
 
       <View style={styles.card}>
-        <Text style={styles.cardKicker}>Daily</Text>
+        <Text style={styles.cardKicker}>{t('admin.daily')}</Text>
         <View style={styles.tableHead}>
-          <Text style={[styles.cell, styles.prayerCol, styles.head, styles.prayerHead]}>Prayer</Text>
-          <Text style={[styles.cell, styles.head]}>Azan</Text>
-          <Text style={[styles.cell, styles.head]}>Jamat</Text>
+          <Text style={[styles.cell, styles.prayerCol, styles.head, styles.prayerHead]}>{t('admin.prayer')}</Text>
+          <Text style={[styles.cell, styles.head]}>{t('admin.azan')}</Text>
+          <Text style={[styles.cell, styles.head]}>{t('mosque.jamat')}</Text>
         </View>
 
         {PRAYERS.map((p, index) => (
           <View key={p} style={[styles.row, index % 2 === 1 && styles.rowAlt]}>
-            <Text style={[styles.cell, styles.prayerCol, styles.prayerName]}>{p}</Text>
-            <Text style={[styles.cell, styles.timeCell]}>{mosque.timings?.[p]?.azan || '—'}</Text>
-            <Text style={[styles.cell, styles.timeCell]}>{mosque.timings?.[p]?.jamat || '—'}</Text>
+            <Text style={[styles.cell, styles.prayerCol, styles.prayerName]}>{prayerName(p)}</Text>
+            <Text style={[styles.cell, styles.timeCell]}>{mosque.timings?.[p]?.azan ? formatClock(mosque.timings[p].azan) : '—'}</Text>
+            <Text style={[styles.cell, styles.timeCell]}>{mosque.timings?.[p]?.jamat ? formatClock(mosque.timings[p].jamat) : '—'}</Text>
           </View>
         ))}
       </View>
 
       <View style={[styles.card, styles.jumaCard]}>
-        <Text style={styles.cardKicker}>Juma (Friday)</Text>
+        <Text style={styles.cardKicker}>{t('admin.jumaFriday')}</Text>
         <View style={styles.tableHead}>
-          <Text style={[styles.cell, styles.prayerCol, styles.head, styles.prayerHead]}>Sitting</Text>
-          <Text style={[styles.cell, styles.head]}>Azan</Text>
-          <Text style={[styles.cell, styles.head]}>Khutba</Text>
-          <Text style={[styles.cell, styles.head]}>Jamat</Text>
+          <Text style={[styles.cell, styles.prayerCol, styles.head, styles.prayerHead]}>{t('admin.sitting')}</Text>
+          <Text style={[styles.cell, styles.head]}>{t('admin.azan')}</Text>
+          <Text style={[styles.cell, styles.head]}>{t('admin.khutba')}</Text>
+          <Text style={[styles.cell, styles.head]}>{t('mosque.jamat')}</Text>
         </View>
 
         {jumaSessions.map((session, i) => (
           <View key={`juma-${i}`} style={[styles.row, i === jumaSessions.length - 1 && styles.rowLast]}>
             <Text style={[styles.cell, styles.prayerCol, styles.prayerName]}>
-              {jumaSessions.length > 1 ? `Juma ${i + 1}` : 'Juma'}
+              {jumaSessions.length > 1 ? t('admin.jumaN', { n: i + 1 }) : prayerName('juma')}
             </Text>
-            <Text style={[styles.cell, styles.timeCell]}>{session.azan || '—'}</Text>
-            <Text style={[styles.cell, styles.timeCell]}>{session.khutba || '—'}</Text>
-            <Text style={[styles.cell, styles.timeCell]}>{session.namaz || '—'}</Text>
+            <Text style={[styles.cell, styles.timeCell]}>{session.azan ? formatClock(session.azan) : '—'}</Text>
+            <Text style={[styles.cell, styles.timeCell]}>{session.khutba ? formatClock(session.khutba) : '—'}</Text>
+            <Text style={[styles.cell, styles.timeCell]}>{session.namaz ? formatClock(session.namaz) : '—'}</Text>
           </View>
         ))}
       </View>
 
       <Pressable style={styles.editFull} onPress={() => router.push(editPath)}>
-        <Text style={styles.editFullText}>Edit azan, jamat & Juma ›</Text>
+        <Text style={styles.editFullText}>{t('admin.editAll')}</Text>
       </Pressable>
     </View>
   )

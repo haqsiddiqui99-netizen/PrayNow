@@ -1,4 +1,5 @@
 import { toGregorian, toHijri } from 'hijri-converter'
+import type { TranslationKey } from '@/src/i18n/translations'
 
 export const HIJRI_MONTHS = [
   'Muharram',
@@ -62,6 +63,16 @@ export function hijriOf(date: Date): HijriDate {
   return { year: hy, month: hm, day: hd }
 }
 
+/** Treats every day as Ramadan so Sehri, Iftar and Taraweeh can be tested year-round. */
+export const RAMADAN_PREVIEW = true
+
+/** Day of Ramadan (1-30) for the date, or 0 outside Ramadan. */
+export function ramadanDayOf(date: Date): number {
+  const hijri = hijriOf(date)
+  if (hijri.month === 9 || RAMADAN_PREVIEW) return hijri.day
+  return 0
+}
+
 export function gregorianOf(hijri: HijriDate): Date {
   const { gy, gm, gd } = toGregorian(hijri.year, hijri.month, hijri.day)
   return new Date(gy, gm - 1, gd)
@@ -123,4 +134,25 @@ export function monthWeeks(year: number, month: number): Array<Array<number | nu
   const rows: Array<Array<number | null>> = []
   for (let index = 0; index < cells.length; index += 7) rows.push(cells.slice(index, index + 7))
   return rows
+}
+
+const EVENT_KEYS: Record<string, { name: TranslationKey; note: TranslationKey }> = {
+  '1-1': { name: 'event.newYear', note: 'event.newYearNote' },
+  '1-10': { name: 'event.ashura', note: 'event.ashuraNote' },
+  '3-12': { name: 'event.mawlid', note: 'event.mawlidNote' },
+  '7-27': { name: 'event.isra', note: 'event.israNote' },
+  '8-15': { name: 'event.shaban', note: 'event.shabanNote' },
+  '9-1': { name: 'event.ramadan', note: 'event.ramadanNote' },
+  '9-21': { name: 'event.odd', note: 'event.oddNote' },
+  '9-23': { name: 'event.odd', note: 'event.oddNote' },
+  '9-25': { name: 'event.odd', note: 'event.oddNote' },
+  '9-27': { name: 'event.odd27', note: 'event.odd27Note' },
+  '9-29': { name: 'event.odd', note: 'event.oddNote' },
+  '10-1': { name: 'event.fitr', note: 'event.fitrNote' },
+  '12-9': { name: 'event.arafah', note: 'event.arafahNote' },
+  '12-10': { name: 'event.adha', note: 'event.adhaNote' },
+}
+
+export function eventKeys(month: number, day: number) {
+  return EVENT_KEYS[`${month}-${day}`] ?? null
 }

@@ -49,7 +49,7 @@ export function NearbyMosquesMap({
 }: Props) {
   const styles = useStyles()
   const { colors } = useTheme()
-  const { placeName } = useLanguage()
+  const { t, placeName } = useLanguage()
   const mapRef = useRef<MapView>(null)
 
   const region = useMemo(
@@ -106,7 +106,7 @@ export function NearbyMosquesMap({
         <View style={styles.googleBtnWrap}>
           <GoogleMapsButton
             variant="chip"
-            label="Open in Google Maps"
+            label={t('mosque.openInMaps')}
             onPress={onOpenInGoogleMaps}
           />
         </View>

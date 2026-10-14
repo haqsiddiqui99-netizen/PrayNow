@@ -12,10 +12,11 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { useLocation } from '@/src/hooks/useLocation'
 import { useQiblaCompass } from '@/src/hooks/useQiblaCompass'
-import { formatBearingLabel, formatDistanceKm } from '@/src/utils/qibla'
+import { normalizeAngle } from '@/src/utils/qibla'
 
 const SIZE = 292
 const TICKS = 72
@@ -75,18 +76,40 @@ function AlignRing({ active, color }: { active: boolean; color: string }) {
 
 export default function QiblaScreen() {
   const ui = useStyles()
+  const { t, formatDistance, digits } = useLanguage()
   const { colors } = useTheme()
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const tabBarHeight = useBottomTabBarHeight()
   const { location, loading: locLoading, refresh } = useLocation()
-  const { heading, qiblaBearing, distanceKm, isAligned, turnDegrees, turnHint, compassReady, error } =
+  const { heading, qiblaBearing, distanceKm, isAligned, turnDegrees, compassReady, error } =
     useQiblaCompass(location.lat, location.lng)
 
   const dialRotation = heading != null ? -heading : 0
   const alignment =
     turnDegrees == null ? 0 : Math.max(0, Math.round((1 - Math.min(Math.abs(turnDegrees), 90) / 90) * 100))
   const tone = error ? colors.warning : isAligned ? colors.success : colors.primary
+  const dirs = ['dir.n', 'dir.ne', 'dir.e', 'dir.se', 'dir.s', 'dir.sw', 'dir.w', 'dir.nw'] as const
+  const bearingText = digits(`${Math.round(normalizeAngle(qiblaBearing))}° ${t(dirs[Math.round(normalizeAngle(qiblaBearing) / 45) % 8])}`)
+  const turnText = error
+    ? t('qibla.needsAttention')
+    : turnDegrees == null
+      ? t('qibla.calibrating')
+      : Math.abs(turnDegrees) <= 5
+        ? t('qibla.facing')
+        : turnDegrees > 0
+          ? t('qibla.turnRight', { deg: Math.round(turnDegrees) })
+          : t('qibla.turnLeft', { deg: Math.round(Math.abs(turnDegrees)) })
+  const errorText =
+    error == null
+      ? ''
+      : error.startsWith('Turn on location')
+        ? t('qibla.locationOff')
+        : error.startsWith('Location permission')
+          ? t('qibla.permission')
+          : error === 'Compass unavailable on this device.'
+            ? t('qibla.unavailable')
+            : error
 
   return (
     <ScrollView
@@ -94,34 +117,32 @@ export default function QiblaScreen() {
       contentContainerStyle={[ui.content, { paddingTop: insets.top + 8, paddingBottom: tabBarHeight + 28 }]}
       showsVerticalScrollIndicator={false}>
       <View style={ui.header}>
-        <Pressable onPress={() => router.back()} style={ui.back} accessibilityRole="button" accessibilityLabel="Go back">
+        <Pressable onPress={() => router.back()} style={ui.back} accessibilityRole="button" accessibilityLabel={t('common.back')}>
           <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
         </Pressable>
         <View style={ui.headerText}>
-          <Text style={ui.eyebrow}>DIRECTION OF PRAYER</Text>
-          <Text style={ui.title}>Qibla</Text>
+          <Text style={ui.eyebrow}>{t('qibla.eyebrow')}</Text>
+          <Text style={ui.title}>{t('qibla.title')}</Text>
         </View>
       </View>
 
       <View style={ui.place}>
         <Ionicons name="location-sharp" size={14} color={colors.primary} />
         <Text style={ui.placeText} numberOfLines={1}>
-          {locLoading ? 'Finding your location…' : location.label}
+          {locLoading ? t('qibla.finding') : location.label}
         </Text>
       </View>
 
       <View style={[ui.status, { borderColor: isAligned ? colors.success : colors.border }]}>
         <View style={ui.statusTop}>
           <View style={[ui.statusDot, { backgroundColor: tone }]} />
-          <Text style={[ui.statusText, { color: tone }]}>{error ? 'Compass needs attention' : turnHint}</Text>
+          <Text style={[ui.statusText, { color: tone }]}>{turnText}</Text>
         </View>
         <View style={ui.meterTrack}>
           <View style={[ui.meterFill, { width: `${alignment}%`, backgroundColor: tone }]} />
         </View>
         <Text style={ui.statusSub}>
-          {isAligned
-            ? 'The arrow is straight up. You are facing the Qibla.'
-            : 'Hold the phone flat and turn until the arrow points straight up.'}
+          {isAligned ? t('qibla.aligned') : t('qibla.hold')}
         </Text>
       </View>
 
@@ -152,13 +173,13 @@ export default function QiblaScreen() {
             </View>
           </View>
           <View style={ui.hub}>
-            <Text style={ui.hubValue}>{heading == null ? '—' : `${Math.round(heading)}°`}</Text>
-            <Text style={ui.hubLabel}>HEADING</Text>
+            <Text style={ui.hubValue}>{heading == null ? '—' : digits(`${Math.round(heading)}°`)}</Text>
+            <Text style={ui.hubLabel}>{t('qibla.heading')}</Text>
           </View>
           {!compassReady && !error && (
             <View style={ui.overlay}>
               <ActivityIndicator color={colors.primary} />
-              <Text style={ui.overlayText}>Starting compass…</Text>
+              <Text style={ui.overlayText}>{t('qibla.starting')}</Text>
             </View>
           )}
         </View>
@@ -166,28 +187,28 @@ export default function QiblaScreen() {
 
       <View style={ui.stats}>
         <View style={ui.stat}>
-          <Text style={ui.statLabel}>Bearing</Text>
-          <Text style={ui.statValue}>{formatBearingLabel(qiblaBearing)}</Text>
+          <Text style={ui.statLabel}>{t('qibla.bearing')}</Text>
+          <Text style={ui.statValue}>{bearingText}</Text>
         </View>
         <View style={ui.stat}>
-          <Text style={ui.statLabel}>To Makkah</Text>
-          <Text style={ui.statValue}>{formatDistanceKm(distanceKm)}</Text>
+          <Text style={ui.statLabel}>{t('qibla.makkah')}</Text>
+          <Text style={ui.statValue}>{formatDistance(distanceKm)}</Text>
         </View>
         <View style={ui.stat}>
-          <Text style={ui.statLabel}>Alignment</Text>
-          <Text style={[ui.statValue, { color: tone }]}>{alignment}%</Text>
+          <Text style={ui.statLabel}>{t('qibla.alignment')}</Text>
+          <Text style={[ui.statValue, { color: tone }]}>{digits(`${alignment}%`)}</Text>
         </View>
       </View>
 
       {error ? (
         <View style={ui.errorBox}>
-          <Text style={ui.errorText}>{error}</Text>
+          <Text style={ui.errorText}>{errorText}</Text>
           <Pressable style={ui.retry} onPress={() => void refresh()} accessibilityRole="button">
-            <Text style={ui.retryText}>Refresh location</Text>
+            <Text style={ui.retryText}>{t('qibla.refresh')}</Text>
           </Pressable>
         </View>
       ) : (
-        <Text style={ui.note}>Step away from metal, then move the phone in a figure-8 if the needle drifts.</Text>
+        <Text style={ui.note}>{t('qibla.note')}</Text>
       )}
     </ScrollView>
   )

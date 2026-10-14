@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { randomUUID } from 'node:crypto'
 import { getPool } from '../db/pool.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js'
-import { resolveMosqueDbId } from '../services/mosques.js'
+import { fetchMosqueById, resolveMosqueDbId } from '../services/mosques.js'
 import {
   MAX_PHOTOS,
   MAX_PHOTO_BYTES,
@@ -44,19 +44,69 @@ router.get('/voice-notes/:id', async (req, res) => {
   }
 })
 
+const PRAYER_KEYS = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']
+const JAMAAT_LEADS = [0, 5, 10, 15, 30]
+
+function remindersFromRow(row) {
+  const prayers = String(row.remind_prayers || '')
+    .split(',')
+    .map((p) => p.trim())
+    .filter((p) => PRAYER_KEYS.includes(p))
+  return {
+    jamaat: Boolean(row.remind_jamaat),
+    lead: Number(row.jamaat_lead) || 0,
+    azan: Boolean(row.remind_azan),
+    leave: Boolean(row.remind_leave),
+    travel: Number(row.travel_minutes) || 0,
+    taraweeh: Boolean(row.remind_taraweeh),
+    prayers,
+  }
+}
+
+function reminderMosque(mosque) {
+  if (!mosque) return null
+  return { name: mosque.name, timings: mosque.timings, jumaTimings: mosque.jumaTimings, taraweeh: mosque.taraweeh }
+}
+
+function normalizeReminders(body) {
+  const lead = Number(body?.lead)
+  const prayers = Array.isArray(body?.prayers)
+    ? PRAYER_KEYS.filter((p) => body.prayers.includes(p))
+    : PRAYER_KEYS
+  const travel = Math.round(Number(body?.travel))
+  return {
+    jamaat: Boolean(body?.jamaat),
+    lead: JAMAAT_LEADS.includes(lead) ? lead : 10,
+    azan: Boolean(body?.azan),
+    leave: Boolean(body?.leave),
+    travel: Number.isFinite(travel) ? Math.min(180, Math.max(0, travel)) : 0,
+    taraweeh: Boolean(body?.taraweeh),
+    prayers,
+  }
+}
+
 router.get('/me/subscriptions', authMiddleware, async (req, res) => {
   try {
-    const mosqueIds = await withClient(async (client) => {
+    const subscriptions = await withClient(async (client) => {
       const { rows } = await client.query(
-        `SELECT COALESCE(m.legacy_id::text, m.id::text) AS mosque_id
+        `SELECT s.mosque_id AS db_id, COALESCE(m.legacy_id::text, m.id::text) AS mosque_id,
+                s.remind_jamaat, s.jamaat_lead, s.remind_azan, s.remind_prayers,
+                s.remind_leave, s.travel_minutes, s.remind_taraweeh
          FROM mosque_subscriptions s
          INNER JOIN mosques m ON m.id = s.mosque_id
          WHERE s.user_id = $1`,
         [req.user.sub],
       )
-      return rows.map((r) => String(r.mosque_id))
+      const list = []
+      for (const row of rows) {
+        const reminders = remindersFromRow(row)
+        const wantsTimes = reminders.jamaat || reminders.azan || reminders.leave || reminders.taraweeh
+        const mosque = wantsTimes ? await fetchMosqueById(client, row.db_id) : null
+        list.push({ mosqueId: String(row.mosque_id), reminders, mosque: reminderMosque(mosque) })
+      }
+      return list
     })
-    res.json({ mosqueIds })
+    res.json({ mosqueIds: subscriptions.map((s) => s.mosqueId), subscriptions })
   } catch (err) {
     console.error('subscriptions list failed', err)
     res.status(500).json({ error: err.message || 'Failed to load subscriptions' })
@@ -81,6 +131,47 @@ router.post('/me/subscriptions/:mosqueId', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('subscribe failed', err)
     res.status(500).json({ error: err.message || 'Failed to subscribe' })
+  }
+})
+
+router.put('/me/subscriptions/:mosqueId/reminders', authMiddleware, async (req, res) => {
+  const reminders = normalizeReminders(req.body)
+  try {
+    const result = await withClient(async (client) => {
+      const dbId = await resolveMosqueDbId(client, req.params.mosqueId)
+      if (!dbId) return { notFound: true }
+      await client.query(
+        `INSERT INTO mosque_subscriptions
+           (user_id, mosque_id, remind_jamaat, jamaat_lead, remind_azan, remind_prayers, remind_leave, travel_minutes,
+            remind_taraweeh)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         ON CONFLICT (user_id, mosque_id) DO UPDATE SET
+           remind_jamaat = EXCLUDED.remind_jamaat,
+           jamaat_lead = EXCLUDED.jamaat_lead,
+           remind_azan = EXCLUDED.remind_azan,
+           remind_prayers = EXCLUDED.remind_prayers,
+           remind_leave = EXCLUDED.remind_leave,
+           travel_minutes = EXCLUDED.travel_minutes,
+           remind_taraweeh = EXCLUDED.remind_taraweeh`,
+        [
+          req.user.sub,
+          dbId,
+          reminders.jamaat,
+          reminders.lead,
+          reminders.azan,
+          reminders.prayers.join(','),
+          reminders.leave,
+          reminders.travel,
+          reminders.taraweeh,
+        ],
+      )
+      return { mosque: reminderMosque(await fetchMosqueById(client, dbId)) }
+    })
+    if (result.notFound) return res.status(404).json({ error: 'Mosque not found' })
+    res.json({ ok: true, mosqueId: req.params.mosqueId, reminders, mosque: result.mosque })
+  } catch (err) {
+    console.error('save reminders failed', err)
+    res.status(500).json({ error: err.message || 'Failed to save reminders' })
   }
 })
 

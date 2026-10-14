@@ -10,6 +10,7 @@ import {
 } from 'react-native'
 import { TimePickerField } from '@/src/components/TimePickerField'
 import { radius } from '@/src/constants/theme'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { fetchManagerMosques, updateManagerMosqueTimings, updateMosqueTaraweeh } from '@/src/services/api'
 import type { JumaSession, Mosque, MosqueTimings, PrayerName, TaraweehSettings } from '@/src/types'
@@ -29,6 +30,7 @@ const DEFAULT_TARAWEH: TaraweehSettings = {
 export default function EditTimingsScreen() {
   const styles = useStyles()
   const { colors } = useTheme()
+  const { t, prayerName, placeName, digits } = useLanguage()
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
   const [mosque, setMosque] = useState<Mosque | null>(null)
@@ -56,12 +58,12 @@ export default function EditTimingsScreen() {
           setTaraweeh({ ...DEFAULT_TARAWEH, ...found.taraweeh })
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load')
+        setError(e instanceof Error ? e.message : t('admin.loadFail'))
       } finally {
         setLoading(false)
       }
     })()
-  }, [id])
+  }, [id, t])
 
   const updateJuma = (index: number, field: keyof JumaSession, value: string) => {
     setJumaSessions((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)))
@@ -90,10 +92,10 @@ export default function EditTimingsScreen() {
         timings,
         jumaTimings: toJumaTimingsPayload(jumaSessions),
       })
-      setOk('Saved')
+      setOk(t('admin.saved'))
       setTimeout(() => router.back(), 600)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Save failed')
+      setError(e instanceof Error ? e.message : t('admin.timesFail'))
     } finally {
       setSaving(false)
     }
@@ -110,7 +112,7 @@ export default function EditTimingsScreen() {
   if (!mosque || !timings) {
     return (
       <View style={styles.center}>
-        <Text style={styles.error}>Mosque not found.</Text>
+        <Text style={styles.error}>{t('admin.notFoundShort')}</Text>
       </View>
     )
   }
@@ -118,23 +120,23 @@ export default function EditTimingsScreen() {
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.title} numberOfLines={1}>
-        {mosque.name}
+        {placeName(mosque.name)}
       </Text>
 
       <View style={styles.card}>
         <View style={styles.colHead}>
-          <Text style={[styles.colLabel, styles.nameCol]}>Prayer</Text>
-          <Text style={styles.colLabel}>Azan</Text>
-          <Text style={styles.colLabel}>Jamat</Text>
+          <Text style={[styles.colLabel, styles.nameCol]}>{t('admin.prayer')}</Text>
+          <Text style={styles.colLabel}>{t('admin.azan')}</Text>
+          <Text style={styles.colLabel}>{t('mosque.jamat')}</Text>
         </View>
 
         {PRAYERS.map((p, index) => (
           <View key={p} style={[styles.row, index % 2 === 1 && styles.rowAlt]}>
             <Text style={[styles.prayerName, styles.nameCol]} numberOfLines={1}>
-              {p}
+              {prayerName(p)}
             </Text>
             <TimePickerField
-              label={`${p} Azan`}
+              label={t('admin.slotA11y', { name: prayerName(p), slot: t('admin.azan') })}
               layout="inline"
               hideLabel
               value={timings[p].azan}
@@ -146,7 +148,7 @@ export default function EditTimingsScreen() {
               }
             />
             <TimePickerField
-              label={`${p} Jamat`}
+              label={t('admin.slotA11y', { name: prayerName(p), slot: t('mosque.jamat') })}
               layout="inline"
               hideLabel
               value={timings[p].jamat}
@@ -161,37 +163,37 @@ export default function EditTimingsScreen() {
         ))}
       </View>
 
-      <Text style={styles.sectionTitle}>Juma (Friday)</Text>
+      <Text style={styles.sectionTitle}>{t('admin.jumaFriday')}</Text>
       <View style={[styles.card, styles.jumaCard]}>
         <View style={styles.colHead}>
-          <Text style={[styles.colLabel, styles.nameCol]}>Sitting</Text>
-          <Text style={styles.colLabel}>Azan</Text>
-          <Text style={styles.colLabel}>Khutba</Text>
-          <Text style={styles.colLabel}>Jamat</Text>
+          <Text style={[styles.colLabel, styles.nameCol]}>{t('admin.sitting')}</Text>
+          <Text style={styles.colLabel}>{t('admin.azan')}</Text>
+          <Text style={styles.colLabel}>{t('admin.khutba')}</Text>
+          <Text style={styles.colLabel}>{t('mosque.jamat')}</Text>
           <View style={styles.removeSlot} />
         </View>
 
         {jumaSessions.map((session, index) => (
           <View key={`juma-edit-${index}`} style={[styles.row, styles.jumaRow]}>
             <Text style={[styles.prayerName, styles.nameCol]} numberOfLines={1}>
-              {jumaSessions.length > 1 ? `${index + 1}` : 'Juma'}
+              {jumaSessions.length > 1 ? digits(index + 1) : prayerName('juma')}
             </Text>
             <TimePickerField
-              label="Juma Azan"
+              label={t('admin.slotA11y', { name: prayerName('juma'), slot: t('admin.azan') })}
               layout="inline"
               hideLabel
               value={session.azan}
               onChange={(v) => updateJuma(index, 'azan', v)}
             />
             <TimePickerField
-              label="Juma Khutba"
+              label={t('admin.slotA11y', { name: prayerName('juma'), slot: t('admin.khutba') })}
               layout="inline"
               hideLabel
               value={session.khutba}
               onChange={(v) => updateJuma(index, 'khutba', v)}
             />
             <TimePickerField
-              label="Juma Jamat"
+              label={t('admin.slotA11y', { name: prayerName('juma'), slot: t('mosque.jamat') })}
               layout="inline"
               hideLabel
               value={session.namaz}
@@ -208,28 +210,28 @@ export default function EditTimingsScreen() {
         ))}
 
         <Pressable style={styles.addJuma} onPress={addJumaRow}>
-          <Text style={styles.addJumaText}>+ Add Juma sitting</Text>
+          <Text style={styles.addJumaText}>{t('admin.addJuma')}</Text>
         </Pressable>
       </View>
 
-      <Text style={styles.sectionTitle}>Taraweeh</Text>
+      <Text style={styles.sectionTitle}>{t('admin.taraweeh')}</Text>
       <View style={styles.card}>
         <Text style={styles.taraweehHint}>
-          Night prayer after Isha in Ramadan. Each mosque chooses how many nights it takes to finish.
+          {t('admin.taraweehHint')}
         </Text>
         <Pressable
           style={[styles.toggle, taraweeh.enabled && styles.toggleOn]}
           onPress={() => setTaraweeh((prev) => ({ ...prev, enabled: !prev.enabled }))}>
           <Text style={[styles.toggleText, taraweeh.enabled && styles.toggleTextOn]}>
-            {taraweeh.enabled ? 'Taraweeh is on' : 'Taraweeh is off'}
+            {taraweeh.enabled ? t('admin.taraweehOn') : t('admin.taraweehOff')}
           </Text>
         </Pressable>
         <TimePickerField
-          label="Starts"
+          label={t('admin.starts')}
           value={taraweeh.startTime}
           onChange={(startTime) => setTaraweeh((prev) => ({ ...prev, startTime }))}
         />
-        <Text style={styles.fieldLabel}>Nights to finish</Text>
+        <Text style={styles.fieldLabel}>{t('admin.nights')}</Text>
         <View style={styles.choiceRow}>
           {TARAWEH_NIGHTS.map((nights) => (
             <Pressable
@@ -242,22 +244,22 @@ export default function EditTimingsScreen() {
                   night: Math.min(prev.night, nights),
                 }))
               }>
-              <Text style={[styles.choiceText, taraweeh.nights === nights && styles.choiceTextOn]}>{nights}</Text>
+              <Text style={[styles.choiceText, taraweeh.nights === nights && styles.choiceTextOn]}>{digits(nights)}</Text>
             </Pressable>
           ))}
         </View>
-        <Text style={styles.fieldLabel}>Rak‘ahs each night</Text>
+        <Text style={styles.fieldLabel}>{t('admin.rakahsNight')}</Text>
         <View style={styles.choiceRow}>
           {TARAWEH_RAKAHS.map((rakahs) => (
             <Pressable
               key={rakahs}
               style={[styles.choice, taraweeh.rakahs === rakahs && styles.choiceOn]}
               onPress={() => setTaraweeh((prev) => ({ ...prev, rakahs }))}>
-              <Text style={[styles.choiceText, taraweeh.rakahs === rakahs && styles.choiceTextOn]}>{rakahs}</Text>
+              <Text style={[styles.choiceText, taraweeh.rakahs === rakahs && styles.choiceTextOn]}>{digits(rakahs)}</Text>
             </Pressable>
           ))}
         </View>
-        <Text style={styles.fieldLabel}>Tonight is night</Text>
+        <Text style={styles.fieldLabel}>{t('admin.tonightNight')}</Text>
         <View style={styles.nightRow}>
           <Pressable
             style={styles.step}
@@ -265,7 +267,7 @@ export default function EditTimingsScreen() {
             <Text style={styles.stepText}>−</Text>
           </Pressable>
           <Text style={styles.nightValue}>
-            {taraweeh.night} of {taraweeh.nights}
+            {t('admin.nightOf', { night: taraweeh.night, nights: taraweeh.nights })}
           </Text>
           <Pressable
             style={styles.step}
@@ -281,7 +283,7 @@ export default function EditTimingsScreen() {
       {ok ? <Text style={styles.ok}>{ok}</Text> : null}
 
       <Pressable style={styles.save} disabled={saving} onPress={() => void save()}>
-        <Text style={styles.saveText}>{saving ? 'Saving…' : 'Save timings'}</Text>
+        <Text style={styles.saveText}>{saving ? t('admin.saving') : t('admin.saveTimings')}</Text>
       </Pressable>
     </ScrollView>
   )

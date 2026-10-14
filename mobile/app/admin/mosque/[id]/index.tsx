@@ -9,6 +9,8 @@ import {
   View,
 } from 'react-native'
 import { MosqueAdminTimingsTable } from '@/src/components/MosqueAdminTimingsTable'
+import { MosqueStatsCard } from '@/src/components/MosqueStatsCard'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { radius } from '@/src/constants/theme'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { useAzanBroadcast } from '@/src/hooks/useAzanBroadcast'
@@ -21,6 +23,7 @@ const PRAYERS: PrayerName[] = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']
 export default function MosqueHubScreen() {
   const styles = useStyles()
   const { colors } = useTheme()
+  const { t, prayerName, placeName } = useLanguage()
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
   const [mosque, setMosque] = useState<Mosque | null>(null)
@@ -39,11 +42,11 @@ export default function MosqueHubScreen() {
       setMosque(found)
       await broadcast.syncLive()
     } catch (e) {
-      broadcast.setError(e instanceof Error ? e.message : 'Failed to load mosque')
+      broadcast.setError(e instanceof Error ? e.message : t('admin.loadFail'))
     } finally {
       setLoading(false)
     }
-  }, [broadcast.setError, broadcast.syncLive, id])
+  }, [broadcast.setError, broadcast.syncLive, id, t])
 
   useFocusEffect(
     useCallback(() => {
@@ -57,7 +60,7 @@ export default function MosqueHubScreen() {
     if (!mosque) return
     const title = announceTitle.trim()
     if (!title) {
-      broadcast.setError('Announcement title is required')
+      broadcast.setError(t('admin.needTitle'))
       return
     }
     setAnnounceBusy(true)
@@ -68,11 +71,13 @@ export default function MosqueHubScreen() {
         title,
         body: announceBody.trim(),
       })
-      setAnnounceOk(`Sent to ${result.notified} subscriber${result.notified === 1 ? '' : 's'}`)
+      setAnnounceOk(
+        result.notified === 1 ? t('admin.sentOne') : t('admin.sentMany', { count: result.notified }),
+      )
       setAnnounceTitle('')
       setAnnounceBody('')
     } catch (e) {
-      broadcast.setError(e instanceof Error ? e.message : 'Could not post announcement')
+      broadcast.setError(e instanceof Error ? e.message : t('admin.announceFail'))
     } finally {
       setAnnounceBusy(false)
     }
@@ -89,50 +94,54 @@ export default function MosqueHubScreen() {
   if (!mosque) {
     return (
       <View style={styles.center}>
-        <Text style={styles.error}>{broadcast.error || 'Mosque not found or not assigned to you.'}</Text>
+        <Text style={styles.error}>{broadcast.error || t('admin.notFound')}</Text>
       </View>
     )
   }
 
   const mm = String(Math.floor(broadcast.elapsed / 60)).padStart(2, '0')
   const ss = String(broadcast.elapsed % 60).padStart(2, '0')
+  const elapsed = `${mm}:${ss}`
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>{mosque.name}</Text>
-      <Text style={styles.sub}>{mosque.area}</Text>
-      {mosque.address ? <Text style={styles.address}>{mosque.address}</Text> : null}
+      <Text style={styles.title}>{placeName(mosque.name)}</Text>
+      <Text style={styles.sub}>{placeName(mosque.area)}</Text>
+      {mosque.address ? <Text style={styles.address}>{placeName(mosque.address)}</Text> : null}
 
       <Pressable
         style={[styles.hero, styles.heroAzan]}
         onPress={() => router.push(`/admin/mosque/${mosque.id}/azan`)}>
-        <Text style={styles.heroTitle}>Azan dashboard</Text>
+        <Text style={styles.heroTitle}>{t('admin.dashboard')}</Text>
         <Text style={styles.heroMeta}>
-          {broadcast.live ? `Live now · ${mm}:${ss}` : 'Open this to give the azan'}
+          {broadcast.live ? t('admin.liveFor', { time: elapsed }) : t('admin.openAzan')}
         </Text>
       </Pressable>
       <Pressable
         style={[styles.hero, styles.heroTime]}
         onPress={() => router.push(`/admin/mosque/${mosque.id}/timings`)}>
-        <Text style={styles.heroTitleDark}>Edit prayer times</Text>
-        <Text style={styles.heroMetaDark}>Change azan and jamat for each prayer</Text>
+        <Text style={styles.heroTitleDark}>{t('admin.editTimes')}</Text>
+        <Text style={styles.heroMetaDark}>{t('admin.editTimesSub')}</Text>
       </Pressable>
 
-      <Text style={styles.sectionLabel}>Give azan</Text>
+      <Text style={styles.sectionLabel}>{t('stats.title')}</Text>
+      <MosqueStatsCard mosqueId={String(mosque.id)} />
+
+      <Text style={styles.sectionLabel}>{t('admin.giveAzan')}</Text>
       <View style={[styles.card, broadcast.live && styles.cardLive]}>
         <View style={styles.statusRow}>
           <View style={[styles.dot, broadcast.live && styles.dotOn]} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.statusTitle}>{broadcast.live ? 'ON AIR' : 'Offline'}</Text>
+            <Text style={styles.statusTitle}>{broadcast.live ? t('admin.onAir') : t('admin.offline')}</Text>
             <Text style={styles.statusMeta}>
-              {broadcast.live ? `Broadcasting · ${mm}:${ss}` : 'Start when azan begins at the mosque'}
+              {broadcast.live ? t('admin.broadcasting', { time: elapsed }) : t('admin.startWhen')}
             </Text>
           </View>
         </View>
 
         {!broadcast.live ? (
           <>
-            <Text style={styles.chipLabel}>Prayer (optional)</Text>
+            <Text style={styles.chipLabel}>{t('admin.prayerOptional')}</Text>
             <View style={styles.prayerRow}>
               {(mosque.taraweeh?.enabled ? ([...PRAYERS, 'Taraweeh'] as BroadcastPrayer[]) : PRAYERS).map((p) => {
                 const on = broadcast.prayer === p
@@ -141,7 +150,7 @@ export default function MosqueHubScreen() {
                     key={p}
                     style={[styles.prayerChip, on && styles.prayerChipOn]}
                     onPress={() => broadcast.setPrayer(on ? undefined : p)}>
-                    <Text style={[styles.prayerChipText, on && styles.prayerChipTextOn]}>{p}</Text>
+                    <Text style={[styles.prayerChipText, on && styles.prayerChipTextOn]}>{prayerName(p)}</Text>
                   </Pressable>
                 )
               })}
@@ -150,7 +159,7 @@ export default function MosqueHubScreen() {
               style={[styles.btn, styles.btnStart]}
               disabled={broadcast.busy}
               onPress={() => void broadcast.onStart()}>
-              <Text style={styles.btnText}>{broadcast.busy ? 'Starting…' : 'Go Live (Start Azan)'}</Text>
+              <Text style={styles.btnText}>{broadcast.busy ? t('admin.starting') : t('admin.goLive')}</Text>
             </Pressable>
           </>
         ) : (
@@ -158,7 +167,7 @@ export default function MosqueHubScreen() {
             style={[styles.btn, styles.btnStop]}
             disabled={broadcast.busy}
             onPress={() => void broadcast.onStop()}>
-            <Text style={styles.btnText}>{broadcast.busy ? 'Stopping…' : 'Stop Azan'}</Text>
+            <Text style={styles.btnText}>{broadcast.busy ? t('admin.stopping') : t('admin.stopAzan')}</Text>
           </Pressable>
         )}
 
@@ -166,28 +175,26 @@ export default function MosqueHubScreen() {
         {broadcast.error ? <Text style={styles.errorInline}>{broadcast.error}</Text> : null}
       </View>
 
-      <Text style={styles.sectionLabel}>Edit this mosque</Text>
+      <Text style={styles.sectionLabel}>{t('admin.editMosque')}</Text>
       <Pressable
         style={[styles.btn, styles.btnEdit]}
         onPress={() => router.push({ pathname: '/admin/mosque-form', params: { id: mosque.id } })}>
-        <Text style={styles.btnText}>Edit mosque details</Text>
+        <Text style={styles.btnText}>{t('admin.editDetails')}</Text>
       </Pressable>
       <MosqueAdminTimingsTable mosque={mosque} />
 
-      <Text style={styles.sectionLabel}>Publish announcement</Text>
+      <Text style={styles.sectionLabel}>{t('admin.publish')}</Text>
       <View style={styles.card}>
-        <Text style={styles.announceHint}>
-          Notify users who turned on notifications for this mosque (in-app + push).
-        </Text>
+        <Text style={styles.announceHint}>{t('admin.publishHint')}</Text>
         <TextInput
           style={styles.input}
-          placeholder="Title (e.g. Special taraweeh tonight)"
+          placeholder={t('admin.announceTitlePh')}
           value={announceTitle}
           onChangeText={setAnnounceTitle}
         />
         <TextInput
           style={[styles.input, styles.inputMulti]}
-          placeholder="Message (optional)"
+          placeholder={t('admin.announceBodyPh')}
           value={announceBody}
           onChangeText={setAnnounceBody}
           multiline
@@ -196,7 +203,7 @@ export default function MosqueHubScreen() {
           style={[styles.btn, styles.btnAnnounce]}
           disabled={announceBusy}
           onPress={() => void onAnnounce()}>
-          <Text style={styles.btnText}>{announceBusy ? 'Sending…' : 'Publish announcement'}</Text>
+          <Text style={styles.btnText}>{announceBusy ? t('admin.sending') : t('admin.publish')}</Text>
         </Pressable>
         {announceOk ? <Text style={styles.okInline}>{announceOk}</Text> : null}
       </View>

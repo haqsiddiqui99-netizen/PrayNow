@@ -12,6 +12,11 @@ export default ({ config }) => ({
   ios: {
     ...config.ios,
     bundleIdentifier: 'com.praynow.app',
+    entitlements: {
+      ...(config.ios?.entitlements || {}),
+      // Lets jamaat and prayer reminders light up the lock screen through Focus modes.
+      'com.apple.developer.usernotifications.time-sensitive': true,
+    },
   },
   android: {
     ...config.android,

@@ -207,7 +207,7 @@ export default function MosquesScreen() {
               clearButtonMode="while-editing"
             />
             {mosqueSearch.length > 0 ? (
-              <Pressable onPress={() => setMosqueSearch('')} hitSlop={8} accessibilityLabel="Clear search">
+              <Pressable onPress={() => setMosqueSearch('')} hitSlop={8} accessibilityLabel={t('common.clearSearch')}>
                 <Text style={styles.searchClear}>✕</Text>
               </Pressable>
             ) : null}
@@ -259,7 +259,7 @@ export default function MosquesScreen() {
               clearButtonMode="while-editing"
             />
             {mosqueSearch.length > 0 ? (
-              <Pressable onPress={() => setMosqueSearch('')} hitSlop={8} accessibilityLabel="Clear search">
+              <Pressable onPress={() => setMosqueSearch('')} hitSlop={8} accessibilityLabel={t('common.clearSearch')}>
                 <Text style={styles.searchClear}>✕</Text>
               </Pressable>
             ) : null}

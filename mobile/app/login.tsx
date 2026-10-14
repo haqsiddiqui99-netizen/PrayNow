@@ -13,6 +13,7 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '@/src/context/AuthContext'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { isAppAdmin, isMosqueAdmin } from '@/src/utils/roles'
 
@@ -53,6 +54,7 @@ export default function LoginScreen() {
   const { mode } = useTheme()
   const c = PALETTE[mode]
   const { login, register, continueAsGuest, user } = useAuth()
+  const { t } = useLanguage()
   const [authMode, setAuthMode] = useState<AuthMode>('signin')
   const [name, setName] = useState('')
   const [mobile, setMobile] = useState('')
@@ -85,24 +87,24 @@ export default function LoginScreen() {
     const digits = mobile.replace(/\D/g, '')
     const normalized = digits.length > 10 ? digits.slice(-10) : digits
     if (normalized.length < 10) {
-      setError('Enter a valid 10-digit mobile number')
+      setError(t('auth.badMobile'))
       return
     }
     if (!password) {
-      setError('Enter your password')
+      setError(t('auth.needPassword'))
       return
     }
     if (authMode === 'signup') {
       if (!name.trim()) {
-        setError('Enter your full name')
+        setError(t('auth.needName'))
         return
       }
       if (password.length < 6) {
-        setError('Password must be at least 6 characters')
+        setError(t('auth.shortPassword'))
         return
       }
       if (password !== confirmPassword) {
-        setError('Passwords do not match')
+        setError(t('auth.mismatch'))
         return
       }
     }
@@ -120,7 +122,7 @@ export default function LoginScreen() {
         else router.replace('/(tabs)')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(err instanceof Error ? err.message : t('auth.failed'))
     } finally {
       setLoading(false)
     }
@@ -153,7 +155,7 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <Text style={styles.brand}>PrayNow</Text>
-          <Text style={styles.tagline}>Mosques and prayer times for your city</Text>
+          <Text style={styles.tagline}>{t('auth.tagline')}</Text>
 
           <View style={styles.modes}>
             <Pressable
@@ -163,7 +165,7 @@ export default function LoginScreen() {
                 resetError()
               }}
               style={styles.modeBtn}>
-              <Text style={[styles.modeText, authMode === 'signin' && styles.modeTextActive]}>Sign in</Text>
+              <Text style={[styles.modeText, authMode === 'signin' && styles.modeTextActive]}>{t('auth.signIn')}</Text>
               <View style={[styles.modeRule, authMode === 'signin' && styles.modeRuleActive]} />
             </Pressable>
             <Pressable
@@ -173,7 +175,7 @@ export default function LoginScreen() {
                 resetError()
               }}
               style={styles.modeBtn}>
-              <Text style={[styles.modeText, authMode === 'signup' && styles.modeTextActive]}>Sign up</Text>
+              <Text style={[styles.modeText, authMode === 'signup' && styles.modeTextActive]}>{t('auth.signUp')}</Text>
               <View style={[styles.modeRule, authMode === 'signup' && styles.modeRuleActive]} />
             </Pressable>
           </View>
@@ -184,7 +186,7 @@ export default function LoginScreen() {
                 style={styles.input}
                 value={name}
                 onChangeText={setName}
-                placeholder="Full name"
+                placeholder={t('auth.name')}
                 placeholderTextColor={c.soft}
                 autoCapitalize="words"
               />
@@ -197,7 +199,7 @@ export default function LoginScreen() {
               style={styles.input}
               value={localMobile}
               onChangeText={(value) => setMobile(value.replace(/\D/g, '').slice(0, 10))}
-              placeholder="Mobile number"
+              placeholder={t('auth.mobile')}
               placeholderTextColor={c.soft}
               keyboardType="phone-pad"
               autoComplete="tel"
@@ -210,7 +212,7 @@ export default function LoginScreen() {
               style={styles.input}
               value={password}
               onChangeText={setPassword}
-              placeholder="Password"
+              placeholder={t('auth.password')}
               placeholderTextColor={c.soft}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
@@ -221,7 +223,7 @@ export default function LoginScreen() {
               onPress={() => setShowPassword((v) => !v)}
               hitSlop={8}
               accessibilityRole="button"
-              accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
+              accessibilityLabel={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}>
               <Text style={styles.showText}>{showPassword ? 'Hide' : 'Show'}</Text>
             </Pressable>
           </View>
@@ -232,7 +234,7 @@ export default function LoginScreen() {
                 style={styles.input}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
-                placeholder="Confirm password"
+                placeholder={t('auth.confirm')}
                 placeholderTextColor={c.soft}
                 secureTextEntry={!showConfirmPassword}
                 autoCapitalize="none"
@@ -242,7 +244,7 @@ export default function LoginScreen() {
                 onPress={() => setShowConfirmPassword((v) => !v)}
                 hitSlop={8}
                 accessibilityRole="button"
-                accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}>
+                accessibilityLabel={showConfirmPassword ? t('auth.hidePassword') : t('auth.showPassword')}>
                 <Text style={styles.showText}>{showConfirmPassword ? 'Hide' : 'Show'}</Text>
               </Pressable>
             </View>
@@ -258,7 +260,7 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color={c.buttonText} />
             ) : (
-              <Text style={styles.primaryBtnText}>{authMode === 'signup' ? 'Create account' : 'Sign in'}</Text>
+              <Text style={styles.primaryBtnText}>{authMode === 'signup' ? t('auth.create') : t('auth.signIn')}</Text>
             )}
           </Pressable>
 
@@ -270,7 +272,7 @@ export default function LoginScreen() {
             {guestLoading ? (
               <ActivityIndicator color={c.ink} />
             ) : (
-              <Text style={styles.guestText}>Continue as guest</Text>
+              <Text style={styles.guestText}>{t('auth.guest')}</Text>
             )}
           </Pressable>
 
@@ -279,7 +281,7 @@ export default function LoginScreen() {
               accessibilityRole="button"
               style={styles.demoLink}
               onPress={() => setDemosOpen((open) => !open)}>
-              <Text style={styles.demoLinkText}>Use a demo account</Text>
+              <Text style={styles.demoLinkText}>{t('auth.demo')}</Text>
             </Pressable>
           ) : null}
 
@@ -291,7 +293,7 @@ export default function LoginScreen() {
                   accessibilityRole="button"
                   style={styles.demoRow}
                   onPress={() => fillDemo(account.mobile, account.password)}>
-                  <Text style={styles.demoName}>{account.label}</Text>
+                  <Text style={styles.demoName}>{account.label === 'Everyday' ? t('auth.demoEveryday') : account.label === 'Mosque admin' ? t('auth.demoMosque') : account.label === 'App owner' ? t('auth.demoApp') : account.label}</Text>
                   <Text style={styles.demoMeta}>{account.mobile}</Text>
                 </Pressable>
               ))}

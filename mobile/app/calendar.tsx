@@ -1,40 +1,48 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { showToast } from '@/src/components/AppToast'
 import { GradientFill } from '@/src/components/GradientFill'
+import { useCityPrayer } from '@/src/context/CityPrayerContext'
+import { useLanguage } from '@/src/context/LanguageContext'
+import {
+  calendarAlertText,
+  eventAlertKey,
+  loadCalendarAlerts,
+  rememberMaghrib,
+  saveCalendarAlerts,
+  syncCalendarAlerts,
+} from '@/src/services/calendarAlerts'
+import type { TranslationKey } from '@/src/i18n/translations'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import {
-  HIJRI_MONTHS,
   HIJRI_MONTHS_AR,
   daysUntil,
+  eventKeys,
   eventsOn,
   gregorianOf,
   hijriOf,
   monthWeeks,
   shiftMonth,
   upcomingEvents,
+  type DatedEvent,
 } from '@/src/utils/hijriCalendar'
-
-const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-
-function pretty(date: Date) {
-  return date.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-}
-
-function short(date: Date) {
-  return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
-}
-
-function awayLabel(days: number) {
-  if (days <= 0) return 'Today'
-  if (days === 1) return 'Tomorrow'
-  return `In ${days} days`
-}
 
 export default function CalendarScreen() {
   const styles = useStyles()
+  const { t, language, digits } = useLanguage()
+  const locale = language === 'hi' ? 'hi-IN' : language === 'ur' ? 'ur-PK' : language === 'ar' ? 'ar' : 'en-US'
+  const pretty = (date: Date) => digits(date.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))
+  const shortDate = (date: Date) => digits(date.toLocaleDateString(locale, { day: 'numeric', month: 'short' }))
+  const awayLabel = (days: number) => (days <= 0 ? t('cal.today') : days === 1 ? t('cal.tomorrow') : t('cal.inDays', { days }))
+  const monthName = (month: number) => t(`hijri.${month}` as TranslationKey)
+  const weekdays = Array.from({ length: 7 }, (_, index) => new Date(2024, 0, 7 + index).toLocaleDateString(locale, { weekday: 'narrow' }))
+  const eventText = (event: { month: number; day: number; name: string; note: string }) => {
+    const keys = eventKeys(event.month, event.day)
+    return keys ? { name: t(keys.name), note: t(keys.note) } : event
+  }
   const { mode } = useTheme()
   const router = useRouter()
   const insets = useSafeAreaInsets()
@@ -45,7 +53,34 @@ export default function CalendarScreen() {
   const [selected, setSelected] = useState(todayHijri.day)
 
   const weeks = useMemo(() => monthWeeks(cursor.year, cursor.month), [cursor])
-  const upcoming = useMemo(() => upcomingEvents(today, 4), [today])
+  const upcoming = useMemo(() => upcomingEvents(today, 6), [today])
+  const { config } = useCityPrayer()
+  const maghrib = config.prayerSchedule.find((slot) => slot.name === 'Maghrib')?.start
+  const [alertKeys, setAlertKeys] = useState<string[]>([])
+  const alertText = useMemo(() => calendarAlertText(t), [t])
+
+  useEffect(() => {
+    void (async () => {
+      await rememberMaghrib(maghrib)
+      const keys = await loadCalendarAlerts()
+      setAlertKeys(keys)
+      if (keys.length) void syncCalendarAlerts(keys, alertText)
+    })()
+  }, [maghrib, alertText])
+
+  const toggleAlert = async (event: DatedEvent) => {
+    const key = eventAlertKey(event)
+    const on = !alertKeys.includes(key)
+    const next = on ? [...alertKeys, key] : alertKeys.filter((item) => item !== key)
+    const name = eventText(event).name
+    setAlertKeys(next)
+    await saveCalendarAlerts(next)
+    const result = await syncCalendarAlerts(next, alertText, { askPermission: on })
+    if (!on) showToast(t('calAlert.off', { name }), 'notifications-off-outline')
+    else if (result === 'denied') showToast(t('home.allowNotifications'), 'notifications-off-outline')
+    else if (result === 'unsupported') showToast(t('reminder.phoneOnly'), 'phone-portrait-outline')
+    else showToast(t('calAlert.on', { name }), 'alarm-outline')
+  }
   const next = upcoming[0]
   const viewingToday = cursor.year === todayHijri.year && cursor.month === todayHijri.month
   const selectedDate = gregorianOf({ year: cursor.year, month: cursor.month, day: selected })
@@ -62,26 +97,26 @@ export default function CalendarScreen() {
       style={styles.page}
       contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 28 }}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Back" style={styles.back}>
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel={t('common.back')} style={styles.back}>
           <Ionicons name="chevron-back" size={22} color={dark ? '#EAF3F0' : '#0F1F2E'} />
         </Pressable>
-        <Text style={styles.headerTitle}>Hijri calendar</Text>
+        <Text style={styles.headerTitle}>{t('cal.title')}</Text>
       </View>
 
       <View style={styles.hero}>
         <GradientFill colors={dark ? ['#1A2C38', '#102028'] : ['#F7F4EE', '#EFE8DC']} vertical />
-        <Text style={styles.kicker}>Today</Text>
+        <Text style={styles.kicker}>{t('cal.today')}</Text>
         <Text style={styles.heroDay}>
-          {todayHijri.day} {HIJRI_MONTHS[todayHijri.month - 1]}
+          {digits(todayHijri.day)} {monthName(todayHijri.month)}
         </Text>
         <Text style={styles.heroArabic}>{HIJRI_MONTHS_AR[todayHijri.month - 1]}</Text>
-        <Text style={styles.heroYear}>{todayHijri.year} AH</Text>
+        <Text style={styles.heroYear}>{digits(todayHijri.year)} AH</Text>
         <Text style={styles.heroGreg}>{pretty(today)}</Text>
         {next ? (
           <View style={styles.countdown}>
             <Ionicons name="moon-outline" size={14} color={dark ? '#E7D3A1' : '#7A5A1E'} />
             <Text style={styles.countdownText}>
-              {next.name} · {awayLabel(daysUntil(next.date, today))}
+              {eventText(next).name} · {awayLabel(daysUntil(next.date, today))}
             </Text>
           </View>
         ) : null}
@@ -89,21 +124,21 @@ export default function CalendarScreen() {
 
       <View style={styles.card}>
         <View style={styles.monthRow}>
-          <Pressable onPress={() => move(-1)} hitSlop={8} accessibilityLabel="Previous month" style={styles.step}>
+          <Pressable onPress={() => move(-1)} hitSlop={8} accessibilityLabel={t('common.prevMonth')} style={styles.step}>
             <Ionicons name="chevron-back" size={18} color={dark ? '#EAF3F0' : '#0F1F2E'} />
           </Pressable>
           <View style={styles.monthTitleWrap}>
             <Text style={styles.monthTitle}>
-              {HIJRI_MONTHS[cursor.month - 1]} {cursor.year}
+              {monthName(cursor.month)} {digits(cursor.year)}
             </Text>
             <Text style={styles.monthArabic}>{HIJRI_MONTHS_AR[cursor.month - 1]}</Text>
           </View>
-          <Pressable onPress={() => move(1)} hitSlop={8} accessibilityLabel="Next month" style={styles.step}>
+          <Pressable onPress={() => move(1)} hitSlop={8} accessibilityLabel={t('common.nextMonth')} style={styles.step}>
             <Ionicons name="chevron-forward" size={18} color={dark ? '#EAF3F0' : '#0F1F2E'} />
           </Pressable>
         </View>
         <View style={styles.weekRow}>
-          {WEEKDAYS.map((day, index) => (
+          {weekdays.map((day, index) => (
             <Text key={`${day}-${index}`} style={styles.weekDay}>
               {day}
             </Text>
@@ -121,7 +156,7 @@ export default function CalendarScreen() {
                   key={`${row}-${column}`}
                   onPress={() => setSelected(day)}
                   style={[styles.cell, isSelected && styles.cellOn, isToday && styles.cellToday]}>
-                  <Text style={[styles.cellText, (isSelected || isToday) && styles.cellTextOn]}>{day}</Text>
+                  <Text style={[styles.cellText, (isSelected || isToday) && styles.cellTextOn]}>{digits(day)}</Text>
                   {marked ? <View style={[styles.dot, (isSelected || isToday) && styles.dotOn]} /> : <View style={styles.dotSpacer} />}
                 </Pressable>
               )
@@ -133,38 +168,58 @@ export default function CalendarScreen() {
           {selectedEvents.length ? (
             selectedEvents.map((event) => (
               <Text key={event.name + event.day} style={styles.selectedEvent}>
-                {event.name} · {event.note}
+                {eventText(event).name} · {eventText(event).note}
               </Text>
             ))
           ) : (
-            <Text style={styles.selectedQuiet}>No marked day</Text>
+            <Text style={styles.selectedQuiet}>{t('cal.noMarked')}</Text>
           )}
         </View>
       </View>
 
-      <Text style={styles.section}>Coming up</Text>
+      <Text style={styles.section}>{t('cal.coming')}</Text>
       {upcoming.map((event) => (
         <Pressable
-          key={`${event.year}-${event.month}-${event.day}-${event.name}`}
+          key={`${event.year}-${event.month}-${event.day}-${eventText(event).name}`}
           onPress={() => {
             setCursor({ year: event.year, month: event.month })
             setSelected(event.day)
           }}
           style={styles.event}>
           <View style={styles.eventDate}>
-            <Text style={styles.eventDay}>{event.day}</Text>
-            <Text style={styles.eventMonth}>{HIJRI_MONTHS[event.month - 1].slice(0, 3)}</Text>
+            <Text style={styles.eventDay}>{digits(event.day)}</Text>
+            <Text style={styles.eventMonth}>{monthName(event.month)}</Text>
           </View>
           <View style={styles.eventCopy}>
-            <Text style={styles.eventName}>{event.name}</Text>
+            <Text style={styles.eventName}>{eventText(event).name}</Text>
             <Text style={styles.eventNote}>
-              {short(event.date)} · {event.note}
+              {shortDate(event.date)} · {eventText(event).note}
             </Text>
           </View>
-          <Text style={styles.eventAway}>{awayLabel(daysUntil(event.date, today))}</Text>
+          <View style={styles.eventSide}>
+            <Text style={styles.eventAway}>{awayLabel(daysUntil(event.date, today))}</Text>
+            {(() => {
+              const on = alertKeys.includes(eventAlertKey(event))
+              return (
+                <Pressable
+                  onPress={(press) => {
+                    press.stopPropagation?.()
+                    void toggleAlert(event)
+                  }}
+                  hitSlop={8}
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: on }}
+                  accessibilityLabel={t('calAlert.a11y', { name: eventText(event).name })}
+                  style={[styles.bell, on && styles.bellOn]}>
+                  <Ionicons name={on ? 'notifications' : 'notifications-outline'} size={15} color={on ? (dark ? '#0F1F2E' : '#FFFFFF') : dark ? '#EAF3F0' : '#0F1F2E'} />
+                </Pressable>
+              )
+            })()}
+          </View>
         </Pressable>
       ))}
-      <Text style={styles.footnote}>Umm al-Qura dates. A local moon sighting can move a day by one.</Text>
+      <Text style={styles.footnote}>{t('calAlert.footnote')}</Text>
+      <Text style={styles.footnote}>{t('cal.footnote')}</Text>
     </ScrollView>
   )
 }
@@ -256,6 +311,9 @@ const useStyles = makeStyles(({ mode }) => {
     eventName: { fontFamily: 'Figtree_700Bold', fontSize: 15, color: ink },
     eventNote: { fontFamily: 'Figtree_500Medium', fontSize: 12, color: muted, marginTop: 2 },
     eventAway: { fontFamily: 'Figtree_700Bold', fontSize: 12, color: ink },
+    eventSide: { alignItems: 'flex-end', gap: 8 },
+    bell: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: chip },
+    bellOn: { backgroundColor: ink },
     footnote: { fontFamily: 'Figtree_500Medium', fontSize: 12, lineHeight: 17, color: muted, marginHorizontal: 16, marginTop: 8 },
   }
 })

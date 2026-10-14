@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native'
 import { radius } from '@/src/constants/theme'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { useAzanBroadcast } from '@/src/hooks/useAzanBroadcast'
 import { fetchManagerMosques } from '@/src/services/api'
@@ -20,6 +21,7 @@ const PRAYERS: PrayerName[] = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']
 export default function AzanDashboardScreen() {
   const styles = useStyles()
   const { colors } = useTheme()
+  const { t, prayerName, placeName } = useLanguage()
   const { id } = useLocalSearchParams<{ id: string }>()
   const [mosque, setMosque] = useState<Mosque | null>(null)
   const [loading, setLoading] = useState(true)
@@ -34,11 +36,11 @@ export default function AzanDashboardScreen() {
       setMosque(found)
       await broadcast.syncLive()
     } catch (e) {
-      broadcast.setError(e instanceof Error ? e.message : 'Failed to load')
+      broadcast.setError(e instanceof Error ? e.message : t('admin.loadFail'))
     } finally {
       setLoading(false)
     }
-  }, [broadcast.setError, broadcast.syncLive, id])
+  }, [broadcast.setError, broadcast.syncLive, id, t])
 
   useFocusEffect(
     useCallback(() => {
@@ -69,29 +71,32 @@ export default function AzanDashboardScreen() {
   if (!mosque) {
     return (
       <View style={styles.center}>
-        <Text style={styles.error}>Mosque not found or not assigned to you.</Text>
+        <Text style={styles.error}>{t('admin.notFound')}</Text>
       </View>
     )
   }
 
   const mm = String(Math.floor(broadcast.elapsed / 60)).padStart(2, '0')
   const ss = String(broadcast.elapsed % 60).padStart(2, '0')
+  const elapsed = `${mm}:${ss}`
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <Text style={styles.kicker}>Azan Dashboard</Text>
-      <Text style={styles.title}>{mosque.name}</Text>
-      <Text style={styles.sub}>{mosque.area}</Text>
+      <Text style={styles.kicker}>{t('admin.dashboard')}</Text>
+      <Text style={styles.title}>{placeName(mosque.name)}</Text>
+      <Text style={styles.sub}>{placeName(mosque.area)}</Text>
 
       <View style={[styles.statusCard, broadcast.live && styles.statusLive]}>
         <View style={styles.statusRow}>
           <View style={[styles.dot, broadcast.live && styles.dotOn]} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.statusTitle}>{broadcast.live ? 'ON AIR' : 'Offline'}</Text>
+            <Text style={styles.statusTitle}>{broadcast.live ? t('admin.onAir') : t('admin.offline')}</Text>
             <Text style={styles.statusMeta}>
               {broadcast.live
-                ? `Broadcasting · ${mm}:${ss} · ${listeners} listening`
-                : 'Not broadcasting — start when azan begins'}
+                ? listeners > 0
+                  ? t('admin.broadcastingListen', { time: elapsed, count: listeners })
+                  : t('admin.broadcasting', { time: elapsed })
+                : t('admin.startWhen')}
             </Text>
           </View>
         </View>
@@ -101,20 +106,15 @@ export default function AzanDashboardScreen() {
         <Pressable
           style={styles.devHint}
           onPress={() =>
-            Alert.alert(
-              'Dev build required',
-              'Expo Go cannot access the Agora mic module. Build a dev APK with npm run eas:preview, or broadcast from the web admin.',
-            )
+            Alert.alert(t('admin.devTitle'), t('admin.devBody'))
           }>
-          <Text style={styles.devHintText}>
-            Expo Go: LIVE badge only. Dev build or web admin needed for mic audio.
-          </Text>
+          <Text style={styles.devHintText}>{t('admin.devHint')}</Text>
         </Pressable>
       ) : null}
 
       {!broadcast.live ? (
         <>
-          <Text style={styles.label}>Prayer (optional)</Text>
+          <Text style={styles.label}>{t('admin.prayerOptional')}</Text>
           <View style={styles.prayerRow}>
             {(mosque.taraweeh?.enabled ? [...PRAYERS, 'Taraweeh' as const] : PRAYERS).map((p) => {
               const on = broadcast.prayer === p
@@ -123,7 +123,7 @@ export default function AzanDashboardScreen() {
                   key={p}
                   style={[styles.prayerChip, on && styles.prayerChipOn]}
                   onPress={() => broadcast.setPrayer(on ? undefined : p)}>
-                  <Text style={[styles.prayerChipText, on && styles.prayerChipTextOn]}>{p}</Text>
+                  <Text style={[styles.prayerChipText, on && styles.prayerChipTextOn]}>{prayerName(p)}</Text>
                 </Pressable>
               )
             })}
@@ -133,7 +133,7 @@ export default function AzanDashboardScreen() {
             style={[styles.btn, styles.btnStart]}
             disabled={broadcast.busy}
             onPress={() => void broadcast.onStart()}>
-            <Text style={styles.btnText}>{broadcast.busy ? 'Starting…' : 'Start Azan (go LIVE)'}</Text>
+            <Text style={styles.btnText}>{broadcast.busy ? t('admin.starting') : t('admin.goLive')}</Text>
           </Pressable>
         </>
       ) : (
@@ -141,7 +141,7 @@ export default function AzanDashboardScreen() {
           style={[styles.btn, styles.btnStop]}
           disabled={broadcast.busy}
           onPress={() => void broadcast.onStop()}>
-          <Text style={styles.btnText}>{broadcast.busy ? 'Stopping…' : 'Stop Azan'}</Text>
+          <Text style={styles.btnText}>{broadcast.busy ? t('admin.stopping') : t('admin.stopAzan')}</Text>
         </Pressable>
       )}
 
@@ -149,12 +149,8 @@ export default function AzanDashboardScreen() {
       {broadcast.error ? <Text style={styles.error}>{broadcast.error}</Text> : null}
 
       <View style={styles.help}>
-        <Text style={styles.helpTitle}>How this works</Text>
-        <Text style={styles.helpText}>
-          1. When azan starts at the mosque, tap Start Azan.{'\n'}
-          2. Your mic streams to all app users via Agora.{'\n'}
-          3. Tap Stop Azan when finished.
-        </Text>
+        <Text style={styles.helpTitle}>{t('admin.howTitle')}</Text>
+        <Text style={styles.helpText}>{t('admin.howBody')}</Text>
       </View>
     </ScrollView>
   )

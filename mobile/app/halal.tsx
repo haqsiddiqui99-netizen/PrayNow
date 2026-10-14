@@ -5,8 +5,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { showToast } from '@/src/components/AppToast'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
-import { HALAL_CUISINES, HALAL_PLACES, distanceKm, formatKm, type HalalPlace } from '@/src/data/halalPlaces'
+import { HALAL_CUISINES, HALAL_PLACES, distanceKm, type HalalPlace } from '@/src/data/halalPlaces'
 import { useLocation } from '@/src/hooks/useLocation'
 import { openGoogleMapsCitySearch } from '@/src/utils/maps'
 
@@ -14,6 +15,7 @@ const SAVED_KEY = 'praynow.halalSaved.v1'
 
 export default function HalalScreen() {
   const styles = useStyles()
+  const { t, placeName, formatDistance } = useLanguage()
   const { mode } = useTheme()
   const router = useRouter()
   const insets = useSafeAreaInsets()
@@ -37,7 +39,9 @@ export default function HalalScreen() {
     })
   }, [])
 
-  const city = location.supportedCity?.name || location.city || 'your city'
+  const cuisineLabel = (item: string) =>
+    item === 'All' ? t('cuisine.all') : item === 'Mughlai' ? t('cuisine.mughlai') : item === 'Kebabs' ? t('cuisine.kebabs') : item === 'Rolls' ? t('cuisine.rolls') : item
+  const city = placeName(location.supportedCity?.name || location.city) || t('halal.near')
   const ranked = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return HALAL_PLACES.map((place) => ({
@@ -46,11 +50,10 @@ export default function HalalScreen() {
     }))
       .filter(({ place }) => (cuisine === 'All' ? true : place.cuisine === cuisine))
       .filter(({ place }) =>
-        needle ? `${place.name} ${place.area} ${place.cuisine} ${place.knownFor}`.toLowerCase().includes(needle) : true,
+        needle ? `${place.name} ${place.area} ${place.cuisine} ${cuisineLabel(place.cuisine)} ${place.knownFor}`.toLowerCase().includes(needle) : true,
       )
       .sort((a, b) => a.km - b.km)
-  }, [cuisine, location.lat, location.lng, query])
-
+  }, [cuisine, location.lat, location.lng, query, t])
   const nearest = ranked[0]?.km ?? 99
   const inDelhi = nearest < 80
   const savedPlaces = HALAL_PLACES.filter((place) => saved.includes(place.id))
@@ -73,12 +76,12 @@ export default function HalalScreen() {
       keyboardShouldPersistTaps="handled"
       contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 28 }}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Back" style={styles.back}>
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel={t('common.back')} style={styles.back}>
           <Ionicons name="chevron-back" size={22} color={ink} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={styles.headerTitle}>Halal food</Text>
-          <Text style={styles.headerSub}>{inDelhi ? `Sorted by distance from ${city}` : `Delhi kitchens · you are in ${city}`}</Text>
+          <Text style={styles.headerTitle}>{t('halal.title')}</Text>
+          <Text style={styles.headerSub}>{inDelhi ? t('halal.sorted', { city }) : t('halal.away', { city })}</Text>
         </View>
       </View>
 
@@ -87,7 +90,7 @@ export default function HalalScreen() {
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Search a kitchen or area"
+          placeholder={t('halal.search')}
           placeholderTextColor={muted}
           style={styles.searchInput}
           autoCorrect={false}
@@ -99,26 +102,26 @@ export default function HalalScreen() {
           const on = item === cuisine
           return (
             <Pressable key={item} onPress={() => setCuisine(item)} style={[styles.chip, on && styles.chipOn]}>
-              <Text style={[styles.chipText, on && styles.chipTextOn]}>{item}</Text>
+              <Text style={[styles.chipText, on && styles.chipTextOn]}>{cuisineLabel(item)}</Text>
             </Pressable>
           )
         })}
       </ScrollView>
 
       <Pressable
-        onPress={() => showToast('Featured spots open for restaurants in this list', 'information-circle-outline')}
+        onPress={() => showToast(t('halal.featureToast'), 'information-circle-outline')}
         style={styles.feature}>
         <View style={styles.featureBadge}>
-          <Text style={styles.featureBadgeText}>FEATURED</Text>
+          <Text style={styles.featureBadgeText}>{t('halal.featured')}</Text>
         </View>
-        <Text style={styles.featureTitle}>Your kitchen, at the top</Text>
-        <Text style={styles.featureSub}>A paid spot above this list, seen by everyone nearby.</Text>
-        <Text style={styles.featureLink}>Ask for this spot</Text>
+        <Text style={styles.featureTitle}>{t('halal.featureTitle')}</Text>
+        <Text style={styles.featureSub}>{t('halal.featureSub')}</Text>
+        <Text style={styles.featureLink}>{t('halal.featureLink')}</Text>
       </Pressable>
 
       {savedPlaces.length ? (
         <>
-          <Text style={styles.section}>Saved</Text>
+          <Text style={styles.section}>{t('halal.saved')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedRow}>
             {savedPlaces.map((place) => (
               <Pressable key={place.id} onPress={() => openPlace(place)} style={styles.savedCard}>
@@ -134,7 +137,7 @@ export default function HalalScreen() {
         </>
       ) : null}
 
-      <Text style={styles.section}>{inDelhi ? 'Near you' : 'Delhi'}</Text>
+      <Text style={styles.section}>{inDelhi ? t('halal.near') : t('halal.delhi')}</Text>
       {ranked.map(({ place, km }) => {
         const loved = saved.includes(place.id)
         return (
@@ -155,25 +158,25 @@ export default function HalalScreen() {
               </Pressable>
             </View>
             <View style={styles.cardFoot}>
-              <Text style={styles.distance}>{formatKm(km)}</Text>
+              <Text style={styles.distance}>{formatDistance(km)}</Text>
               <Pressable onPress={() => openPlace(place)} style={styles.go}>
-                <Text style={styles.goText}>Directions</Text>
+                <Text style={styles.goText}>{t('halal.directions')}</Text>
                 <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
               </Pressable>
             </View>
           </View>
         )
       })}
-      {!ranked.length ? <Text style={styles.empty}>Nothing matches that search.</Text> : null}
+      {!ranked.length ? <Text style={styles.empty}>{t('halal.emptyShort')}</Text> : null}
 
       <Pressable
         onPress={() => void Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`halal restaurant near ${city}`)}`)}
         style={styles.maps}>
         <Ionicons name="map-outline" size={16} color={ink} />
-        <Text style={styles.mapsText}>Search halal near {city} on Maps</Text>
+        <Text style={styles.mapsText}>{t('halal.maps', { city })}</Text>
       </Pressable>
       <Text style={styles.footnote}>
-        These are known Delhi kitchens. Pins are approximate, so confirm the place in Maps. No ratings are shown, because none were verified.
+        {t('halal.note')}
       </Text>
     </ScrollView>
   )

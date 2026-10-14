@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { GradientFill } from '@/src/components/GradientFill'
 import { memo, useCallback, useEffect, useState } from 'react'
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native'
@@ -188,6 +189,7 @@ export const LiveAzanButton = memo(function LiveAzanButton({
     transform: [{ scale: 1 + 0.5 * ring.value }],
   }))
 
+  const { t, digits, formatDuration } = useLanguage()
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout
     setBox((b) => (b.w === width && b.h === height ? b : { w: width, h: height }))
@@ -204,21 +206,21 @@ export const LiveAzanButton = memo(function LiveAzanButton({
   const title =
     actionTitle ??
     (state === 'before'
-      ? 'Notify me at azan'
+      ? t('live.notify')
       : state === 'after'
-        ? 'Replay today’s azan'
+        ? t('live.replay')
         : isPlaying
-          ? 'Listening live'
-          : 'Listen live')
+          ? t('live.listening')
+          : t('live.listen'))
   const label =
     actionTitle ??
     (state === 'before'
-      ? 'Remind me when azan starts'
+      ? t('live.remindStart')
       : state === 'after'
-        ? 'Replay today’s azan'
+        ? t('live.replay')
         : isPlaying
-          ? 'Pause live azan'
-          : 'Listen to live azan')
+          ? t('live.pause')
+          : t('live.listenA11y'))
 
   const knobIcon: keyof typeof Ionicons.glyphMap =
     actionIcon ??
@@ -287,16 +289,16 @@ export const LiveAzanButton = memo(function LiveAzanButton({
             {isLive ? (
               <View style={styles.chip}>
                 <Ionicons name="headset" size={14} color={C.mint} />
-                {isPlaying && <Text style={styles.chipElapsed}>{formatElapsed(elapsed)} ·</Text>}
-                <Text style={styles.chipCount}>{formatIN(listeners)}</Text>
-                <Text style={styles.chipLabel}>listening</Text>
+                {isPlaying && <Text style={styles.chipElapsed}>{digits(formatElapsed(elapsed))} ·</Text>}
+                <Text style={styles.chipCount}>{digits(formatIN(listeners))}</Text>
+                <Text style={styles.chipLabel}>{t('live.chip')}</Text>
               </View>
             ) : (
               <Text numberOfLines={1} style={styles.sub}>
                 {actionDetail ??
                   (state === 'before'
-                    ? `Starts in ${minutesToAzan} min · ${azanTime}`
-                    : `${prayerLabel} · ${azanTime}`)}
+                    ? `${t('home.inDuration', { duration: formatDuration(minutesToAzan) })} · ${digits(azanTime)}`
+                    : `${prayerLabel} · ${digits(azanTime)}`)}
               </Text>
             )}
           </View>

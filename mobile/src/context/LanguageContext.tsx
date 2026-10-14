@@ -10,8 +10,9 @@ import {
 } from 'react'
 import { CITY_RADIUS_KM } from '@/src/constants/mosqueRadius'
 import { localizePlaceName } from '@/src/i18n/placeNames'
+import { localizeDigits } from '@/src/i18n/digits'
 import {
-  FACILITY_KEYS,
+  facilityTranslationKey,
   isLanguageCode,
   translations,
   LANGUAGES,
@@ -56,6 +57,10 @@ interface LanguageContextValue {
   formatDistance: (km: number) => string
   /** Radius chip / scope label, where the city sentinel reads as "City". */
   formatRadius: (km: number) => string
+  /** A clock such as "8:45 PM" with localised digits and AM/PM. */
+  formatClock: (clock: string) => string
+  /** Western digits rewritten for the active language. English stays 0–9. */
+  digits: (value: string | number) => string
 }
 
 const LanguageContext = createContext<LanguageContextValue | null>(null)
@@ -86,7 +91,13 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const t = useCallback<Translate>(
-    (key, vars) => interpolate(translations[language][key] ?? translations.en[key], vars),
+    (key, vars) =>
+      localizeDigits(interpolate(translations[language][key] ?? translations.en[key], vars), language),
+    [language],
+  )
+
+  const digits = useCallback(
+    (value: string | number) => localizeDigits(value, language),
     [language],
   )
 
@@ -102,7 +113,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const facilityName = useCallback(
     (facility: string) => {
-      const key = FACILITY_KEYS[facility.trim().toLowerCase()]
+      const key = facilityTranslationKey(facility)
       return key ? t(key) : facility
     },
     [t],
@@ -114,8 +125,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   )
 
   const formatDistance = useCallback(
-    (km: number) => (km < 1 ? `${Math.round(km * 1000)} ${t('units.m')}` : `${km} ${t('units.km')}`),
-    [t],
+    (km: number) =>
+      digits(km < 1 ? `${Math.round(km * 1000)} ${t('units.m')}` : `${km} ${t('units.km')}`),
+    [t, digits],
   )
 
   const formatRadius = useCallback(
@@ -150,6 +162,15 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     [t],
   )
 
+  const formatClock = useCallback(
+    (clock: string) => {
+      const match = clock.trim().match(/^(.*?)\s*(AM|PM)$/i)
+      if (!match) return digits(clock)
+      return `${digits(match[1])} ${match[2].toUpperCase() === 'PM' ? t('time.pm') : t('time.am')}`
+    },
+    [t, digits],
+  )
+
   const isRTL = LANGUAGES.find((lang) => lang.code === language)?.rtl ?? false
 
   const value = useMemo(
@@ -165,6 +186,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       formatCountdown,
       formatDistance,
       formatRadius,
+      formatClock,
+      digits,
     }),
     [
       language,
@@ -178,6 +201,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       formatCountdown,
       formatDistance,
       formatRadius,
+      formatClock,
+      digits,
     ],
   )
 

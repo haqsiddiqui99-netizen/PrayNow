@@ -36,11 +36,12 @@ function FacilityChip({ facility, enabled = true }: { facility: string; enabled?
 function CapacityChip({ capacity }: { capacity: number }) {
   const styles = useStyles()
   const { colors } = useTheme()
+  const { digits } = useLanguage()
   return (
     <View style={styles.chip}>
       <Ionicons name="people-outline" size={12} color={colors.primary} />
       <Text style={styles.chipText} numberOfLines={1}>
-        {formatCapacity(capacity)}
+        {digits(formatCapacity(capacity))}
       </Text>
     </View>
   )
@@ -63,6 +64,7 @@ export function FacilitiesLine({
 }) {
   const styles = useStyles()
   const { colors } = useTheme()
+  const { t } = useLanguage()
   const scrollRef = useRef<ScrollView>(null)
   const [viewportWidth, setViewportWidth] = useState(0)
   const [contentWidth, setContentWidth] = useState(0)
@@ -158,7 +160,7 @@ export function FacilitiesLine({
               scrollBy(-SCROLL_STEP)
             }}
             hitSlop={8}
-            accessibilityLabel="Scroll facilities left">
+            accessibilityLabel={t('common.scrollLeft')}>
             <View style={[styles.edgeFade, { backgroundColor: hintBg }, styles.noPointerEvents]} />
             <Ionicons name="chevron-back" size={14} color={colors.textSecondary} />
           </Pressable>
@@ -172,7 +174,7 @@ export function FacilitiesLine({
               scrollBy(SCROLL_STEP)
             }}
             hitSlop={8}
-            accessibilityLabel="Scroll facilities right">
+            accessibilityLabel={t('common.scrollRight')}>
             <View style={[styles.edgeFade, { backgroundColor: hintBg }, styles.noPointerEvents]} />
             <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
           </Pressable>
@@ -237,7 +239,6 @@ const useStyles = makeStyles(({ colors }) => ({
   chipText: {
     fontSize: 10,
     fontWeight: '500',
-    fontFamily: 'Poppins_500Medium',
     color: colors.primary,
   },
   chipDisabled: { backgroundColor: colors.surface1, opacity: 0.5 },

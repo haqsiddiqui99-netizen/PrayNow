@@ -24,8 +24,11 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 import { useRouter } from 'expo-router'
+import { MosqueEventsList } from '@/src/components/MosqueEventsList'
+import { MosqueReminderSheet } from '@/src/components/MosqueReminderSheet'
+import { useAuth } from '@/src/context/AuthContext'
 import { useLanguage } from '@/src/context/LanguageContext'
-import { useMosqueNotify } from '@/src/context/MosqueNotifyContext'
+import { hasActiveReminders, useMosqueNotify } from '@/src/context/MosqueNotifyContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { useLiveSession, useMosqueLive } from '@/src/hooks/useLiveAzanSession'
 import type { Mosque, PrayerName, TravelMode } from '@/src/types'
@@ -149,6 +152,7 @@ export const TabLiveButton = memo(function TabLiveButton({
   icon?: 'play' | 'pause' | 'mic' | 'stop'
   actionLabel?: string
 }) {
+  const { t, digits } = useLanguage()
   const reduce = useReducedMotion()
   const playing = isPlaying
   const [box, setBox] = useState({ w: 0, h: 0 })
@@ -236,14 +240,14 @@ export const TabLiveButton = memo(function TabLiveButton({
   )
 
   const diag = Math.ceil(Math.hypot(box.w, box.h)) + 4
-  const title = titleOverride ?? (playing ? 'Listening live' : 'Listen live')
+  const title = titleOverride ?? (playing ? t('live.listening') : t('live.listen'))
   const knobIcon = icon ?? (playing ? 'pause' : 'play')
 
   return (
     <Pressable
       onPress={handlePress}
       accessibilityRole="button"
-      accessibilityLabel={actionLabel ?? (playing ? 'Pause live azan' : 'Listen to live azan')}
+      accessibilityLabel={actionLabel ?? (playing ? t('live.pause') : t('live.listenA11y'))}
       accessibilityState={{ selected: playing }}
       style={({ pressed }) => [btn.shadowWrap, pressed && { transform: [{ scale: 0.982 }] }]}>
       <View style={btn.pill} onLayout={onLayout}>
@@ -288,9 +292,9 @@ export const TabLiveButton = memo(function TabLiveButton({
             </Text>
             <View style={btn.chip}>
               <Ionicons name="headset" size={14} color={BC.mint} />
-              {playing && <Text style={btn.chipElapsed}>{formatElapsed(elapsed)} ·</Text>}
-              <Text style={btn.chipCount}>{formatIN(listeners)}</Text>
-              <Text style={btn.chipLabel}>listening</Text>
+              {playing && <Text style={btn.chipElapsed}>{digits(formatElapsed(elapsed))} ·</Text>}
+              <Text style={btn.chipCount}>{digits(formatIN(listeners))}</Text>
+              <Text style={btn.chipLabel}>{t('live.chip')}</Text>
             </View>
           </View>
           <View style={btn.wave} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -418,8 +422,11 @@ export function MosqueTabCard({
   const styles = useStyles()
   const { mode } = useTheme()
   const router = useRouter()
-  const { prayerName, formatDistance, placeName } = useLanguage()
-  const { isSubscribed, toggle } = useMosqueNotify()
+  const { t, prayerName, formatDistance, placeName, facilityName, digits } = useLanguage()
+  const merLabel = (mer: string) => (mer === 'PM' ? t('time.pm') : mer === 'AM' ? t('time.am') : mer)
+  const { user } = useAuth()
+  const { isSubscribed, remindersFor } = useMosqueNotify()
+  const [sheetOpen, setSheetOpen] = useState(false)
   const now = useNow()
   const broadcast = useMosqueLive(mosque.id)
   const listeners = useLiveSession(mosque.id)?.listeners ?? 0
@@ -428,6 +435,8 @@ export function MosqueTabCard({
   )
   const [showAll, setShowAll] = useState(false)
   const subscribed = isSubscribed(mosque.id)
+  const savedReminders = remindersFor(mosque.id)
+  const reminding = subscribed && hasActiveReminders(savedReminders)
 
   useEffect(
     () => subscribeAzan(() => setPlaying(getAzanState().id === `${mosque.id}-live` && getAzanState().playing)),
@@ -457,31 +466,21 @@ export function MosqueTabCard({
   const panelBottom = dark ? '#102421' : '#F2F3F6'
   const panelMuted = dark ? '#9DBAB4' : '#5A6676'
 
-  const onToggleAlert = async (event?: { stopPropagation?: () => void }) => {
+  const onOpenAlerts = (event?: { stopPropagation?: () => void }) => {
     event?.stopPropagation?.()
-    const wasSubscribed = subscribed
-    const result = await toggle(mosque.id)
-    if (result === 'ok') {
-      showToast(
-        wasSubscribed
-          ? `Unsubscribed from ${placeName(mosque.name)}`
-          : `Subscribed to ${placeName(mosque.name)}`,
-        wasSubscribed ? 'notifications-off-outline' : 'checkmark-circle',
-      )
-    }
-    if (result === 'need_login') {
-      Alert.alert('Sign in required', 'Log in to get notifications for this mosque.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Log in', onPress: () => router.push('/login') },
+    if (!user) {
+      Alert.alert(t('mosque.signInTitle'), t('mosque.signInBody'), [
+        { text: t('mosque.cancel'), style: 'cancel' },
+        { text: t('mosque.logIn'), onPress: () => router.push('/login') },
       ])
-    } else if (result === 'error') {
-      Alert.alert('Could not update', 'Check your connection and try again.')
+      return
     }
+    setSheetOpen(true)
   }
 
   const onLive = () => {
     void toggleLiveAzan(mosque.id, `${mosque.id}-live`).catch((error) => {
-      Alert.alert('Live azan', error instanceof Error ? error.message : 'Could not play live azan')
+      Alert.alert(t('mosque.liveTitle'), error instanceof Error ? error.message : t('mosque.liveFail'))
     })
   }
 
@@ -497,14 +496,14 @@ export function MosqueTabCard({
           {placeName(mosque.name)}
         </Text>
         <Pressable
-          onPress={onToggleAlert}
-          accessibilityRole="switch"
+          onPress={onOpenAlerts}
+          accessibilityRole="button"
           accessibilityState={{ checked: subscribed }}
-          accessibilityLabel={`Azan alerts for ${mosque.name}`}
+          accessibilityLabel={t('mosque.alertsFor', { name: placeName(mosque.name) })}
           hitSlop={6}
           style={[styles.bell, subscribed && styles.bellOn]}>
           <Ionicons
-            name={subscribed ? 'notifications' : 'notifications-outline'}
+            name={reminding ? 'alarm' : subscribed ? 'notifications' : 'notifications-outline'}
             size={15}
             color={subscribed ? accent : chipInk}
           />
@@ -513,6 +512,13 @@ export function MosqueTabCard({
           </View>
         </Pressable>
       </View>
+      <MosqueReminderSheet
+        mosque={mosque}
+        travelMode={travelMode}
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onFailed={() => showToast(t('mosque.updateFailBody'), 'cloud-offline-outline')}
+      />
 
       <Pressable
         onPress={(event) => {
@@ -520,7 +526,7 @@ export function MosqueTabCard({
           void openGoogleMaps(mosque, travelMode)
         }}
         accessibilityRole="link"
-        accessibilityLabel={`Get directions, ${formatDistance(mosque.distance)} away`}
+        accessibilityLabel={t('mosque.directionsAway', { distance: formatDistance(mosque.distance) })}
         style={({ pressed }) => [styles.route, pressed && { transform: [{ scale: 0.985 }] }]}>
         <View style={styles.pin}>
           <Ionicons name="location-sharp" size={14} color="#EA4335" />
@@ -539,23 +545,25 @@ export function MosqueTabCard({
           {mosque.capacity > 0 ? (
             <View style={styles.feat}>
               <Ionicons name="people-outline" size={14} color={chipInk} />
-              <Text style={styles.featText}>{formatIN(mosque.capacity)} capacity</Text>
+              <Text style={styles.featText}>{digits(formatIN(mosque.capacity))} {t('mosque.capacity')}</Text>
             </View>
           ) : null}
           {facilities.map((name) => (
             <View key={name} style={styles.feat}>
               {renderFacilityIcon(name, 14, chipInk)}
-              <Text style={styles.featText}>{name}</Text>
+              <Text style={styles.featText}>{facilityName(name)}</Text>
             </View>
           ))}
           {!facilities.length && !(mosque.capacity > 0) ? (
             <View style={styles.feat}>
               <Ionicons name="information-circle-outline" size={14} color={panelMuted} />
-              <Text style={[styles.featText, { color: panelMuted }]}>Facilities not listed yet</Text>
+              <Text style={[styles.featText, { color: panelMuted }]}>{t('mosque.facilitiesEmpty')}</Text>
             </View>
           ) : null}
         </ScrollRevealRow>
       </View>
+
+      <MosqueEventsList mosque={mosque} />
 
       <View style={[styles.panel, { backgroundColor: panelBottom }]}>
         <GradientFill colors={[panelTop, panelBottom]} vertical />
@@ -576,18 +584,18 @@ export function MosqueTabCard({
           </View>
           <View style={styles.pTimes}>
             <View style={styles.pTime}>
-              <Text style={[styles.pTimeLabel, isLive && { color: liveText }]}>Azan</Text>
+              <Text style={[styles.pTimeLabel, isLive && { color: liveText }]}>{t('mosque.azan')}</Text>
               <Text style={[styles.pTimeValue, isLive && { color: liveText }]}>
-                {azanClock.time}
-                {azanClock.mer ? <Text style={styles.pMer}> {azanClock.mer}</Text> : null}
+                {digits(azanClock.time)}
+                {azanClock.mer ? <Text style={styles.pMer}> {merLabel(azanClock.mer)}</Text> : null}
               </Text>
             </View>
             <View style={styles.pSplit} />
             <View style={styles.pTime}>
-              <Text style={styles.pTimeLabel}>Namaz</Text>
+              <Text style={styles.pTimeLabel}>{t('mosque.namaz')}</Text>
               <Text style={styles.pTimeValue}>
-                {jamatClock.time}
-                {jamatClock.mer ? <Text style={styles.pMer}> {jamatClock.mer}</Text> : null}
+                {digits(jamatClock.time)}
+                {jamatClock.mer ? <Text style={styles.pMer}> {merLabel(jamatClock.mer)}</Text> : null}
               </Text>
             </View>
           </View>
@@ -611,15 +619,15 @@ export function MosqueTabCard({
           style={styles.more}
           accessibilityRole="button"
           accessibilityState={{ expanded: showAll }}>
-          <Text style={styles.moreText}>All prayers today</Text>
+          <Text style={styles.moreText}>{t('mosque.allToday')}</Text>
           <Ionicons name={showAll ? 'chevron-up' : 'chevron-down'} size={16} color={panelMuted} />
         </Pressable>
 
         {showAll ? (
           <View style={styles.rowHead}>
-            <Text style={styles.rowHeadName}>Prayer</Text>
-            <Text style={styles.rowHeadTime}>Azan</Text>
-            <Text style={styles.rowHeadTime}>Namaz</Text>
+            <Text style={styles.rowHeadName}>{t('mosque.prayer')}</Text>
+            <Text style={styles.rowHeadTime}>{t('mosque.azan')}</Text>
+            <Text style={styles.rowHeadTime}>{t('mosque.namaz')}</Text>
           </View>
         ) : null}
         {showAll
@@ -629,8 +637,8 @@ export function MosqueTabCard({
               return (
                 <View key={name} style={styles.row}>
                   <Text style={[styles.rowName, active && styles.rowNow]}>{prayerName(name)}</Text>
-                  <Text style={[styles.rowTime, active && styles.rowNow]}>{times.azan}</Text>
-                  <Text style={[styles.rowTime, active && styles.rowNow]}>{times.jamat}</Text>
+                  <Text style={[styles.rowTime, active && styles.rowNow]}>{digits(times.azan)}</Text>
+                  <Text style={[styles.rowTime, active && styles.rowNow]}>{digits(times.jamat)}</Text>
                 </View>
               )
             })
@@ -638,24 +646,24 @@ export function MosqueTabCard({
         {showAll && jumaSessions.length > 0 ? (
           <>
             <View style={styles.fridayHead}>
-              <Text style={styles.rowHeadName}>Friday</Text>
-              <Text style={styles.jumaHead}>Azan</Text>
-              <Text style={styles.jumaHead}>Khutba</Text>
-              <Text style={styles.jumaHead}>Namaz</Text>
+              <Text style={styles.rowHeadName}>{t('admin.friday')}</Text>
+              <Text style={styles.jumaHead}>{t('mosque.azan')}</Text>
+              <Text style={styles.jumaHead}>{t('mosque.khutbah')}</Text>
+              <Text style={styles.jumaHead}>{t('mosque.namaz')}</Text>
             </View>
             {jumaSessions.map((session, index) => (
               <View key={`juma-${index}`} style={styles.row}>
                 <Text style={styles.rowName} numberOfLines={1}>
-                  {jumaSessions.length > 1 ? `${prayerName('Juma')} ${index + 1}` : prayerName('Juma')}
+                  {jumaSessions.length > 1 ? `${prayerName('Juma')} ${digits(index + 1)}` : prayerName('Juma')}
                 </Text>
                 <Text style={styles.jumaTime} numberOfLines={1}>
-                  {session.azan.trim() || '\u2014'}
+                  {digits(session.azan.trim() || '\u2014')}
                 </Text>
                 <Text style={styles.jumaTime} numberOfLines={1}>
-                  {session.khutba.trim() || '\u2014'}
+                  {digits(session.khutba.trim() || '\u2014')}
                 </Text>
                 <Text style={styles.jumaTime} numberOfLines={1}>
-                  {session.namaz.trim() || '\u2014'}
+                  {digits(session.namaz.trim() || '\u2014')}
                 </Text>
               </View>
             ))}

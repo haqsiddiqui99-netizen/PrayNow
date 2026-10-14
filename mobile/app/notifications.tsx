@@ -12,12 +12,13 @@ import { VoiceNotePlayer } from '@/src/components/VoiceNotePlayer'
 import { useAuth } from '@/src/context/AuthContext'
 import { useInbox } from '@/src/context/InboxContext'
 import { radius } from '@/src/constants/theme'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 
-function formatWhen(iso: string) {
+function formatWhen(iso: string, locale: string) {
   try {
     const d = new Date(iso)
-    return d.toLocaleString(undefined, {
+    return d.toLocaleString(locale, {
       month: 'short',
       day: 'numeric',
       hour: 'numeric',
@@ -30,6 +31,8 @@ function formatWhen(iso: string) {
 
 export default function NotificationsScreen() {
   const styles = useStyles()
+  const { t, language, digits } = useLanguage()
+  const locale = language === 'hi' ? 'hi-IN' : language === 'ur' ? 'ur-PK' : language === 'ar' ? 'ar' : 'en-US'
   const { colors } = useTheme()
   const router = useRouter()
   const { user } = useAuth()
@@ -44,9 +47,9 @@ export default function NotificationsScreen() {
   if (!user) {
     return (
       <View style={styles.center}>
-        <Text style={styles.emptyTitle}>Sign in to see notifications</Text>
+        <Text style={styles.emptyTitle}>{t('inbox.signInTitle')}</Text>
         <Pressable style={styles.btn} onPress={() => router.push('/login')}>
-          <Text style={styles.btnText}>Sign in</Text>
+          <Text style={styles.btnText}>{t('inbox.signIn')}</Text>
         </Pressable>
       </View>
     )
@@ -56,11 +59,11 @@ export default function NotificationsScreen() {
     <View style={styles.page}>
       <View style={styles.toolbar}>
         <Text style={styles.hint}>
-          {unreadCount ? `${unreadCount} unread` : 'All caught up'}
+          {unreadCount ? t('inbox.unread', { count: unreadCount }) : t('inbox.caughtUp')}
         </Text>
         {unreadCount > 0 ? (
           <Pressable onPress={() => void markAllRead()}>
-            <Text style={styles.markAll}>Mark all read</Text>
+            <Text style={styles.markAll}>{t('inbox.markAll')}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -78,7 +81,7 @@ export default function NotificationsScreen() {
           onRefresh={() => void reload()}
           ListEmptyComponent={
             <Text style={styles.empty}>
-              No notifications yet. Turn on the notify switch on a mosque to get timing updates and announcements.
+              {t('inbox.empty')}
             </Text>
           }
           renderItem={({ item }) => (
@@ -90,9 +93,9 @@ export default function NotificationsScreen() {
               }}>
               <View style={styles.rowTop}>
                 <Text style={styles.mosque} numberOfLines={1}>
-                  {item.mosqueName || 'Mosque'}
+                  {item.mosqueName || t('inbox.mosque')}
                 </Text>
-                <Text style={styles.time}>{formatWhen(item.createdAt)}</Text>
+                <Text style={styles.time}>{digits(formatWhen(item.createdAt, locale))}</Text>
               </View>
               <Text style={styles.title} numberOfLines={2}>
                 {item.title}

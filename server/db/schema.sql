@@ -179,6 +179,29 @@ CREATE TABLE IF NOT EXISTS mosque_subscriptions (
 
 CREATE INDEX IF NOT EXISTS idx_mosque_subscriptions_mosque ON mosque_subscriptions(mosque_id);
 
+-- Per-mosque reminder preferences (scheduled locally on the device)
+ALTER TABLE mosque_subscriptions ADD COLUMN IF NOT EXISTS remind_jamaat BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE mosque_subscriptions ADD COLUMN IF NOT EXISTS jamaat_lead INTEGER NOT NULL DEFAULT 10;
+ALTER TABLE mosque_subscriptions ADD COLUMN IF NOT EXISTS remind_azan BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE mosque_subscriptions ADD COLUMN IF NOT EXISTS remind_prayers TEXT NOT NULL DEFAULT 'Fajr,Dhuhr,Asr,Maghrib,Isha';
+ALTER TABLE mosque_subscriptions ADD COLUMN IF NOT EXISTS remind_leave BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE mosque_subscriptions ADD COLUMN IF NOT EXISTS travel_minutes INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE mosque_subscriptions ADD COLUMN IF NOT EXISTS remind_taraweeh BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Classes, talks and iftars a mosque announces; `weekly` repeats from starts_at.
+CREATE TABLE IF NOT EXISTS mosque_events (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  mosque_id   UUID NOT NULL REFERENCES mosques(id) ON DELETE CASCADE,
+  title       VARCHAR(160) NOT NULL,
+  details     TEXT NOT NULL DEFAULT '',
+  starts_at   TIMESTAMPTZ NOT NULL,
+  weekly      BOOLEAN NOT NULL DEFAULT FALSE,
+  created_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_mosque_events_mosque ON mosque_events(mosque_id);
+
 -- Expo push tokens per user (a user may have multiple devices)
 CREATE TABLE IF NOT EXISTS user_push_tokens (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),

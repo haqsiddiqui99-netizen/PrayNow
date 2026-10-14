@@ -13,7 +13,13 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TAB_BAR_HEIGHT, getTabBarTotalHeight } from '@/src/constants/layout'
 
-type ToastIcon = 'checkmark-circle' | 'notifications-off-outline' | 'information-circle-outline'
+type ToastIcon =
+  | 'checkmark-circle'
+  | 'notifications-off-outline'
+  | 'information-circle-outline'
+  | 'alarm-outline'
+  | 'phone-portrait-outline'
+  | 'cloud-offline-outline'
 type Toast = { id: number; text: string; icon: ToastIcon }
 
 const VISIBLE_MS = 2000

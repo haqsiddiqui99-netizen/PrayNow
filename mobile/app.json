@@ -25,7 +25,8 @@
         "RECORD_AUDIO",
         "MODIFY_AUDIO_SETTINGS",
         "ACCESS_NETWORK_STATE",
-        "BLUETOOTH"
+        "BLUETOOTH",
+        "SCHEDULE_EXACT_ALARM"
       ],
       "usesCleartextTraffic": true
     },

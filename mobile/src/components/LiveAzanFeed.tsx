@@ -66,11 +66,6 @@ function formatCount(n: number): string {
   return `${s.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ',')},${s.slice(-3)}`
 }
 
-function inText(minutes: number): string {
-  if (minutes >= 60) return `${Math.floor(minutes / 60)}h ${minutes % 60}m`
-  return `${minutes}m`
-}
-
 function clockText(seconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
@@ -212,6 +207,7 @@ const ListenButton = memo(function ListenButton({
   label: string
   onPress: () => void
 }) {
+  const { t, digits, formatClock } = useLanguage()
   const reduce = useReducedMotion()
   const [box, setBox] = useState({ w: 0, h: 0 })
   const spin = useSharedValue(0)
@@ -296,18 +292,24 @@ const ListenButton = memo(function ListenButton({
           </View>
           <View style={btn.textCol}>
             <Text numberOfLines={1} style={btn.title}>
-              {playing ? 'Listening live' : 'Listen live'}
+              {playing ? t('live.listening') : t('live.listen')}
             </Text>
             <View style={btn.chip}>
               <Ionicons name={knownListeners || playing ? 'headset' : 'time-outline'} size={14} color="#7DF0C6" />
-              {playing ? <Text style={btn.chipElapsed}>{clockText(elapsed)}</Text> : null}
+              {playing ? <Text style={btn.chipElapsed}>{digits(clockText(elapsed))}</Text> : null}
               {knownListeners ? (
                 <>
-                  <Text style={btn.chipCount}>{formatCount(listeners)}</Text>
-                  <Text style={btn.chipLabel}>listening</Text>
+                  <Text style={btn.chipCount}>{digits(formatCount(listeners))}</Text>
+                  <Text style={btn.chipLabel}>{t('live.chip')}</Text>
                 </>
               ) : (
-                <Text style={btn.chipLabel}>{playing ? 'live' : azanLabel ? `Azan at ${azanLabel}` : 'Live azan'}</Text>
+                <Text style={btn.chipLabel}>
+                  {playing
+                    ? t('feed.chipLive')
+                    : azanLabel
+                      ? t('feed.azanAt', { time: formatClock(azanLabel) })
+                      : t('mosque.liveTitle')}
+                </Text>
               )}
             </View>
           </View>
@@ -371,7 +373,7 @@ export function LiveAzanFeed({
   const dark = mode === 'dark'
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const { placeName, prayerName, formatDistance } = useLanguage()
+  const { t, placeName, prayerName, formatDistance, formatRadius, digits } = useLanguage()
   const { isSubscribed, toggle } = useMosqueNotify()
   const [view, setView] = useState<'all' | 'sub'>('all')
   const [radiusKm, setRadiusKm] = useState<MosqueRadiusKm>(5)
@@ -416,31 +418,31 @@ export function LiveAzanFeed({
       const wasOn = isSubscribed(mosque.id)
       const result = await toggle(mosque.id)
       if (result === 'need_login') {
-        Alert.alert('Sign in required', 'Log in to follow this mosque.', [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Log in', onPress: () => router.push('/login') },
+        Alert.alert(t('mosque.signInTitle'), t('feed.signInBody'), [
+          { text: t('mosque.cancel'), style: 'cancel' },
+          { text: t('mosque.logIn'), onPress: () => router.push('/login') },
         ])
         return
       }
       if (result === 'error') {
-        Alert.alert('Could not update', 'Check your connection and try again.')
+        Alert.alert(t('mosque.updateFailTitle'), t('mosque.updateFailBody'))
         return
       }
-      setToast(wasOn ? `Unsubscribed from ${mosque.name}` : `Subscribed to ${mosque.name}. You'll get its live azan.`)
+      const name = placeName(mosque.name)
+      setToast(wasOn ? t('mosque.unsubscribed', { name }) : t('feed.subscribedToast', { name }))
     },
-    [isSubscribed, toggle, router],
+    [isSubscribed, toggle, router, t, placeName],
   )
 
   const onPlay = useCallback((mosque: Mosque) => {
     const starting = !(getAzanState().playing && getAzanState().mosqueId === mosque.id)
     if (starting) setPlayStart(Date.now())
     void toggleLiveAzan(mosque.id, `${mosque.id}-live`).catch((error) => {
-      Alert.alert('Live azan', error instanceof Error ? error.message : 'Could not play live azan')
+      Alert.alert(t('mosque.liveTitle'), error instanceof Error ? error.message : t('mosque.liveFail'))
     })
-  }, [])
+  }, [t])
 
-  const range = MOSQUE_RADIUS_STOPS.find((stop) => stop.value === radiusKm) ?? MOSQUE_RADIUS_STOPS[2]
-  const rangeLabel = radiusKm >= CITY_RADIUS_KM ? 'the city' : range.label
+  const rangeLabel = radiusKm >= CITY_RADIUS_KM ? t('feed.theCity') : formatRadius(radiusKm)
   const playing = playingId ? catalog.find((mosque) => mosque.id === playingId) ?? nearby.find((mosque) => mosque.id === playingId) : null
   const ink = dark ? '#EAF3F0' : '#0F1F2E'
   const muted = dark ? '#9DBAB4' : '#5F6B7A'
@@ -451,10 +453,10 @@ export function LiveAzanFeed({
       <View style={[styles.head, { paddingTop: insets.top + 8 }]}>
         <View>
           <Text style={styles.brand}>PRAYNOW</Text>
-          <Text style={styles.title}>Live Azan</Text>
+          <Text style={styles.title}>{t('feed.title')}</Text>
         </View>
         <View style={styles.headSide}>
-          <Pressable onPress={onPressLocation} accessibilityRole="button" accessibilityLabel="Change location" style={styles.cityPill}>
+          <Pressable onPress={onPressLocation} accessibilityRole="button" accessibilityLabel={t('common.changeLocation')} style={styles.cityPill}>
             <Ionicons name="location-outline" size={15} color="#FFFFFF" />
             <Text style={styles.cityText} numberOfLines={1}>
               {city}
@@ -468,10 +470,10 @@ export function LiveAzanFeed({
       <View style={styles.seg} accessibilityRole="tablist">
         {(
           [
-            { key: 'all' as const, label: 'All mosques', count: lists.live.length, live: lists.live.length > 0 },
+            { key: 'all' as const, label: t('feed.all'), count: lists.live.length, live: lists.live.length > 0 },
             {
               key: 'sub' as const,
-              label: 'Subscribed',
+              label: t('feed.subscribed'),
               count: lists.followedLive.length || lists.followed.length,
               live: lists.followedLive.length > 0,
             },
@@ -487,7 +489,7 @@ export function LiveAzanFeed({
               style={[styles.segBtn, on && styles.segBtnOn]}>
               <Text style={[styles.segText, on && { color: ink }]}>{tab.label}</Text>
               <View style={[styles.segN, tab.live && styles.segLive]}>
-                <Text style={[styles.segNText, tab.live && { color: '#FFFFFF' }]}>{tab.count}</Text>
+                <Text style={[styles.segNText, tab.live && { color: '#FFFFFF' }]}>{digits(tab.count)}</Text>
               </View>
             </Pressable>
           )
@@ -506,25 +508,27 @@ export function LiveAzanFeed({
           <View style={styles.airText}>
             <Text style={styles.airTitle}>
               {view === 'sub' && lists.followed.length === 0
-                ? 'Subscribed'
+                ? t('feed.subscribed')
                 : liveCount > 0
-                  ? `${liveCount} live now`
-                  : 'Nothing live'}
+                  ? t('feed.liveCount', { count: liveCount })
+                  : t('feed.nothingLive')}
             </Text>
             <Text style={styles.airSub}>
               {view === 'all'
                 ? liveCount > 0
-                  ? `Azan on air near you, within ${rangeLabel}`
-                  : `No mosque is broadcasting within ${rangeLabel}`
-                : lists.followed.length > 0
-                  ? `From your ${lists.followed.length} subscribed mosque${lists.followed.length === 1 ? '' : 's'}`
-                  : 'Follow mosques and their live azan shows up here'}
+                  ? t('feed.airNear', { range: rangeLabel })
+                  : t('feed.airNone', { range: rangeLabel })
+                : lists.followed.length > 1
+                  ? t('feed.fromMany', { count: lists.followed.length })
+                  : lists.followed.length === 1
+                    ? t('feed.fromOne')
+                    : t('feed.followHint')}
             </Text>
           </View>
           {view === 'sub' ? (
-            <Pressable onPress={() => setSheet(true)} accessibilityRole="button" accessibilityLabel="Add a mosque" style={styles.addBtn}>
+            <Pressable onPress={() => setSheet(true)} accessibilityRole="button" accessibilityLabel={t('feed.addMosque')} style={styles.addBtn}>
               <Ionicons name="add" size={16} color="#FFFFFF" />
-              <Text style={styles.addText}>Add</Text>
+              <Text style={styles.addText}>{t('feed.add')}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -540,7 +544,7 @@ export function LiveAzanFeed({
                   accessibilityRole="button"
                   accessibilityState={{ selected: on }}
                   style={[styles.range, on && styles.rangeOn]}>
-                  <Text style={[styles.rangeText, on && { color: '#FFFFFF' }]}>{stop.label}</Text>
+                  <Text style={[styles.rangeText, on && { color: '#FFFFFF' }]}>{formatRadius(stop.value)}</Text>
                 </Pressable>
               )
             })}
@@ -570,13 +574,13 @@ export function LiveAzanFeed({
               ))
             ) : loading ? null : (
               <Empty
-                title="No live azan right now"
-                text="When azan starts at a mosque in your range, it will appear here with its Azan and Jamat times."
+                title={t('feed.emptyLiveTitle')}
+                text={t('feed.emptyLiveText')}
               />
             )}
             {lists.soon.length > 0 ? (
               <>
-                <SectionTitle title={lists.live.length ? 'Starting soon' : 'Next azans'} count={lists.soon.length} />
+                <SectionTitle title={lists.live.length ? t('feed.startingSoon') : t('feed.nextAzans')} count={lists.soon.length} />
                 <View style={styles.soon}>
                   {lists.soon.slice(0, 5).map((mosque, index) => (
                     <View key={mosque.id} style={index > 0 ? styles.rowBorder : undefined}>
@@ -598,9 +602,9 @@ export function LiveAzanFeed({
           </>
         ) : lists.followed.length === 0 ? (
           <Empty
-            title="No subscribed mosques yet"
-            text="Subscribe to a mosque and its live azan will show up here."
-            cta="Find a mosque"
+            title={t('feed.emptySubTitle')}
+            text={t('feed.emptySubText')}
+            cta={t('feed.findMosque')}
             onCta={() => setSheet(true)}
           />
         ) : (
@@ -624,13 +628,13 @@ export function LiveAzanFeed({
               ))
             ) : (
               <Empty
-                title="None of your mosques are live"
-                text="You'll see them here as soon as their azan begins."
+                title={t('feed.noneLiveTitle')}
+                text={t('feed.noneLiveText')}
               />
             )}
             {lists.followedOff.length > 0 ? (
               <>
-                <SectionTitle title="Not live right now" count={lists.followedOff.length} />
+                <SectionTitle title={t('feed.notLive')} count={lists.followedOff.length} />
                 <View style={styles.soon}>
                   {lists.followedOff.map((mosque, index) => (
                     <View key={mosque.id} style={index > 0 ? styles.rowBorder : undefined}>
@@ -709,12 +713,14 @@ const LiveCard = memo(function LiveCard({
 }) {
   void revision
   const styles = useStyles()
+  const { t, formatDuration, formatClock } = useLanguage()
   const slot = focusSlot(mosque, now)
   const nowMin = now.getHours() * 60 + now.getMinutes()
-  const ago = Math.max(0, nowMin - slot.azanMin)
+  const ago = Math.max(1, nowMin - slot.azanMin)
   let left = slot.jamatMin - nowMin
   if (left < 0 && slot.jamatMin < slot.azanMin) left += 1440
-  const status = left > 0 ? `Began ${ago}m ago · Jamat in ${left}m` : 'Jamat time'
+  const status =
+    left > 0 ? t('feed.began', { ago: formatDuration(ago), left: formatDuration(left) }) : t('feed.jamatTime')
   const listeners = getLiveSession(mosque.id)?.listeners ?? 0
 
   return (
@@ -734,17 +740,17 @@ const LiveCard = memo(function LiveCard({
         </View>
         <View style={styles.badge}>
           <BlinkDot color="#FFFFFF" />
-          <Text style={styles.badgeText}>LIVE</Text>
+          <Text style={styles.badgeText}>{t('mosque.liveBadge')}</Text>
         </View>
       </View>
       <View style={styles.times}>
         <View style={styles.timeTile}>
-          <Text style={styles.timeLabel}>{prayerName(slot.name)} azan</Text>
-          <Text style={styles.timeValue}>{slot.azanLabel || '—'}</Text>
+          <Text style={styles.timeLabel}>{t('feed.prayerAzan', { name: prayerName(slot.name) })}</Text>
+          <Text style={styles.timeValue}>{slot.azanLabel ? formatClock(slot.azanLabel) : '—'}</Text>
         </View>
         <View style={styles.timeTile}>
-          <Text style={styles.timeLabel}>Jamat</Text>
-          <Text style={styles.timeValue}>{slot.jamatLabel || '—'}</Text>
+          <Text style={styles.timeLabel}>{t('mosque.jamat')}</Text>
+          <Text style={styles.timeValue}>{slot.jamatLabel ? formatClock(slot.jamatLabel) : '—'}</Text>
         </View>
       </View>
       <View style={styles.stat}>
@@ -761,7 +767,7 @@ const LiveCard = memo(function LiveCard({
         listeners={listeners}
         elapsed={elapsed}
         azanLabel={slot.azanLabel}
-        label={`${playing ? 'Pause' : 'Listen live'}, ${mosque.name}`}
+        label={t(playing ? 'feed.pauseA11y' : 'feed.listenA11y', { name: placeName(mosque.name) })}
         onPress={() => onPlay(mosque)}
       />
     </Animated.View>
@@ -788,6 +794,7 @@ const MosqueRow = memo(function MosqueRow({
   formatDistance: (km: number) => string
 }) {
   const styles = useStyles()
+  const { t, formatDuration, formatClock } = useLanguage()
   const next = nextAzan(mosque, now)
   return (
     <View style={styles.row}>
@@ -799,7 +806,11 @@ const MosqueRow = memo(function MosqueRow({
           {placeName(mosque.name)}
         </Text>
         <Text style={styles.rowSub} numberOfLines={1}>
-          {prayerName(next.prayer)} azan {formatMinutesAsTime(next.azanMin)} · in {inText(next.wait)}
+          {t('feed.nextRow', {
+            name: prayerName(next.prayer),
+            time: formatClock(formatMinutesAsTime(next.azanMin)),
+            wait: formatDuration(next.wait),
+          })}
         </Text>
         <Text style={styles.rowSub} numberOfLines={1}>
           {placeName(mosque.area || mosque.city)} · {formatDistance(mosque.distance)}
@@ -812,27 +823,27 @@ const MosqueRow = memo(function MosqueRow({
 
 function SubPill({ on, name, onPress }: { on: boolean; name: string; onPress: () => void }) {
   const styles = useStyles()
+  const { t, placeName } = useLanguage()
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="switch"
       accessibilityState={{ checked: on }}
-      accessibilityLabel={`${on ? 'Unsubscribe from' : 'Subscribe to'} ${name}`}
+      accessibilityLabel={t(on ? 'feed.unsubA11y' : 'feed.subA11y', { name: placeName(name) })}
       style={[styles.sub, on && styles.subOn]}>
       <Ionicons name={on ? 'notifications' : 'notifications-outline'} size={14} color={on ? '#FFFFFF' : '#5F6B7A'} />
-      <Text style={[styles.subText, on && { color: '#FFFFFF' }]}>{on ? 'Subscribed' : 'Subscribe'}</Text>
+      <Text style={[styles.subText, on && { color: '#FFFFFF' }]}>{on ? t('feed.subscribed') : t('feed.subscribe')}</Text>
     </Pressable>
   )
 }
 
 function SectionTitle({ title, count }: { title: string; count: number }) {
   const styles = useStyles()
+  const { t } = useLanguage()
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
-      <Text style={styles.sectionCount}>
-        {count} mosque{count === 1 ? '' : 's'}
-      </Text>
+      <Text style={styles.sectionCount}>{count === 1 ? t('feed.countOne') : t('feed.countMany', { count })}</Text>
     </View>
   )
 }
@@ -874,7 +885,7 @@ function AddSheet({
   placeName: (value: string) => string
 }) {
   const styles = useStyles()
-  const { formatDistance } = useLanguage()
+  const { t, formatDistance } = useLanguage()
   const [query, setQuery] = useState('')
   useEffect(() => {
     if (visible) setQuery('')
@@ -885,7 +896,7 @@ function AddSheet({
     if (!needle) {
       return {
         list: [...mosques].sort((a, b) => a.distance - b.distance).slice(0, 40),
-        label: 'Mosques',
+        label: t('feed.mosques'),
       }
     }
     const matches = mosques
@@ -895,21 +906,24 @@ function AddSheet({
           Number(!a.name.toLowerCase().startsWith(needle)) - Number(!b.name.toLowerCase().startsWith(needle)) ||
           a.distance - b.distance,
       )
-    return { list: matches, label: `${matches.length} result${matches.length === 1 ? '' : 's'}` }
-  }, [query, mosques])
+    return {
+      list: matches,
+      label: matches.length === 1 ? t('feed.resultOne') : t('feed.results', { count: matches.length }),
+    }
+  }, [query, mosques, t])
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <KeyboardAvoidingView style={styles.sheetFlex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.close')} />
         <View style={styles.sheet}>
           <View style={styles.grab} />
           <View style={styles.sheetHead}>
             <View style={styles.cardTitle}>
-              <Text style={styles.sheetTitle}>Add a mosque</Text>
-              <Text style={styles.sheetSub}>Subscribe and its live azan will appear in Subscribed.</Text>
+              <Text style={styles.sheetTitle}>{t('feed.addMosque')}</Text>
+              <Text style={styles.sheetSub}>{t('feed.sheetSub')}</Text>
             </View>
-            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={styles.close}>
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={t('common.close')} style={styles.close}>
               <Ionicons name="close" size={18} color="#5F6B7A" />
             </Pressable>
           </View>
@@ -918,17 +932,17 @@ function AddSheet({
             <TextInput
               value={query}
               onChangeText={setQuery}
-              placeholder="Search by mosque, city or area"
+              placeholder={t('feed.searchPh')}
               placeholderTextColor="#9AA5B3"
               style={styles.searchInput}
               autoCorrect={false}
               returnKeyType="search"
-              accessibilityLabel="Search mosques"
+              accessibilityLabel={t('feed.searchA11y')}
             />
           </View>
           <ScrollView contentContainerStyle={styles.results} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             {list.length === 0 ? (
-              <Text style={styles.none}>No mosque found for "{query.trim()}". Try a city or area name.</Text>
+              <Text style={styles.none}>{t('feed.noMatch', { query: query.trim() })}</Text>
             ) : (
               <>
                 <Text style={styles.resultLabel}>{label}</Text>
@@ -944,9 +958,9 @@ function AddSheet({
                           {placeName(mosque.name)}
                         </Text>
                         <Text style={styles.rowSub} numberOfLines={1}>
-                          {placeName(mosque.city || mosque.area)} · {formatDistance(mosque.distance)} away
+                          {placeName(mosque.city || mosque.area)} · {t('feed.away', { distance: formatDistance(mosque.distance) })}
                         </Text>
-                        {live ? <Text style={styles.liveNote}>Live now</Text> : null}
+                        {live ? <Text style={styles.liveNote}>{t('feed.liveNow')}</Text> : null}
                       </View>
                       <SubPill on={isSubscribed(mosque.id)} name={mosque.name} onPress={() => onToggle(mosque)} />
                     </View>
@@ -974,6 +988,7 @@ function MiniPlayer({
   onStop: () => void
   placeName: (value: string) => string
 }) {
+  const { t } = useLanguage()
   const reduce = useReducedMotion()
   const spin = useSharedValue(0)
   useEffect(() => {
@@ -996,10 +1011,10 @@ function MiniPlayer({
         </Text>
         <View style={mini.sub}>
           <BlinkDot color="#FF4D3D" size={6} />
-          <Text style={mini.time}>Live · {clockText(seconds)}</Text>
+          <Text style={mini.time}>{t('feed.miniLive', { time: clockText(seconds) })}</Text>
         </View>
       </View>
-      <Pressable onPress={onStop} accessibilityRole="button" accessibilityLabel="Pause" style={mini.stop}>
+      <Pressable onPress={onStop} accessibilityRole="button" accessibilityLabel={t('feed.pause')} style={mini.stop}>
         <Ionicons name="pause" size={18} color="#0C1D3B" />
       </Pressable>
     </Animated.View>

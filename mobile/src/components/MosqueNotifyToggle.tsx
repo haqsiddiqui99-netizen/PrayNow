@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, View } from 'react-native'
 import { useAuth } from '@/src/context/AuthContext'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { useMosqueNotify } from '@/src/context/MosqueNotifyContext'
 import { makeStyles } from '@/src/context/ThemeContext'
 
@@ -17,6 +18,7 @@ export function MosqueNotifyToggle({ mosqueId }: Props) {
   const router = useRouter()
   const { user } = useAuth()
   const { isSubscribed, toggle } = useMosqueNotify()
+  const { t } = useLanguage()
   const [busy, setBusy] = useState(false)
   const on = user ? isSubscribed(mosqueId) : false
 
@@ -26,12 +28,12 @@ export function MosqueNotifyToggle({ mosqueId }: Props) {
     try {
       const result = await toggle(mosqueId)
       if (result === 'need_login') {
-        Alert.alert('Sign in required', 'Log in to get notifications for this mosque.', [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Log in', onPress: () => router.push('/login') },
+        Alert.alert(t('mosque.signInTitle'), t('mosque.signInBody'), [
+          { text: t('mosque.cancel'), style: 'cancel' },
+          { text: t('mosque.logIn'), onPress: () => router.push('/login') },
         ])
       } else if (result === 'error') {
-        Alert.alert('Could not update', 'Check your connection and try again.')
+        Alert.alert(t('mosque.updateFailTitle'), t('mosque.updateFailBody'))
       }
     } finally {
       setBusy(false)

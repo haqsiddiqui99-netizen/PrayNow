@@ -42,6 +42,8 @@ import {
 } from 'expo-audio'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { transcribeQuestion } from '@/src/services/islamicChat'
+import { useLanguage } from '@/src/context/LanguageContext'
+import type { TranslationKey } from '@/src/i18n/translations'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 
 /* ========================================================================== */
@@ -418,14 +420,15 @@ const Dot = memo(function Dot({ delay }: { delay: number }) {
 
 const Dots = memo(function Dots() {
   const styles = useStyles()
+  const { t } = useLanguage()
   return (
-    <View style={styles.thinking} accessibilityLabel="Thinking">
+    <View style={styles.thinking} accessibilityLabel={t('ai.thinking')}>
       <View style={styles.dots}>
         <Dot delay={0} />
         <Dot delay={150} />
         <Dot delay={300} />
       </View>
-      <Text style={styles.thinkingText}>Thinking…</Text>
+      <Text style={styles.thinkingText}>{t('ai.thinking')}</Text>
     </View>
   )
 })
@@ -458,20 +461,21 @@ const AssistantMessage = memo(function AssistantMessage({
 }) {
   const styles = useStyles()
   const colors = useColors()
+  const { t } = useLanguage()
   const { text, sources, follow } = useMemo(() => parseAnswer(msg.text), [msg.text])
   if (msg.status === 'thinking') return <Dots />
   const done = msg.status === 'done'
   return (
     <Animated.View entering={FadeInDown.duration(260)}>
       {msg.status === 'error' ? (
-        <Text style={[styles.ans, { color: colors.warn, fontFamily: F.semi }]}>{text || 'Sorry, I couldn’t get an answer just now.'}</Text>
+        <Text style={[styles.ans, { color: colors.warn, fontFamily: F.semi }]}>{text || t('ai.sorryNow')}</Text>
       ) : (
         <Rich text={text || '…'} />
       )}
 
       {done && sources.length > 0 && (
         <View style={styles.srcs}>
-          <Text style={styles.lab}>Sources</Text>
+          <Text style={styles.lab}>{t('ai.sources')}</Text>
           <View style={styles.chips}>
             {sources.map((s) => (
               <View key={s} style={styles.srcChip}>
@@ -484,15 +488,15 @@ const AssistantMessage = memo(function AssistantMessage({
       )}
 
       {done && (
-        <Pressable onPress={() => onShare(text)} accessibilityRole="button" accessibilityLabel="Share answer" style={styles.copy}>
+        <Pressable onPress={() => onShare(text)} accessibilityRole="button" accessibilityLabel={t('ai.share')} style={styles.copy}>
           <MaterialCommunityIcons name="share-variant-outline" size={16} color={colors.muted} />
-          <Text style={styles.copyText}>Share</Text>
+          <Text style={styles.copyText}>{t('ai.share')}</Text>
         </Pressable>
       )}
 
       {done && follow.length > 0 && (
         <View style={{ marginTop: 18 }}>
-          <Text style={[styles.lab, { marginBottom: 2 }]}>Ask next</Text>
+          <Text style={[styles.lab, { marginBottom: 2 }]}>{t('ai.askNext')}</Text>
           {follow.map((q, i) => (
             <QuestionLine key={q} q={q} onPress={onAsk} last={i === follow.length - 1} />
           ))}
@@ -510,6 +514,8 @@ export type AIGuideScreenProps = {
   topics?: Topic[]
   /** Space under the ask bar for a tab bar that overlaps the screen. */
   bottomInset?: number
+  /** Shows a close button when the guide opens as its own screen. */
+  onClose?: () => void
 }
 
 let idCounter = 0
@@ -549,9 +555,10 @@ async function writeChats(chats: SavedChat[]) {
   }
 }
 
-export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuideScreenProps) {
+export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0, onClose }: AIGuideScreenProps) {
   const styles = useStyles()
   const colors = useColors()
+  const { t } = useLanguage()
   const insets = useSafeAreaInsets()
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [input, setInput] = useState('')
@@ -578,14 +585,14 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
 
   const topic = topics.find((t) => t.key === topicKey) ?? null
   const placeholder = listening
-    ? 'Listening… tap the mic to send'
+    ? t('ai.listenSend')
     : hearing
-      ? 'Turning your voice into a question…'
+      ? t('ai.voiceQuestion')
       : topic
-        ? `Ask more about ${topic.name}…`
+        ? t('ai.askAbout', { topic: t(`topic.${topic.key}` as TranslationKey) })
         : msgs.length
-          ? 'Ask more…'
-          : 'Ask about Islam…'
+          ? t('ai.askMore')
+          : t('ai.askIslam')
 
   useEffect(
     () => () => {
@@ -699,20 +706,20 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
       if (active) await recorder.stop()
       const uri = recorder.uri
       if (!uri) {
-        Alert.alert('Voice', 'No recording was captured. Try again.')
+        Alert.alert(t('ai.voice'), t('ai.noRecording'))
         return
       }
       setHearing(true)
       const text = await transcribeQuestion(uri)
       await send(text)
     } catch (error) {
-      Alert.alert('Voice', error instanceof Error ? error.message : 'Could not use that recording.')
+      Alert.alert(t('ai.voice'), error instanceof Error ? error.message : t('ai.recordingFail'))
     } finally {
       voiceLock.current = false
       setHearing(false)
       setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {})
     }
-  }, [recorder, send])
+  }, [recorder, send, t])
 
   const cancelVoice = useCallback(async () => {
     if (voiceTimer.current) {
@@ -741,7 +748,7 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
     }
     const permission = await requestRecordingPermissionsAsync()
     if (!permission.granted) {
-      Alert.alert('Microphone', 'Allow the microphone so you can ask by voice.')
+      Alert.alert(t('ai.mic'), t('ai.micAllow'))
       return
     }
     try {
@@ -756,9 +763,9 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
         void finishVoice()
       }, 20000)
     } catch {
-      Alert.alert('Voice', 'The microphone could not start. Try again.')
+      Alert.alert(t('ai.voice'), t('ai.micFail'))
     }
-  }, [busy, hearing, listening, finishVoice, recorder])
+  }, [busy, hearing, listening, finishVoice, recorder, t])
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
@@ -823,10 +830,10 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
   }, [])
 
   const deleteChat = useCallback((chat: SavedChat) => {
-    Alert.alert('Delete chat', 'Remove this conversation?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('ai.deleteTitle'), t('ai.deleteBody'), [
+      { text: t('mosque.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: () => {
           setChats((prev) => {
@@ -845,7 +852,7 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
         },
       },
     ])
-  }, [])
+  }, [t])
 
   const onTopic = useCallback(
     (k: string) => {
@@ -875,15 +882,20 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
               setHistoryOpen((open) => !open)
             }}
             accessibilityRole="button"
-            accessibilityLabel="Chat history"
+            accessibilityLabel={t('ai.history')}
             style={styles.histBtn}>
             <MaterialCommunityIcons name="menu" size={22} color={colors.v2} />
           </Pressable>
           <View>
             <Text style={styles.brand}>PRAYNOW</Text>
-            <Text style={styles.title}>AI Guide</Text>
+            <Text style={styles.title}>{t('ai.guide')}</Text>
           </View>
         </View>
+        {onClose ? (
+          <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={t('common.close')} style={styles.histBtn}>
+            <MaterialCommunityIcons name="close" size={22} color={colors.v2} />
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={{ flex: 1 }}>
@@ -910,7 +922,7 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
           )}
         </ScrollView>
 
-        {sheet && <Pressable style={StyleSheet.absoluteFill} onPress={() => setSheet(false)} accessibilityLabel="Close questions" />}
+        {sheet && <Pressable style={StyleSheet.absoluteFill} onPress={() => setSheet(false)} accessibilityLabel={t('ai.closeQuestions')} />}
 
         <View style={[styles.comp, { paddingBottom: keyboardPad > 0 ? keyboardPad + 8 : 6 + bottomInset }]}>
           {sheet && topic && (
@@ -918,7 +930,7 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
               <View style={styles.sheetHead}>
                 <View style={styles.sheetTitle}>
                   <MaterialCommunityIcons name={topic.icon} size={18} color={colors.v2} />
-                  <Text style={styles.sheetTitleText}>{topic.name}</Text>
+                  <Text style={styles.sheetTitleText}>{t(`topic.${topic.key}` as TranslationKey)}</Text>
                 </View>
                 <Pressable
                   onPress={() => {
@@ -926,14 +938,14 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
                     setTopicKey(null)
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel="Close"
+                  accessibilityLabel={t('ai.close')}
                   style={styles.sheetX}>
                   <MaterialCommunityIcons name="close" size={16} color={colors.muted} />
                 </Pressable>
               </View>
               <ScrollView showsVerticalScrollIndicator={false}>
                 {topic.questions.map((q, i) => (
-                  <QuestionLine key={q} q={q} onPress={send} last={i === topic.questions.length - 1} />
+                  <QuestionLine key={q} q={t(`topic.${topic.key}.q${i + 1}` as TranslationKey)} onPress={send} last={i === topic.questions.length - 1} />
                 ))}
               </ScrollView>
             </Animated.View>
@@ -944,17 +956,17 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
             showsHorizontalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.topicRow}>
-            {topics.map((t) => {
-              const on = t.key === topicKey
+            {topics.map((item) => {
+              const on = item.key === topicKey
               return (
                 <Pressable
-                  key={t.key}
-                  onPress={() => onTopic(t.key)}
+                  key={item.key}
+                  onPress={() => onTopic(item.key)}
                   accessibilityRole="button"
                   accessibilityState={{ selected: on }}
                   style={[styles.tp, on && styles.tpOn]}>
-                  <MaterialCommunityIcons name={t.icon} size={17} color={on ? colors.onSelect : colors.v2} />
-                  <Text style={[styles.tpText, on && { color: colors.onSelect }]}>{t.name}</Text>
+                  <MaterialCommunityIcons name={item.icon} size={17} color={on ? colors.onSelect : colors.v2} />
+                  <Text style={[styles.tpText, on && { color: colors.onSelect }]}>{t(`topic.${item.key}` as TranslationKey)}</Text>
                 </Pressable>
               )
             })}
@@ -997,7 +1009,7 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
                 editable={!hearing}
                 underlineColorAndroid="transparent"
                 style={[styles.input, Platform.OS === 'web' ? ({ outlineWidth: 0, outlineStyle: 'none' } as object) : null]}
-                accessibilityLabel="Ask a question"
+                accessibilityLabel={t('ai.ask')}
                 onFocus={() => setSheet(false)}
               />
             )}
@@ -1022,18 +1034,18 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
         <View style={[styles.histScrim, { marginBottom: bottomInset }]}>
           <View style={[styles.histPanel, { paddingTop: insets.top + 12 }]}>
             <View style={styles.histHead}>
-              <Text style={styles.histTitle}>Chats</Text>
+              <Text style={styles.histTitle}>{t('ai.chats')}</Text>
               <Pressable
                 onPress={() => setHistoryOpen(false)}
                 accessibilityRole="button"
-                accessibilityLabel="Close"
+                accessibilityLabel={t('ai.close')}
                 style={styles.sheetX}>
                 <MaterialCommunityIcons name="close" size={16} color={colors.muted} />
               </Pressable>
             </View>
-            <Pressable onPress={startNewChat} accessibilityRole="button" accessibilityLabel="New chat" style={styles.histNew}>
+            <Pressable onPress={startNewChat} accessibilityRole="button" accessibilityLabel={t('ai.newChat')} style={styles.histNew}>
               <MaterialCommunityIcons name="square-edit-outline" size={18} color={colors.v2} />
-              <Text style={styles.histNewText}>New chat</Text>
+              <Text style={styles.histNewText}>{t('ai.newChat')}</Text>
             </Pressable>
             <ScrollView
               horizontal={false}
@@ -1041,7 +1053,7 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
               style={styles.histScroll}
               contentContainerStyle={styles.histList}>
               {chats.length === 0 ? (
-                <Text style={styles.histEmpty}>Saved conversations show up here.</Text>
+                <Text style={styles.histEmpty}>{t('ai.savedDot')}</Text>
               ) : (
                 chats.map((chat) => {
                   const on = chat.id === chatIdRef.current
@@ -1071,7 +1083,7 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0 }: AIGuide
               )}
             </ScrollView>
           </View>
-          <Pressable style={styles.histDim} onPress={() => setHistoryOpen(false)} accessibilityLabel="Close chat history" />
+          <Pressable style={styles.histDim} onPress={() => setHistoryOpen(false)} accessibilityLabel={t('ai.closeHistory')} />
         </View>
       </Modal>
     </View>

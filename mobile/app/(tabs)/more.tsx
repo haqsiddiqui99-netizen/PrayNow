@@ -44,6 +44,9 @@ export default function MoreScreen() {
       onCalendar={() => router.push('/calendar')}
       onTracker={() => router.push('/tracker')}
       onHalal={() => router.push('/halal')}
+      onDuas={() => router.push('/duas')}
+      onQuran={() => router.push('/quran')}
+      onZakat={() => router.push('/zakat')}
     />
   )
 }

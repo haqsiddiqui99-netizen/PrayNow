@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getSupportedCities, type SupportedCity } from '@/src/constants/cities'
 import { radius } from '@/src/constants/theme'
 import { useAuth } from '@/src/context/AuthContext'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import type { SavedLocation } from '@/src/services/savedLocations'
 
@@ -47,6 +48,7 @@ function LocationRow({
 }) {
   const styles = useStyles()
   const { colors } = useTheme()
+  const { t } = useLanguage()
   const glyph = active && activeIcon ? activeIcon : icon
   const iconColor = active ? colors.textPrimary : colors.textSecondary
 
@@ -68,7 +70,7 @@ function LocationRow({
           </Text>
           {active ? (
             <View style={styles.selectedBadge}>
-              <Text style={styles.selectedBadgeText}>Selected</Text>
+              <Text style={styles.selectedBadgeText}>{t('loc.selected')}</Text>
             </View>
           ) : null}
         </View>
@@ -85,7 +87,7 @@ function LocationRow({
             style={({ pressed }) => [styles.deleteBtn, pressed && styles.deleteBtnPressed]}
             onPress={onDelete}
             hitSlop={8}
-            accessibilityLabel={`Remove ${title}`}>
+            accessibilityLabel={t('loc.remove', { name: title })}>
             <Ionicons name="trash-outline" size={16} color={colors.accent} />
           </Pressable>
         ) : null}
@@ -125,6 +127,7 @@ export function CityPickerSheet({
   const { colors } = useTheme()
   const insets = useSafeAreaInsets()
   const { user, isGuest } = useAuth()
+  const { t, placeName } = useLanguage()
   const [query, setQuery] = useState('')
   const [error, setError] = useState('')
 
@@ -175,7 +178,7 @@ export function CityPickerSheet({
     if (ok) {
       onClose()
     } else {
-      setError('Location not found. Try a supported city name or pin code.')
+      setError(t('loc.notFound'))
     }
   }
 
@@ -185,7 +188,7 @@ export function CityPickerSheet({
     if (ok) {
       onClose()
     } else {
-      setError('Could not detect location. Enable GPS and allow location permission.')
+      setError(t('loc.gpsFail'))
     }
   }
 
@@ -193,8 +196,8 @@ export function CityPickerSheet({
 
   const recentEmptyHint =
     user && !isGuest
-      ? 'Your recently used addresses will appear here.'
-      : 'Sign in or pick a location to build your recent list.'
+      ? t('loc.recentHint')
+      : t('loc.recentGuest')
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -214,12 +217,12 @@ export function CityPickerSheet({
                 style={({ pressed }) => [styles.backBtn, pressed && styles.backBtnPressed]}
                 onPress={onClose}
                 hitSlop={8}
-                accessibilityLabel="Close">
+                accessibilityLabel={t('common.close')}>
                 <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
               </Pressable>
               <View style={styles.headerTextWrap}>
-                <Text style={styles.title}>Select Location</Text>
-                <Text style={styles.headerSubtitle}>Choose where you pray today</Text>
+                <Text style={styles.title}>{t('loc.title')}</Text>
+                <Text style={styles.headerSubtitle}>{t('loc.sub')}</Text>
               </View>
             </View>
 
@@ -227,7 +230,7 @@ export function CityPickerSheet({
               <Ionicons name="search-outline" size={18} color={colors.textMuted} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search city or pin code"
+                placeholder={t('loc.searchPh')}
                 placeholderTextColor={colors.textMuted}
                 value={query}
                 onChangeText={(text) => {
@@ -239,7 +242,7 @@ export function CityPickerSheet({
                 editable={!searching}
               />
               {query.length > 0 ? (
-                <Pressable onPress={() => setQuery('')} hitSlop={8} accessibilityLabel="Clear search">
+                <Pressable onPress={() => setQuery('')} hitSlop={8} accessibilityLabel={t('common.clearSearch')}>
                   <Ionicons name="close-circle" size={18} color={colors.textMuted} />
                 </Pressable>
               ) : null}
@@ -257,8 +260,8 @@ export function CityPickerSheet({
                 )}
               </View>
               <View style={styles.gpsTextWrap}>
-                <Text style={styles.gpsTitle}>Use my current location</Text>
-                <Text style={styles.gpsSubtitle}>Detect via GPS</Text>
+                <Text style={styles.gpsTitle}>{t('loc.useCurrent')}</Text>
+                <Text style={styles.gpsSubtitle}>{t('loc.gps')}</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
             </Pressable>
@@ -271,13 +274,13 @@ export function CityPickerSheet({
             ) : null}
 
             <SectionHeader
-              title="Recent address"
-              subtitle={filteredSaved.length > 0 ? `${filteredSaved.length} saved` : undefined}
+              title={t('loc.recent')}
+              subtitle={filteredSaved.length > 0 ? t('loc.saved', { count: filteredSaved.length }) : undefined}
             />
             {filteredSaved.length === 0 ? (
               <View style={styles.emptyCard}>
                 <Ionicons name="time-outline" size={20} color={colors.textMuted} />
-                <Text style={styles.emptyTitle}>No recent addresses</Text>
+                <Text style={styles.emptyTitle}>{t('loc.noRecent')}</Text>
                 <Text style={styles.emptyText}>{recentEmptyHint}</Text>
               </View>
             ) : (
@@ -306,24 +309,24 @@ export function CityPickerSheet({
             )}
 
             <View style={styles.sectionDivider} />
-            <SectionHeader title="Available Cities in India" />
+            <SectionHeader title={t('loc.cities')} />
 
             {filteredCities.length === 0 ? (
               <View style={styles.emptyCard}>
                 <Ionicons name="map-outline" size={20} color={colors.textMuted} />
-                <Text style={styles.emptyTitle}>No matching cities</Text>
-                <Text style={styles.emptyText}>Try another name or pin code.</Text>
+                <Text style={styles.emptyTitle}>{t('loc.noCities')}</Text>
+                <Text style={styles.emptyText}>{t('loc.tryAnother')}</Text>
               </View>
             ) : (
               filteredCities.map((city) => {
                 const active = selectedName === city.name.toLowerCase()
                 const pinLine = city.pinCodes?.[0]
-                  ? `${city.country} · PIN ${city.pinCodes[0]}${city.pinCodes.length > 1 ? '+' : ''}`
-                  : city.country
+                  ? t('loc.pinLine', { country: placeName(city.country), pin: `${city.pinCodes[0]}${city.pinCodes.length > 1 ? '+' : ''}` })
+                  : placeName(city.country)
                 return (
                   <LocationRow
                     key={city.id}
-                    title={city.name}
+                    title={placeName(city.name)}
                     lines={[pinLine]}
                     active={active}
                     icon="location-outline"

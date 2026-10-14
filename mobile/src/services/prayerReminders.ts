@@ -2,7 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Platform } from 'react-native'
 
 const STORAGE_KEY = 'praynow.prayerReminders.v1'
-const CHANNEL_ID = 'prayer-reminders'
+/** Android channels are immutable once created, so lock-screen visibility needs a new id. */
+const CHANNEL_ID = 'prayer-alerts'
+const LEGACY_CHANNEL_ID = 'prayer-reminders'
 
 export type ReminderItem = {
   /** Stable id, e.g. `fajr` or `extra:ishraq`. */
@@ -11,7 +13,7 @@ export type ReminderItem = {
   /** Minutes from midnight; values past 1440 roll over to the next day. */
   start: number
   end: number
-  kind: 'prayer' | 'optional' | 'avoid'
+  kind: 'prayer' | 'optional' | 'avoid' | 'sehri' | 'iftar'
 }
 
 type Stored = Record<string, string | null>
@@ -30,6 +32,19 @@ async function readStore(): Promise<Stored> {
 
 async function writeStore(store: Stored) {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(store)).catch(() => {})
+}
+
+const SEHRI_LEAD_KEY = 'praynow.sehriLead.v1'
+export const DEFAULT_SEHRI_LEAD = 30
+
+/** Minutes before sehri ends that the sehri alert rings. */
+export async function loadSehriLead(): Promise<number> {
+  const raw = Number(await AsyncStorage.getItem(SEHRI_LEAD_KEY).catch(() => null))
+  return Number.isFinite(raw) && raw >= 1 && raw <= 180 ? Math.round(raw) : DEFAULT_SEHRI_LEAD
+}
+
+export async function saveSehriLead(minutes: number) {
+  await AsyncStorage.setItem(SEHRI_LEAD_KEY, String(minutes)).catch(() => {})
 }
 
 export async function loadReminderKeys(): Promise<string[]> {
@@ -52,7 +67,11 @@ async function notifications() {
       await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
         name: 'Prayer reminders',
         importance: Notifications.AndroidImportance.HIGH,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        sound: 'default',
+        enableVibrate: true,
       })
+      await Notifications.deleteNotificationChannelAsync(LEGACY_CHANNEL_ID).catch(() => {})
     }
     return Notifications
   } catch {
@@ -66,7 +85,15 @@ function clock(min: number) {
   return `${((h + 11) % 12) + 1}:${String(m % 60).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
 }
 
-function message(item: ReminderItem) {
+export type ReminderMessage = (item: ReminderItem) => { title: string; body: string }
+
+function englishMessage(item: ReminderItem) {
+  if (item.kind === 'sehri') {
+    return { title: `Sehri ends at ${clock(item.end)}`, body: `${Math.round(item.end - item.start)} minutes left for sehri.` }
+  }
+  if (item.kind === 'iftar') {
+    return { title: 'Iftar time', body: `Time to break your fast · ${clock(item.start)}` }
+  }
   if (item.kind === 'avoid') {
     return {
       title: `${item.name} has started`,
@@ -85,10 +112,17 @@ function message(item: ReminderItem) {
 async function schedule(
   Notifications: NonNullable<Awaited<ReturnType<typeof notifications>>>,
   item: ReminderItem,
+  message: ReminderMessage,
 ): Promise<string> {
   const m = ((Math.round(item.start) % 1440) + 1440) % 1440
   return Notifications.scheduleNotificationAsync({
-    content: { ...message(item), sound: 'default', data: { type: 'prayer_reminder', key: item.key } },
+    content: {
+      ...message(item),
+      sound: 'default',
+      interruptionLevel: 'timeSensitive',
+      priority: Notifications.AndroidNotificationPriority.HIGH,
+      data: { type: 'prayer_reminder', key: item.key },
+    },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour: Math.floor(m / 60),
@@ -99,7 +133,11 @@ async function schedule(
 }
 
 /** Turn one reminder on or off. The choice is saved even where notifications can't be scheduled. */
-export async function setReminder(item: ReminderItem, on: boolean): Promise<ReminderResult> {
+export async function setReminder(
+  item: ReminderItem,
+  on: boolean,
+  message: ReminderMessage = englishMessage,
+): Promise<ReminderResult> {
   const store = await readStore()
   const Notifications = await notifications()
   const previous = store[item.key]
@@ -119,7 +157,7 @@ export async function setReminder(item: ReminderItem, on: boolean): Promise<Remi
     const current = await Notifications.getPermissionsAsync()
     const granted = current.granted || (await Notifications.requestPermissionsAsync()).granted
     if (!granted) return 'denied'
-    store[item.key] = await schedule(Notifications, item)
+    store[item.key] = await schedule(Notifications, item, message)
     await writeStore(store)
     return 'scheduled'
   } catch {
@@ -133,7 +171,7 @@ export async function setReminder(item: ReminderItem, on: boolean): Promise<Remi
  * Prayer times drift a minute or two every few days, so re-schedule saved reminders
  * with today's times whenever the home screen loads.
  */
-export async function syncReminders(items: ReminderItem[]) {
+export async function syncReminders(items: ReminderItem[], message: ReminderMessage = englishMessage) {
   const store = await readStore()
   const keys = Object.keys(store)
   if (!keys.length) return
@@ -143,10 +181,10 @@ export async function syncReminders(items: ReminderItem[]) {
   if (!perm?.granted) return
   for (const key of keys) {
     const item = items.find((entry) => entry.key === key)
-    if (!item) continue
     const previous = store[key]
     if (previous) await Notifications.cancelScheduledNotificationAsync(previous).catch(() => {})
-    store[key] = await schedule(Notifications, item).catch(() => null)
+    // Seasonal items (Sehri / Iftar) drop out after Ramadan: keep the choice, stop the alarm.
+    store[key] = item ? await schedule(Notifications, item, message).catch(() => null) : null
   }
   await writeStore(store)
 }

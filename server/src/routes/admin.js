@@ -15,6 +15,7 @@ import {
 import { startSession, stopSession, getLiveSessionForMosque } from '../services/liveAzanSessions.js'
 import { buildAgoraCredentials } from '../services/agora.js'
 import { notifyMosqueSubscribers } from '../services/notifications.js'
+import { eventFieldsFromBody, fetchEventById } from '../services/mosqueEvents.js'
 import {
   listCityDays,
   dayRowToScheduleAndExtras,
@@ -701,6 +702,68 @@ router.post(
   },
 )
 
+// Classes, talks and iftars: followers see them on the mosque card and can set a reminder.
+router.post('/manager/mosques/:id/events', authMiddleware, requireRole('admin', 'mosque_manager'), async (req, res) => {
+  const fields = eventFieldsFromBody(req.body)
+  if (fields.error) return res.status(400).json({ error: fields.error })
+  const client = await pool.connect()
+  try {
+    await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+    const dbId = await resolveMosqueDbId(client, req.params.id)
+    if (!dbId) return res.status(404).json({ error: 'Mosque not found' })
+    const allowed = await userCanManageMosque(client, req.user.sub, req.user.role, dbId)
+    if (!allowed) return res.status(403).json({ error: 'Not assigned to this mosque' })
+    const id = randomUUID()
+    await client.query(
+      `INSERT INTO mosque_events (id, mosque_id, title, details, starts_at, weekly, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [id, dbId, fields.title, fields.details, fields.startsAt, fields.weekly, req.user.sub],
+    )
+    const mosque = await fetchMosqueById(client, dbId)
+    let notified = 0
+    try {
+      const result = await notifyMosqueSubscribers(client, dbId, {
+        type: 'announcement',
+        title: `${mosque.name}: ${fields.title}`.slice(0, 255),
+        body: fields.details || 'New event. Open the app to see the time and set a reminder.',
+      })
+      notified = result.notified
+    } catch (err) {
+      console.warn('[notify] event fan-out failed', err instanceof Error ? err.message : err)
+    }
+    res.status(201).json({ event: await fetchEventById(client, id), notified })
+  } catch (err) {
+    console.error('event create failed', err)
+    res.status(500).json({ error: err.message || 'Failed to add event' })
+  } finally {
+    client.release()
+  }
+})
+
+router.delete(
+  '/manager/mosques/:id/events/:eventId',
+  authMiddleware,
+  requireRole('admin', 'mosque_manager'),
+  async (req, res) => {
+    if (!/^[0-9a-f-]{36}$/i.test(req.params.eventId)) return res.status(404).json({ error: 'Event not found' })
+    const client = await pool.connect()
+    try {
+      await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+      const dbId = await resolveMosqueDbId(client, req.params.id)
+      if (!dbId) return res.status(404).json({ error: 'Mosque not found' })
+      const allowed = await userCanManageMosque(client, req.user.sub, req.user.role, dbId)
+      if (!allowed) return res.status(403).json({ error: 'Not assigned to this mosque' })
+      await client.query(`DELETE FROM mosque_events WHERE id = $1 AND mosque_id = $2`, [req.params.eventId, dbId])
+      res.json({ ok: true })
+    } catch (err) {
+      console.error('event delete failed', err)
+      res.status(500).json({ error: err.message || 'Failed to remove event' })
+    } finally {
+      client.release()
+    }
+  },
+)
+
 // Tell subscribers the azan is about to start.
 router.post(
   '/manager/mosques/:id/azan/alert',
@@ -787,6 +850,56 @@ router.post(
     }
   },
 )
+
+// Follower and reminder counts so a mosque can see who relies on its timings.
+router.get('/manager/mosques/:id/stats', authMiddleware, requireRole('admin', 'mosque_manager'), async (req, res) => {
+  const client = await pool.connect()
+  try {
+    await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+    const dbId = await resolveMosqueDbId(client, req.params.id)
+    if (!dbId) return res.status(404).json({ error: 'Mosque not found' })
+    const allowed = await userCanManageMosque(client, req.user.sub, req.user.role, dbId)
+    if (!allowed) return res.status(403).json({ error: 'Not assigned to this mosque' })
+
+    const { rows } = await client.query(
+      `SELECT remind_jamaat, remind_azan, remind_leave, remind_taraweeh, remind_prayers, created_at
+       FROM mosque_subscriptions WHERE mosque_id = $1`,
+      [dbId],
+    )
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+    const prayers = { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 }
+    const stats = {
+      followers: rows.length,
+      newThisWeek: 0,
+      withReminders: 0,
+      jamaat: 0,
+      azan: 0,
+      leave: 0,
+      taraweeh: 0,
+      prayers,
+    }
+    for (const row of rows) {
+      if (new Date(row.created_at).getTime() >= weekAgo) stats.newThisWeek += 1
+      const daily = row.remind_jamaat || row.remind_azan || row.remind_leave
+      if (!daily && !row.remind_taraweeh) continue
+      stats.withReminders += 1
+      if (row.remind_jamaat) stats.jamaat += 1
+      if (row.remind_azan) stats.azan += 1
+      if (row.remind_leave) stats.leave += 1
+      if (row.remind_taraweeh) stats.taraweeh += 1
+      if (!daily) continue
+      for (const name of String(row.remind_prayers || '').split(',')) {
+        if (name in prayers) prayers[name] += 1
+      }
+    }
+    res.json(stats)
+  } catch (err) {
+    console.error('Mosque stats failed:', err)
+    res.status(500).json({ error: err.message || 'Failed to load stats' })
+  } finally {
+    client.release()
+  }
+})
 
 // Refresh the broadcaster token for the current live session (tokens expire).
 router.get(

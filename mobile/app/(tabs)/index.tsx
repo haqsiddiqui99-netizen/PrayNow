@@ -36,7 +36,8 @@ import {
 } from '@/src/constants/mosqueRadius'
 import { useCityPrayer } from '@/src/context/CityPrayerContext'
 import { useLanguage } from '@/src/context/LanguageContext'
-import { formatHijriDate } from '@/src/utils/hijriDate'
+import type { TranslationKey } from '@/src/i18n/translations'
+import { hijriOf } from '@/src/utils/hijriCalendar'
 import { useLocation } from '@/src/hooks/useLocation'
 import { useMosques } from '@/src/hooks/useMosques'
 import type { Mosque } from '@/src/types'
@@ -67,7 +68,7 @@ export default function HomeScreen() {
   const tabBarHeight = useBottomTabBarHeight()
   const scrollRef = useRef<ScrollView>(null)
   const scrollY = useRef(new Animated.Value(0)).current
-  const { t, formatRadius, placeName } = useLanguage()
+  const { t, formatRadius, placeName, digits } = useLanguage()
   const { config: cityPrayer, reload: reloadCityPrayer } = useCityPrayer()
   const {
     location,
@@ -89,7 +90,8 @@ export default function HomeScreen() {
   const filterBtnRef = useRef<View>(null)
   const [cityPickerOpen, setCityPickerOpen] = useState(false)
   const [now, setNow] = useState(new Date())
-  const hijriToday = formatHijriDate(now)
+  const hijriParts = hijriOf(now)
+  const hijriToday = digits(`${hijriParts.day} ${t(`hijri.${hijriParts.month}` as TranslationKey)} ${hijriParts.year}`)
   const prayerDay = useMemo(() => prayerDayFromConfig(cityPrayer, hijriToday), [cityPrayer, hijriToday])
   const [mosqueSearch, setMosqueSearch] = useState('')
   const [refreshing, setRefreshing] = useState(false)
@@ -184,7 +186,7 @@ export default function HomeScreen() {
       ? t('mosques.inCity')
       : t('mosques.within', { radius: formatRadius(radiusKm) })
 
-  const nearbyCountText = loading ? t('common.updating') : `${nearbyTotal} · ${radiusScope}`
+  const nearbyCountText = loading ? t('common.updating') : digits(`${nearbyTotal} · ${radiusScope}`)
 
   const openFilter = () => {
     const node = filterBtnRef.current
@@ -299,7 +301,7 @@ export default function HomeScreen() {
               clearButtonMode="while-editing"
             />
             {mosqueSearch.length > 0 ? (
-              <Pressable onPress={() => setMosqueSearch('')} hitSlop={8} accessibilityLabel="Clear search">
+              <Pressable onPress={() => setMosqueSearch('')} hitSlop={8} accessibilityLabel={t('common.clearSearch')}>
                 <Ionicons name="close-circle" size={16} color={colors.textMuted} />
               </Pressable>
             ) : null}
