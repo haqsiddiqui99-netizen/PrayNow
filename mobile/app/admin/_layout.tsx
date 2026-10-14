@@ -26,16 +26,16 @@ export default function AdminLayout() {
         headerTitleStyle: { fontWeight: '700' },
         headerBackTitle: t('common.back'),
       }}>
-      <Stack.Screen name="index" options={{ title: isAppAdmin(user) ? 'App Admin' : t('admin.screenAdmin') }} />
+      <Stack.Screen name="index" options={{ title: isAppAdmin(user) ? t('owner.appAdmin') : t('admin.screenAdmin') }} />
       <Stack.Screen name="my-mosques" options={{ title: t('admin.screenAdmin') }} />
       <Stack.Screen name="mosque/[id]/index" options={{ title: t('admin.screenHub') }} />
       <Stack.Screen name="mosque/[id]/timings" options={{ title: t('admin.editTimes') }} />
       <Stack.Screen name="mosque/[id]/azan" options={{ title: t('admin.dashboard') }} />
-      <Stack.Screen name="mosques" options={{ title: 'All Mosques' }} />
-      <Stack.Screen name="mosque-form" options={{ title: 'Mosque' }} />
-      <Stack.Screen name="mosque-requests" options={{ title: 'Mosque Requests' }} />
-      <Stack.Screen name="managers" options={{ title: 'Mosque Admins' }} />
-      <Stack.Screen name="city" options={{ title: 'City Schedule' }} />
+      <Stack.Screen name="mosques" options={{ title: t('owner.allMosques') }} />
+      <Stack.Screen name="mosque-form" options={{ title: t('owner.mosque') }} />
+      <Stack.Screen name="mosque-requests" options={{ title: t('owner.requests') }} />
+      <Stack.Screen name="managers" options={{ title: t('owner.admins') }} />
+      <Stack.Screen name="city" options={{ title: t('owner.city') }} />
     </Stack>
   )
 }

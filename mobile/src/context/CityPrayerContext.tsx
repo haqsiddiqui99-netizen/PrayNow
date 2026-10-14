@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { AppState } from 'react-native'
 import {
   DEFAULT_CITY_PRAYER_CONFIG,
   getCityPrayerConfig,
@@ -12,6 +13,7 @@ import {
   type SupportedCity,
 } from '@/src/constants/cities'
 import { fetchCitySettings, fetchSupportedCities, isApiAvailable } from '@/src/services/api'
+import { refreshPrayerWidget, syncPrayerWidget } from '@/src/widget/syncPrayerWidget'
 
 type CityPrayerContextValue = {
   config: CityPrayerConfig
@@ -39,6 +41,7 @@ export function CityPrayerProvider({ children }: { children: ReactNode }) {
       const mapped = mapApiCitySettings(data)
       setCityPrayerConfig(mapped)
       setConfig(mapped)
+      void syncPrayerWidget(mapped.city)
       const fromApi = cities.map((city): SupportedCity => {
         const staticHit = SUPPORTED_CITIES.find((c) => c.id === city.id || c.name === city.name)
         return {
@@ -77,6 +80,13 @@ export function CityPrayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void reload()
   }, [reload])
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background') void refreshPrayerWidget()
+    })
+    return () => sub.remove()
+  }, [])
 
   const value = useMemo(
     () => ({ config, loading, fromApi, reload }),

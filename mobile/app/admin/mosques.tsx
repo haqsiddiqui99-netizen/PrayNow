@@ -13,6 +13,7 @@ import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { fetchManagerMosques } from '@/src/services/api'
 import type { Mosque } from '@/src/types'
 import { useAuth } from '@/src/context/AuthContext'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { isAppAdmin } from '@/src/utils/roles'
 
 export default function AdminMosquesScreen() {
@@ -20,6 +21,7 @@ export default function AdminMosquesScreen() {
   const { colors } = useTheme()
   const router = useRouter()
   const { user } = useAuth()
+  const { t, placeName } = useLanguage()
   const [mosques, setMosques] = useState<Mosque[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -29,11 +31,11 @@ export default function AdminMosquesScreen() {
       setMosques(await fetchManagerMosques())
       setError('')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load')
+      setError(e instanceof Error ? e.message : t('owner.loadFail'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useFocusEffect(
     useCallback(() => {
@@ -52,7 +54,7 @@ export default function AdminMosquesScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} />}>
       <Pressable style={styles.add} onPress={() => router.push('/admin/mosque-form')}>
-        <Text style={styles.addText}>+ Add Mosque</Text>
+        <Text style={styles.addText}>{t('owner.addMosque')}</Text>
       </Pressable>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {loading && !mosques.length ? <ActivityIndicator color={colors.primary} /> : null}
@@ -61,8 +63,8 @@ export default function AdminMosquesScreen() {
           key={m.id}
           style={styles.card}
           onPress={() => router.push({ pathname: '/admin/mosque-form', params: { id: m.id } })}>
-          <Text style={styles.name}>{m.name}</Text>
-          <Text style={styles.meta}>{m.area}</Text>
+          <Text style={styles.name}>{placeName(m.name)}</Text>
+          <Text style={styles.meta}>{placeName(m.area)}</Text>
         </Pressable>
       ))}
     </ScrollView>

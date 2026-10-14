@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { isMemoryDatabase } from '../db/memory.js'
 
 /** Keeps a single submission comfortably inside the 10mb express.json limit. */
 export const MAX_PHOTOS = 5
@@ -121,6 +122,20 @@ export function normalizeRequestInput(body) {
   }
 }
 
+/**
+ * pg-mem reads BYTEA parameters as UTF-8 text, which corrupts image bytes, so the
+ * in-memory DB keeps photos as base64 text. Real Postgres stores raw bytes.
+ */
+function storedPhotoData(bytes) {
+  return isMemoryDatabase() ? bytes.toString('base64') : bytes
+}
+
+function photoBytes(stored) {
+  if (!isMemoryDatabase()) return stored
+  const text = Buffer.isBuffer(stored) ? stored.toString('utf8') : String(stored ?? '')
+  return Buffer.from(text, 'base64')
+}
+
 export async function insertMosqueRequest(client, userId, input) {
   const id = randomUUID()
   await client.query(
@@ -137,7 +152,7 @@ export async function insertMosqueRequest(client, userId, input) {
     await client.query(
       `INSERT INTO mosque_request_photos (id, request_id, content_type, byte_size, sort_order, data)
        VALUES ($1,$2,$3,$4,$5,$6)`,
-      [randomUUID(), id, photo.contentType, photo.data.length, index, photo.data],
+      [randomUUID(), id, photo.contentType, photo.data.length, index, storedPhotoData(photo.data)],
     )
   }
   return id
@@ -228,7 +243,9 @@ export async function fetchPhotoWithStatus(client, photoId) {
      WHERE p.id = $1`,
     [photoId],
   )
-  return rows[0] || null
+  const row = rows[0]
+  if (!row) return null
+  return { ...row, data: photoBytes(row.data) }
 }
 
 export async function markRequestReviewed(client, id, { status, reviewNote, reviewerId, mosqueId = null }) {

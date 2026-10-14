@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { CITY_RADIUS_KM } from '@/src/constants/mosqueRadius'
 import { localizePlaceName } from '@/src/i18n/placeNames'
+import { refreshPrayerWidget } from '@/src/widget/syncPrayerWidget'
 import { localizeDigits } from '@/src/i18n/digits'
 import {
   facilityTranslationKey,
@@ -87,7 +88,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const setLanguage = useCallback((code: LanguageCode) => {
     setLanguageState(code)
-    void AsyncStorage.setItem(STORAGE_KEY, code)
+    void AsyncStorage.setItem(STORAGE_KEY, code).then(refreshPrayerWidget)
   }, [])
 
   const t = useCallback<Translate>(

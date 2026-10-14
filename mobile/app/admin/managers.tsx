@@ -18,6 +18,7 @@ import {
 } from '@/src/services/api'
 import type { Mosque } from '@/src/types'
 import { useAuth } from '@/src/context/AuthContext'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { useRouter } from 'expo-router'
 import { isAppAdmin } from '@/src/utils/roles'
 
@@ -25,6 +26,7 @@ export default function ManagersScreen() {
   const styles = useStyles()
   const { colors } = useTheme()
   const { user } = useAuth()
+  const { t, placeName } = useLanguage()
   const router = useRouter()
   const [users, setUsers] = useState<AdminUserRow[]>([])
   const [mosques, setMosques] = useState<Mosque[]>([])
@@ -45,11 +47,11 @@ export default function ManagersScreen() {
       setMosques(m)
       setError('')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load')
+      setError(e instanceof Error ? e.message : t('owner.loadFail'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useFocusEffect(
     useCallback(() => {
@@ -69,11 +71,11 @@ export default function ManagersScreen() {
   const create = async () => {
     const digits = mobile.replace(/\D/g, '')
     if (!fullName.trim() || digits.length < 10 || password.length < 6) {
-      setError('Name, 10-digit mobile, and password (6+) required')
+      setError(t('owner.adminsRequired'))
       return
     }
     if (!selectedMosqueIds.length) {
-      setError('Assign at least one mosque')
+      setError(t('owner.assignOne'))
       return
     }
     setSaving(true)
@@ -91,10 +93,10 @@ export default function ManagersScreen() {
       setPassword('')
       setSelectedMosqueIds([])
       setShowForm(false)
-      setMessage('Mosque admin created. They can sign in on mobile with that number + password.')
+      setMessage(t('owner.adminCreated'))
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Create failed')
+      setError(e instanceof Error ? e.message : t('owner.createFail'))
     } finally {
       setSaving(false)
     }
@@ -102,40 +104,38 @@ export default function ManagersScreen() {
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Text style={styles.lead}>
-        Create a mosque admin and assign their mosque. They can give azan, edit that mosque, and publish announcements. They cannot manage any other mosque.
-      </Text>
+      <Text style={styles.lead}>{t('owner.adminsLead')}</Text>
 
       <Pressable style={styles.add} onPress={() => setShowForm((v) => !v)}>
-        <Text style={styles.addText}>{showForm ? 'Cancel' : '+ Add Mosque Admin'}</Text>
+        <Text style={styles.addText}>{showForm ? t('admin.cancel') : t('owner.addAdmin')}</Text>
       </Pressable>
 
       {showForm ? (
         <View style={styles.form}>
-          <Text style={styles.label}>Full name</Text>
+          <Text style={styles.label}>{t('owner.fullName')}</Text>
           <TextInput style={styles.input} value={fullName} onChangeText={setFullName} />
-          <Text style={styles.label}>Mobile (login)</Text>
+          <Text style={styles.label}>{t('owner.mobileLogin')}</Text>
           <TextInput
             style={styles.input}
             value={mobile}
             onChangeText={setMobile}
             keyboardType="phone-pad"
-            placeholder="10-digit mobile"
+            placeholder={t('owner.mobilePh')}
           />
-          <Text style={styles.label}>Password</Text>
+          <Text style={styles.label}>{t('owner.password')}</Text>
           <TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry />
-          <Text style={styles.label}>Assign mosque</Text>
+          <Text style={styles.label}>{t('owner.assignMosque')}</Text>
           {mosques.map((m) => {
             const on = selectedMosqueIds.includes(m.id)
             return (
               <Pressable key={m.id} style={styles.checkRow} onPress={() => toggleMosque(m.id)}>
                 <View style={[styles.check, on && styles.checkOn]} />
-                <Text style={styles.checkLabel}>{m.name}</Text>
+                <Text style={styles.checkLabel}>{placeName(m.name)}</Text>
               </Pressable>
             )
           })}
           <Pressable style={styles.save} disabled={saving} onPress={() => void create()}>
-            <Text style={styles.saveText}>{saving ? 'Creating…' : 'Create mosque admin'}</Text>
+            <Text style={styles.saveText}>{saving ? t('owner.creating') : t('owner.createAdmin')}</Text>
           </Pressable>
         </View>
       ) : null}
@@ -148,12 +148,13 @@ export default function ManagersScreen() {
       {users.map((u) => (
         <View key={u.id} style={styles.card}>
           <Text style={styles.name}>{u.full_name}</Text>
-          <Text style={styles.meta}>Mobile: {u.mobile || '—'}</Text>
+          <Text style={styles.meta}>{t('owner.mobileIs', { mobile: u.mobile || '—' })}</Text>
           <Text style={styles.meta}>
-            Mosques:{' '}
-            {u.assignments?.length
-              ? u.assignments.map((a) => a.mosque_name).join(', ')
-              : 'None assigned'}
+            {t('owner.mosquesIs', {
+              list: u.assignments?.length
+                ? u.assignments.map((a) => placeName(a.mosque_name)).join(', ')
+                : t('owner.noneAssigned'),
+            })}
           </Text>
         </View>
       ))}

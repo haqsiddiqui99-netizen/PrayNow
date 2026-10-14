@@ -4,6 +4,7 @@ dist/
 server/.env
 mobile/.env
 *.log
+server/data/local-db-snapshot.json*
 .DS_Store
 Thumbs.db
 

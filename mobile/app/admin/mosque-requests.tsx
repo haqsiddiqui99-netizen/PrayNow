@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Linking,
   Pressable,
@@ -12,8 +11,11 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import { showToast } from '@/src/components/AppToast'
 import { radius } from '@/src/constants/theme'
 import { useAuth } from '@/src/context/AuthContext'
+import { useLanguage } from '@/src/context/LanguageContext'
+import type { TranslationKey } from '@/src/i18n/translations'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { isAppAdmin } from '@/src/utils/roles'
 import {
@@ -25,17 +27,24 @@ import {
   type MosqueRequestStatus,
 } from '@/src/services/api'
 
-const FILTERS: { key: MosqueRequestStatus | 'all'; label: string }[] = [
-  { key: 'pending', label: 'Pending' },
-  { key: 'approved', label: 'Approved' },
-  { key: 'rejected', label: 'Rejected' },
-  { key: 'all', label: 'All' },
+const FILTERS: { key: MosqueRequestStatus | 'all'; label: TranslationKey }[] = [
+  { key: 'pending', label: 'owner.fPending' },
+  { key: 'approved', label: 'owner.fApproved' },
+  { key: 'rejected', label: 'owner.fRejected' },
+  { key: 'all', label: 'owner.fAll' },
 ]
+
+const STATUS_LABEL: Record<MosqueRequestStatus, TranslationKey> = {
+  pending: 'addMosque.statusPending',
+  approved: 'addMosque.statusApproved',
+  rejected: 'addMosque.statusRejected',
+}
 
 export default function MosqueRequestsScreen() {
   const styles = useStyles()
   const { colors } = useTheme()
   const { user } = useAuth()
+  const { t } = useLanguage()
   const router = useRouter()
 
   const [filter, setFilter] = useState<MosqueRequestStatus | 'all'>('pending')
@@ -51,11 +60,11 @@ export default function MosqueRequestsScreen() {
     try {
       setRequests(await fetchAdminMosqueRequests(filter))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load requests')
+      setError(e instanceof Error ? e.message : t('owner.loadFail'))
     } finally {
       setLoading(false)
     }
-  }, [filter])
+  }, [filter, t])
 
   useEffect(() => {
     if (!isAppAdmin(user)) {
@@ -72,17 +81,14 @@ export default function MosqueRequestsScreen() {
       const note = notes[request.id]?.trim() ?? ''
       if (action === 'approve') {
         const mosque = await approveMosqueRequest(request.id, note)
-        Alert.alert(
-          'Mosque created',
-          `${mosque.name} was added as inactive. Set its prayer timings, then activate it so users can see it.`,
-        )
+        showToast(t('owner.createdBody', { name: mosque.name }))
       } else {
         await rejectMosqueRequest(request.id, note)
       }
       setNotes((prev) => ({ ...prev, [request.id]: '' }))
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Review failed')
+      setError(e instanceof Error ? e.message : t('owner.reviewFail'))
     } finally {
       setActingOn('')
     }
@@ -93,10 +99,7 @@ export default function MosqueRequestsScreen() {
       style={styles.page}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled">
-      <Text style={styles.lead}>
-        Requests sent by app users. Approving creates the mosque as inactive so you can add timings
-        before it goes live.
-      </Text>
+      <Text style={styles.lead}>{t('owner.reqLead')}</Text>
 
       <View style={styles.filterRow}>
         {FILTERS.map((option) => (
@@ -106,7 +109,7 @@ export default function MosqueRequestsScreen() {
             onPress={() => setFilter(option.key)}>
             <Text
               style={[styles.filterText, filter === option.key && styles.filterTextActive]}>
-              {option.label}
+              {t(option.label)}
             </Text>
           </Pressable>
         ))}
@@ -117,7 +120,7 @@ export default function MosqueRequestsScreen() {
       {loading ? (
         <ActivityIndicator color={colors.primary} style={styles.loader} />
       ) : requests.length === 0 ? (
-        <Text style={styles.empty}>No {filter === 'all' ? '' : filter} requests.</Text>
+        <Text style={styles.empty}>{t('owner.reqEmpty')}</Text>
       ) : (
         requests.map((request) => (
           <View key={request.id} style={styles.card}>
@@ -131,16 +134,16 @@ export default function MosqueRequestsScreen() {
                   request.status === 'approved' && styles.statusApproved,
                   request.status === 'rejected' && styles.statusRejected,
                 ]}>
-                {request.status}
+                {STATUS_LABEL[request.status] ? t(STATUS_LABEL[request.status]) : request.status}
               </Text>
             </View>
 
             <Text style={styles.address}>{request.address}</Text>
             <Text style={styles.meta}>
-              {[request.area, request.city].filter(Boolean).join(' · ') || 'Area not given'}
+              {[request.area, request.city].filter(Boolean).join(' · ') || t('owner.noArea')}
               {request.lat != null && request.lng != null
                 ? `  ·  ${request.lat.toFixed(4)}, ${request.lng.toFixed(4)}`
-                : '  ·  no coordinates'}
+                : `  ·  ${t('owner.noCoords')}`}
             </Text>
 
             {request.photoUrls.length > 0 ? (
@@ -150,11 +153,11 @@ export default function MosqueRequestsScreen() {
                 ))}
               </ScrollView>
             ) : (
-              <Text style={styles.meta}>No photos attached</Text>
+              <Text style={styles.meta}>{t('owner.noPhotos')}</Text>
             )}
 
             <View style={styles.contactBlock}>
-              <Text style={styles.contactLabel}>Owner</Text>
+              <Text style={styles.contactLabel}>{t('owner.owner')}</Text>
               <Text style={styles.contactValue}>{request.ownerName}</Text>
               <View style={styles.contactActions}>
                 <Pressable
@@ -177,7 +180,7 @@ export default function MosqueRequestsScreen() {
             {request.notes ? <Text style={styles.notes}>“{request.notes}”</Text> : null}
 
             <Text style={styles.submitter}>
-              Sent by {request.submittedByName || 'unknown'}
+              {t('owner.sentBy', { name: request.submittedByName || t('owner.unknown') })}
               {request.submittedByMobile ? ` (${request.submittedByMobile})` : ''}
             </Text>
 
@@ -187,7 +190,7 @@ export default function MosqueRequestsScreen() {
                   style={styles.noteInput}
                   value={notes[request.id] ?? ''}
                   onChangeText={(text) => setNotes((prev) => ({ ...prev, [request.id]: text }))}
-                  placeholder="Review note (shown to the submitter)"
+                  placeholder={t('owner.notePh')}
                   placeholderTextColor={colors.textMuted}
                 />
                 <View style={styles.actions}>
@@ -196,19 +199,19 @@ export default function MosqueRequestsScreen() {
                     disabled={actingOn === request.id}
                     onPress={() => void review(request, 'approve')}>
                     <Text style={styles.approveText}>
-                      {actingOn === request.id ? 'Working…' : 'Approve & create'}
+                      {actingOn === request.id ? t('owner.working') : t('owner.approve')}
                     </Text>
                   </Pressable>
                   <Pressable
                     style={[styles.rejectBtn, actingOn === request.id && styles.btnBusy]}
                     disabled={actingOn === request.id}
                     onPress={() => void review(request, 'reject')}>
-                    <Text style={styles.rejectText}>Reject</Text>
+                    <Text style={styles.rejectText}>{t('owner.reject')}</Text>
                   </Pressable>
                 </View>
               </>
             ) : request.reviewNote ? (
-              <Text style={styles.reviewNote}>Review note: {request.reviewNote}</Text>
+              <Text style={styles.reviewNote}>{t('owner.reviewNote', { note: request.reviewNote })}</Text>
             ) : null}
           </View>
         ))

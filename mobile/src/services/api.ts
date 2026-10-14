@@ -126,6 +126,31 @@ export async function fetchCitySettings(): Promise<ApiCitySettingsResponse> {
   return (await res.json()) as ApiCitySettingsResponse
 }
 
+export type CityPrayerDay = {
+  date: string
+  schedule: { name: PrayerName; start: string; end: string }[]
+}
+
+type ApiCityDaysResponse = {
+  days?: { date: string; schedule?: { prayer_name: string; start_time: string; end_time: string }[] }[]
+}
+
+/** Per-day prayer windows for a date range (YYYY-MM-DD, inclusive). */
+export async function fetchCityDays(city: string, from: string, to: string): Promise<CityPrayerDay[]> {
+  const params = new URLSearchParams({ city, from, to })
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/city/days?${params.toString()}`)
+  if (!res.ok) throw new Error(`API ${res.status}`)
+  const json = (await res.json()) as ApiCityDaysResponse
+  return (json.days ?? []).map((day) => ({
+    date: day.date,
+    schedule: (day.schedule ?? []).map((slot) => ({
+      name: slot.prayer_name as PrayerName,
+      start: slot.start_time,
+      end: slot.end_time,
+    })),
+  }))
+}
+
 export async function fetchMosques(): Promise<Mosque[]> {
   try {
     const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/mosques`)

@@ -9,7 +9,7 @@ import { CityPrayerProvider } from '@/src/context/CityPrayerContext'
 import { LocationProvider } from '@/src/context/LocationContext'
 import { MosqueNotifyProvider } from '@/src/context/MosqueNotifyContext'
 import { InboxProvider } from '@/src/context/InboxContext'
-import { LanguageProvider } from '@/src/context/LanguageContext'
+import { LanguageProvider, useLanguage } from '@/src/context/LanguageContext'
 import { ThemeProvider, useTheme } from '@/src/context/ThemeContext'
 import { loadAppFonts } from '@/src/utils/loadAppFonts'
 import 'react-native-reanimated'
@@ -22,6 +22,28 @@ SplashScreen.preventAutoHideAsync()
 function AppStatusBar() {
   const { mode } = useTheme()
   return <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
+}
+
+function RootStack() {
+  const { t } = useLanguage()
+  return (
+    <Stack screenOptions={{ headerShown: false, headerBackTitle: t('common.back') }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="login" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="admin" options={{ headerShown: false }} />
+      <Stack.Screen name="mosque/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="notifications" options={{ headerShown: true, title: t('more.notifications') }} />
+      <Stack.Screen name="calendar" options={{ headerShown: false }} />
+      <Stack.Screen name="tracker" options={{ headerShown: false }} />
+      <Stack.Screen name="ai" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="duas" options={{ headerShown: false }} />
+      <Stack.Screen name="quran" options={{ headerShown: false }} />
+      <Stack.Screen name="zakat" options={{ headerShown: false }} />
+      <Stack.Screen name="halal" options={{ headerShown: false }} />
+      <Stack.Screen name="submit-mosque" options={{ headerShown: true, title: t('addMosque.title') }} />
+    </Stack>
+  )
 }
 
 export default function RootLayout() {
@@ -52,28 +74,7 @@ export default function RootLayout() {
                 <MosqueNotifyProvider>
                   <InboxProvider>
                     <AppStatusBar />
-                    <Stack screenOptions={{ headerShown: false }}>
-                      <Stack.Screen name="index" />
-                      <Stack.Screen name="login" />
-                      <Stack.Screen name="(tabs)" />
-                      <Stack.Screen name="admin" options={{ headerShown: false }} />
-                      <Stack.Screen name="mosque/[id]" options={{ headerShown: false }} />
-                      <Stack.Screen
-                        name="notifications"
-                        options={{ headerShown: true, title: 'Notifications' }}
-                      />
-                      <Stack.Screen name="calendar" options={{ headerShown: false }} />
-                      <Stack.Screen name="tracker" options={{ headerShown: false }} />
-                      <Stack.Screen name="ai" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-                      <Stack.Screen name="duas" options={{ headerShown: false }} />
-                      <Stack.Screen name="quran" options={{ headerShown: false }} />
-                      <Stack.Screen name="zakat" options={{ headerShown: false }} />
-                      <Stack.Screen name="halal" options={{ headerShown: false }} />
-                      <Stack.Screen
-                        name="submit-mosque"
-                        options={{ headerShown: true, title: 'Add a mosque' }}
-                      />
-                    </Stack>
+                    <RootStack />
                     <AppToastHost />
                   </InboxProvider>
                 </MosqueNotifyProvider>

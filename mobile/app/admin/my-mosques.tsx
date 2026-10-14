@@ -13,6 +13,7 @@ import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { fetchLiveAzanSessions, fetchManagerMosques } from '@/src/services/api'
 import type { Mosque } from '@/src/types'
 import { useAuth } from '@/src/context/AuthContext'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { isAppAdmin } from '@/src/utils/roles'
 
 export default function MyMosquesScreen() {
@@ -20,6 +21,7 @@ export default function MyMosquesScreen() {
   const { colors } = useTheme()
   const router = useRouter()
   const { user, logout } = useAuth()
+  const { t, placeName } = useLanguage()
   const [mosques, setMosques] = useState<Mosque[]>([])
   const [liveIds, setLiveIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -32,11 +34,11 @@ export default function MyMosquesScreen() {
       setMosques(Array.isArray(list) ? list.filter(Boolean) : [])
       setLiveIds(new Set(sessions.map((s) => String(s.mosqueId))))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load')
+      setError(e instanceof Error ? e.message : t('owner.loadFail'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useFocusEffect(
     useCallback(() => {
@@ -62,7 +64,7 @@ export default function MyMosquesScreen() {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={colors.primary} />
-        <Text style={styles.redirect}>Opening mosque dashboards…</Text>
+        <Text style={styles.redirect}>{t('owner.opening')}</Text>
       </View>
     )
   }
@@ -73,9 +75,7 @@ export default function MyMosquesScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} />}>
       <Text style={styles.lead}>
-        {isAppAdmin(user)
-          ? 'All mosques — open one for Azan & Prayer Timings dashboards.'
-          : 'Mosques assigned to you. For each one you can give azan, edit the mosque, and publish announcements.'}
+        {isAppAdmin(user) ? t('owner.allLead') : t('owner.assignedLead')}
       </Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -84,12 +84,9 @@ export default function MyMosquesScreen() {
         <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
       ) : mosques.length === 0 ? (
         <View style={styles.emptyBox}>
-          <Text style={styles.empty}>
-            No mosque linked to this session. Sign out and sign in again with your mosque-admin
-            mobile + password.
-          </Text>
+          <Text style={styles.empty}>{t('owner.noLink')}</Text>
           <Pressable style={styles.relogin} onPress={() => void onReSignIn()}>
-            <Text style={styles.reloginText}>Sign out & sign in again</Text>
+            <Text style={styles.reloginText}>{t('owner.relogin')}</Text>
           </Pressable>
         </View>
       ) : (
@@ -100,16 +97,16 @@ export default function MyMosquesScreen() {
               <Pressable onPress={() => router.push(`/admin/mosque/${m.id}`)}>
                 <View style={styles.cardTop}>
                   <Text style={styles.name} numberOfLines={1}>
-                    {m.name}
+                    {placeName(m.name)}
                   </Text>
                   <View style={[styles.chip, live ? styles.chipLive : styles.chipOff]}>
                     <Text style={[styles.chipText, live && styles.chipTextLive]}>
-                      {live ? 'LIVE' : 'Offline'}
+                      {live ? t('mosque.live').toUpperCase() : t('admin.offline')}
                     </Text>
                   </View>
                 </View>
                 <Text style={styles.meta} numberOfLines={2}>
-                  {m.area}
+                  {placeName(m.area)}
                   {m.address ? ` · ${m.address}` : ''}
                 </Text>
               </Pressable>
@@ -117,12 +114,12 @@ export default function MyMosquesScreen() {
                 <Pressable
                   style={[styles.actionBtn, styles.actionAzan]}
                   onPress={() => router.push(`/admin/mosque/${m.id}/azan`)}>
-                  <Text style={styles.actionText}>Azan dashboard</Text>
+                  <Text style={styles.actionText}>{t('admin.dashboard')}</Text>
                 </Pressable>
                 <Pressable
                   style={[styles.actionBtn, styles.actionTime]}
                   onPress={() => router.push(`/admin/mosque/${m.id}/timings`)}>
-                  <Text style={styles.actionText}>Edit prayer times</Text>
+                  <Text style={styles.actionText}>{t('admin.editTimes')}</Text>
                 </Pressable>
               </View>
             </View>

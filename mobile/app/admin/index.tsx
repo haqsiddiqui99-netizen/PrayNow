@@ -1,6 +1,7 @@
 import { Redirect, useRouter } from 'expo-router'
 import { Pressable, Text, View } from 'react-native'
 import { useAuth } from '@/src/context/AuthContext'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { radius } from '@/src/constants/theme'
 import { makeStyles } from '@/src/context/ThemeContext'
 import { isAppAdmin, isMosqueAdmin } from '@/src/utils/roles'
@@ -8,6 +9,7 @@ import { isAppAdmin, isMosqueAdmin } from '@/src/utils/roles'
 export default function AdminIndex() {
   const styles = useStyles()
   const { user } = useAuth()
+  const { t } = useLanguage()
   const router = useRouter()
 
   if (isMosqueAdmin(user) && !isAppAdmin(user)) {
@@ -19,24 +21,20 @@ export default function AdminIndex() {
   }
 
   const tiles = [
-    { title: 'Mosques', desc: 'Add or edit any mosque', href: '/admin/mosques' as const },
-    {
-      title: 'Mosque Requests',
-      desc: 'Review mosques submitted by app users',
-      href: '/admin/mosque-requests' as const,
-    },
-    { title: 'Mosque Admins', desc: 'Create login & assign mosques', href: '/admin/managers' as const },
-    { title: 'City Schedule', desc: 'Defaults, Tahajjud/Sehri & 365-day calendar', href: '/admin/city' as const },
-    { title: 'Broadcast / My Mosques', desc: 'Start azan on any mosque', href: '/admin/my-mosques' as const },
+    { title: t('owner.mosquesTile'), desc: t('owner.mosquesDesc'), href: '/admin/mosques' as const },
+    { title: t('owner.requests'), desc: t('owner.requestsDesc'), href: '/admin/mosque-requests' as const },
+    { title: t('owner.admins'), desc: t('owner.adminsDesc'), href: '/admin/managers' as const },
+    { title: t('owner.city'), desc: t('owner.cityDesc'), href: '/admin/city' as const },
+    { title: t('owner.broadcast'), desc: t('owner.broadcastDesc'), href: '/admin/my-mosques' as const },
   ]
 
   return (
     <View style={styles.page}>
-      <Text style={styles.lead}>App owner controls. Mosque admins get mobile + password from here.</Text>
-      {tiles.map((t) => (
-        <Pressable key={t.href} style={styles.tile} onPress={() => router.push(t.href)}>
-          <Text style={styles.tileTitle}>{t.title}</Text>
-          <Text style={styles.tileDesc}>{t.desc}</Text>
+      <Text style={styles.lead}>{t('owner.lead')}</Text>
+      {tiles.map((tile) => (
+        <Pressable key={tile.href} style={styles.tile} onPress={() => router.push(tile.href)}>
+          <Text style={styles.tileTitle}>{tile.title}</Text>
+          <Text style={styles.tileDesc}>{tile.desc}</Text>
         </Pressable>
       ))}
     </View>

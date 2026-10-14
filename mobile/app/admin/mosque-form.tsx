@@ -13,6 +13,7 @@ import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { createAdminMosque, fetchManagerMosques, updateAdminMosque, updateAssignedMosque } from '@/src/services/api'
 import type { Mosque, MosqueTimings, PrayerName } from '@/src/types'
 import { useAuth } from '@/src/context/AuthContext'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { isAppAdmin } from '@/src/utils/roles'
 
 const PRAYERS: PrayerName[] = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']
@@ -31,6 +32,7 @@ export default function MosqueFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>()
   const router = useRouter()
   const { user } = useAuth()
+  const { t, prayerName } = useLanguage()
   const editing = Boolean(id)
 
   const [loading, setLoading] = useState(editing)
@@ -58,17 +60,17 @@ export default function MosqueFormScreen() {
         const list = await fetchManagerMosques()
         const m = list.find((x) => String(x.id) === String(id))
         if (!m) {
-          setError('Mosque not found')
+          setError(t('owner.notFound'))
           return
         }
         fill(m)
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load')
+        setError(e instanceof Error ? e.message : t('owner.loadFail'))
       } finally {
         setLoading(false)
       }
     })()
-  }, [id, user, router])
+  }, [id, user, router, t])
 
   const fill = (m: Mosque) => {
     setName(m.name)
@@ -84,7 +86,7 @@ export default function MosqueFormScreen() {
 
   const save = async () => {
     if (!name.trim() || !address.trim() || !area.trim()) {
-      setError('Name, address and area are required')
+      setError(t('owner.formRequired'))
       return
     }
     setSaving(true)
@@ -127,7 +129,7 @@ export default function MosqueFormScreen() {
       } else await createAdminMosque(payload)
       router.back()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Save failed')
+      setError(e instanceof Error ? e.message : t('owner.saveFail'))
     } finally {
       setSaving(false)
     }
@@ -143,35 +145,35 @@ export default function MosqueFormScreen() {
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Field label="Mosque name" value={name} onChange={setName} />
-      <Field label="Address" value={address} onChange={setAddress} />
-      <Field label="Area" value={area} onChange={setArea} />
-      <Field label="Phone" value={phone} onChange={setPhone} />
-      <Field label="Madhab (school)" value={sect} onChange={setSect} />
+      <Field label={t('addMosque.name')} value={name} onChange={setName} />
+      <Field label={t('owner.address')} value={address} onChange={setAddress} />
+      <Field label={t('owner.area')} value={area} onChange={setArea} />
+      <Field label={t('owner.phone')} value={phone} onChange={setPhone} />
+      <Field label={t('owner.madhab')} value={sect} onChange={setSect} />
       <View style={styles.row}>
         <View style={styles.half}>
-          <Field label="Latitude" value={lat} onChange={setLat} />
+          <Field label={t('owner.lat')} value={lat} onChange={setLat} />
         </View>
         <View style={styles.half}>
-          <Field label="Longitude" value={lng} onChange={setLng} />
+          <Field label={t('owner.lng')} value={lng} onChange={setLng} />
         </View>
       </View>
-      <Field label="Capacity" value={capacity} onChange={setCapacity} />
+      <Field label={t('owner.capacity')} value={capacity} onChange={setCapacity} />
 
-      <Text style={styles.section}>Azan / Namaz (quick)</Text>
+      <Text style={styles.section}>{t('owner.quickTimes')}</Text>
       {PRAYERS.map((p) => (
         <View key={p} style={styles.timingRow}>
-          <Text style={styles.prayer}>{p}</Text>
+          <Text style={styles.prayer}>{prayerName(p)}</Text>
           <TextInput
             style={[styles.input, styles.timingInput]}
             value={timings[p].azan}
-            placeholder="Azan"
+            placeholder={t('admin.azan')}
             onChangeText={(v) => setTimings({ ...timings, [p]: { ...timings[p], azan: v, start: v } })}
           />
           <TextInput
             style={[styles.input, styles.timingInput]}
             value={timings[p].jamat}
-            placeholder="Namaz"
+            placeholder={t('admin.namaz')}
             onChangeText={(v) => setTimings({ ...timings, [p]: { ...timings[p], jamat: v } })}
           />
         </View>
@@ -179,7 +181,9 @@ export default function MosqueFormScreen() {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Pressable style={styles.save} disabled={saving} onPress={() => void save()}>
-        <Text style={styles.saveText}>{saving ? 'Saving…' : editing ? 'Update mosque' : 'Create mosque'}</Text>
+        <Text style={styles.saveText}>
+          {saving ? t('owner.saving') : editing ? t('owner.update') : t('owner.create')}
+        </Text>
       </Pressable>
     </ScrollView>
   )

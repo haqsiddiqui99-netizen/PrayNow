@@ -26,6 +26,25 @@ export default ({ config }) => ({
   plugins: [
     ...(config.plugins || []),
     ['expo-notifications', { color: '#0F1F2E', defaultChannel: 'default' }],
+    [
+      'react-native-android-widget',
+      {
+        widgets: [
+          {
+            name: 'PrayerTimes',
+            label: 'Prayer times',
+            description: 'Next prayer and today’s five times',
+            minWidth: '250dp',
+            minHeight: '110dp',
+            targetCellWidth: 4,
+            targetCellHeight: 2,
+            resizeMode: 'horizontal|vertical',
+            // Android's shortest allowed period; the app also redraws it on open and close.
+            updatePeriodMillis: 1800000,
+          },
+        ],
+      },
+    ],
   ],
   extra: {
     ...(config.extra || {}),
