@@ -1,6 +1,8 @@
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import helmet from 'helmet'
+import rateLimit from 'express-rate-limit'
 import publicRoutes from './routes/public.js'
 import adminRoutes from './routes/admin.js'
 import meRoutes from './routes/me.js'
@@ -22,6 +24,34 @@ const allowedOrigins = parseAllowedOrigins()
 const app = express()
 const port = Number(process.env.PORT || 5000)
 
+if (process.env.NODE_ENV === 'production') app.set('trust proxy', 1)
+
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}))
+
+const limitJson = { standardHeaders: true, legacyHeaders: false }
+const authLimiter = rateLimit({
+  ...limitJson,
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  message: { error: 'Too many attempts. Try again in a few minutes.' },
+})
+const chatLimiter = rateLimit({
+  ...limitJson,
+  windowMs: 60 * 1000,
+  limit: 12,
+  message: { error: 'Too many chat requests. Please wait a moment.' },
+})
+const deleteLimiter = rateLimit({
+  ...limitJson,
+  windowMs: 15 * 60 * 1000,
+  limit: 8,
+  skip: (req) => req.method !== 'DELETE' || (req.path !== '/' && req.path !== ''),
+  message: { error: 'Too many attempts. Try again in a few minutes.' },
+})
+
 app.use(cors({
   origin(origin, callback) {
     if (!origin) return callback(null, true)
@@ -33,6 +63,12 @@ app.use(cors({
   },
   credentials: true,
 }))
+
+app.use('/api/login', authLimiter)
+app.use('/api/register', authLimiter)
+app.use('/api/chat', chatLimiter)
+app.use('/api/me', deleteLimiter)
+
 app.use(express.json({ limit: '10mb' }))
 
 app.get('/api/health', (_req, res) => {

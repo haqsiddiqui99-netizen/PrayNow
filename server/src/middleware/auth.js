@@ -1,6 +1,18 @@
+import dotenv from 'dotenv'
 import jwt from 'jsonwebtoken'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'praynow-dev-secret-change-me'
+dotenv.config()
+
+const DEV_SECRET = 'praynow-dev-secret-change-me'
+const JWT_SECRET = process.env.JWT_SECRET || DEV_SECRET
+
+if (process.env.NODE_ENV === 'production') {
+  const secret = process.env.JWT_SECRET || ''
+  if (secret.length < 32 || secret === DEV_SECRET) {
+    console.error('Refusing to start: set JWT_SECRET to a random string of at least 32 characters.')
+    process.exit(1)
+  }
+}
 
 export function signToken(user) {
   return jwt.sign(

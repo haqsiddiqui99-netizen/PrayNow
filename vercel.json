@@ -1,3 +1,7 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/portal", "destination": "/portal/index.html" },
+    { "source": "/portal/(.*)", "destination": "/portal/index.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useFocusEffect } from 'expo-router'
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
-import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native'
+import { Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native'
 import Animated, {
   Easing,
   FadeInDown,
@@ -428,7 +428,17 @@ export function MoreFeed({
           ] as const).map(([key, label], index) => (
             <View key={key} style={styles.linkWrap}>
               {index > 0 ? <Text style={styles.linkDot}>·</Text> : null}
-              <Pressable onPress={() => say(t('more.soon'))} accessibilityRole="button" style={styles.link}>
+              <Pressable
+                onPress={() => {
+                  const site = (process.env.EXPO_PUBLIC_ADMIN_URL || '').replace(/\/$/, '')
+                  if (key === 'privacy' && site) {
+                    void Linking.openURL(`${site}/privacy/`)
+                    return
+                  }
+                  say(t('more.soon'))
+                }}
+                accessibilityRole="button"
+                style={styles.link}>
                 <Text style={styles.linkText}>{label}</Text>
               </Pressable>
             </View>

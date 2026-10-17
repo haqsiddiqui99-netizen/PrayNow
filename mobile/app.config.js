@@ -21,6 +21,8 @@ export default ({ config }) => ({
   android: {
     ...config.android,
     package: 'com.praynow.app',
+    // Local dev talks to the API over http. A build pointed at https does not need cleartext.
+    usesCleartextTraffic: !(process.env.EXPO_PUBLIC_API_URL || '').startsWith('https://'),
     ...(hasGoogleServices ? { googleServicesFile: GOOGLE_SERVICES_FILE } : null),
   },
   plugins: [

@@ -20,9 +20,8 @@ const DEFAULT_LAT = 28.6139
 const DEFAULT_LNG = 77.209
 
 function readDeviceHeading(event: DeviceOrientationEvent): number | null {
-  if (typeof event.webkitCompassHeading === 'number' && !Number.isNaN(event.webkitCompassHeading)) {
-    return event.webkitCompassHeading
-  }
+  const webkitHeading = (event as DeviceOrientationEvent & { webkitCompassHeading?: number }).webkitCompassHeading
+  if (typeof webkitHeading === 'number' && !Number.isNaN(webkitHeading)) return webkitHeading
   if (event.absolute && typeof event.alpha === 'number' && !Number.isNaN(event.alpha)) {
     return (360 - event.alpha) % 360
   }

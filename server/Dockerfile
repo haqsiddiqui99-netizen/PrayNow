@@ -7,6 +7,7 @@ COPY package.json package-lock.json* ./
 RUN npm install --omit=dev
 
 COPY src ./src
+COPY db ./db
 COPY scripts ./scripts
 COPY data ./data
 

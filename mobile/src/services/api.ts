@@ -62,6 +62,15 @@ export async function login(mobile: string, password: string): Promise<{ token: 
   return (await res.json()) as { token: string; user: AppUser }
 }
 
+export async function deleteAccount(password: string): Promise<void> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/me`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+    body: JSON.stringify({ password }),
+  })
+  if (!res.ok) await parseError(res, 'Could not delete the account')
+}
+
 export async function register(
   name: string,
   mobile: string,

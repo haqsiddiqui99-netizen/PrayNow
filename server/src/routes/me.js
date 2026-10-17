@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import bcrypt from 'bcryptjs'
 import { randomUUID } from 'node:crypto'
 import { getPool } from '../db/pool.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.js'
@@ -353,6 +354,54 @@ router.post('/mosques/:id/corrections', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('correction submit failed', err)
     res.status(500).json({ error: err.message || 'Failed to send the correction' })
+  }
+})
+
+/** Removes the signed-in account and the personal rows that point at it. */
+router.delete('/me', authMiddleware, async (req, res) => {
+  const password = String(req.body?.password || '')
+  if (!password) return res.status(400).json({ error: 'Enter your password to confirm' })
+  try {
+    const result = await withClient(async (client) => {
+      await client.query('BEGIN')
+      try {
+        const { rows } = await client.query(
+          `SELECT id, role, password_hash, is_active FROM users WHERE id = $1`,
+          [req.user.sub],
+        )
+        const user = rows[0]
+        if (!user || user.is_active === false) {
+          await client.query('ROLLBACK')
+          return { status: 404, error: 'Account not found' }
+        }
+        const matches = await bcrypt.compare(password, user.password_hash)
+        if (!matches) {
+          await client.query('ROLLBACK')
+          return { status: 401, error: 'Password is incorrect' }
+        }
+        if (user.role === 'admin') {
+          const { rows: admins } = await client.query(
+            `SELECT COUNT(*)::int AS n FROM users WHERE role = 'admin' AND is_active = TRUE AND id <> $1`,
+            [user.id],
+          )
+          if (!admins[0].n) {
+            await client.query('ROLLBACK')
+            return { status: 409, error: 'Add another admin before deleting the last admin account' }
+          }
+        }
+        await client.query(`DELETE FROM users WHERE id = $1`, [user.id])
+        await client.query('COMMIT')
+        return { status: 200 }
+      } catch (err) {
+        await client.query('ROLLBACK')
+        throw err
+      }
+    })
+    if (result.error) return res.status(result.status).json({ error: result.error })
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('account delete failed', err)
+    res.status(500).json({ error: 'Could not delete the account' })
   }
 })
 
