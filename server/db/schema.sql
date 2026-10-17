@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS mosques (
   taraweeh_nights  INTEGER NOT NULL DEFAULT 27,
   taraweeh_rakahs  INTEGER NOT NULL DEFAULT 20,
   taraweeh_night   INTEGER NOT NULL DEFAULT 1,
+  maghrib_offset_minutes INTEGER,
   is_active        BOOLEAN NOT NULL DEFAULT TRUE,
   mic_enabled      BOOLEAN NOT NULL DEFAULT TRUE,
   stream_url       VARCHAR(512),
@@ -75,7 +76,8 @@ CREATE TABLE IF NOT EXISTS mosque_night_timings (
   tahajjud_start  VARCHAR(16) NOT NULL,
   tahajjud_end    VARCHAR(16) NOT NULL,
   sehri_start     VARCHAR(16) NOT NULL,
-  sehri_end       VARCHAR(16) NOT NULL
+  sehri_end       VARCHAR(16) NOT NULL,
+  iftar_time      VARCHAR(16) NOT NULL DEFAULT ''
 );
 
 -- Links mosque_manager users to mosques they can edit
@@ -219,7 +221,7 @@ CREATE TABLE IF NOT EXISTS notifications (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   mosque_id   UUID REFERENCES mosques(id) ON DELETE SET NULL,
-  type        VARCHAR(32) NOT NULL CHECK (type IN ('timings', 'announcement', 'azan_alert', 'facilities')),
+  type        VARCHAR(32) NOT NULL CHECK (type IN ('timings', 'announcement', 'azan_alert', 'facilities', 'correction', 'janaza')),
   title       VARCHAR(255) NOT NULL,
   body        TEXT NOT NULL DEFAULT '',
   voice_note_id UUID,
@@ -265,6 +267,10 @@ CREATE TABLE IF NOT EXISTS mosque_requests (
   owner_mobile      VARCHAR(32) NOT NULL,
   owner_email       VARCHAR(255) NOT NULL DEFAULT '',
   notes             TEXT NOT NULL DEFAULT '',
+  facilities        TEXT[] NOT NULL DEFAULT '{}',
+  timings           TEXT NOT NULL DEFAULT '',
+  night_timings     TEXT NOT NULL DEFAULT '',
+  maghrib_offset_minutes INTEGER,
   status            VARCHAR(16) NOT NULL DEFAULT 'pending'
                       CHECK (status IN ('pending','approved','rejected')),
   review_note       TEXT NOT NULL DEFAULT '',
@@ -285,6 +291,68 @@ CREATE TABLE IF NOT EXISTS mosque_request_photos (
   data         BYTEA NOT NULL,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Followers report a wrong time or detail; the mosque admin (or app owner) marks it fixed or dismissed.
+CREATE TABLE IF NOT EXISTS mosque_corrections (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  mosque_id    UUID NOT NULL REFERENCES mosques(id) ON DELETE CASCADE,
+  user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  topic        VARCHAR(24) NOT NULL
+                 CHECK (topic IN ('jamaat','juma','address','phone','facilities','other')),
+  prayer       VARCHAR(16),
+  suggestion   VARCHAR(500) NOT NULL DEFAULT '',
+  note         TEXT NOT NULL DEFAULT '',
+  status       VARCHAR(16) NOT NULL DEFAULT 'pending'
+                 CHECK (status IN ('pending','fixed','dismissed')),
+  resolved_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  resolved_at  TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_mosque_corrections_mosque ON mosque_corrections(mosque_id, status, created_at DESC);
+
+-- Funeral prayers a mosque announces at short notice; they drop off a few hours after the prayer.
+CREATE TABLE IF NOT EXISTS mosque_janaza (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  mosque_id      UUID NOT NULL REFERENCES mosques(id) ON DELETE CASCADE,
+  deceased_name  VARCHAR(160) NOT NULL DEFAULT '',
+  after_prayer   VARCHAR(16),
+  prayer_at      TIMESTAMPTZ NOT NULL,
+  burial         VARCHAR(255) NOT NULL DEFAULT '',
+  note           TEXT NOT NULL DEFAULT '',
+  created_by     UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_mosque_janaza_time ON mosque_janaza(prayer_at);
+
+-- What a mosque is asking the community for: volunteers, funds (external link only) or items.
+CREATE TABLE IF NOT EXISTS mosque_needs (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  mosque_id   UUID NOT NULL REFERENCES mosques(id) ON DELETE CASCADE,
+  kind        VARCHAR(16) NOT NULL CHECK (kind IN ('volunteers','fundraising','items','other')),
+  title       VARCHAR(160) NOT NULL,
+  details     TEXT NOT NULL DEFAULT '',
+  link        VARCHAR(500) NOT NULL DEFAULT '',
+  status      VARCHAR(16) NOT NULL DEFAULT 'open' CHECK (status IN ('open','closed')),
+  created_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_mosque_needs_mosque ON mosque_needs(mosque_id, status);
+
+-- Existing installs: widen the notification types for correction and janaza alerts.
+ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
+ALTER TABLE notifications ADD CONSTRAINT notifications_type_check
+  CHECK (type IN ('timings', 'announcement', 'azan_alert', 'facilities', 'correction', 'janaza'));
+
+ALTER TABLE mosque_requests ADD COLUMN IF NOT EXISTS facilities TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE mosque_requests ADD COLUMN IF NOT EXISTS timings TEXT NOT NULL DEFAULT '';
+ALTER TABLE mosque_requests ADD COLUMN IF NOT EXISTS night_timings TEXT NOT NULL DEFAULT '';
+ALTER TABLE mosque_requests ADD COLUMN IF NOT EXISTS maghrib_offset_minutes INTEGER;
+ALTER TABLE mosques ADD COLUMN IF NOT EXISTS maghrib_offset_minutes INTEGER;
+ALTER TABLE mosque_night_timings ADD COLUMN IF NOT EXISTS iftar_time VARCHAR(16) NOT NULL DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS idx_mosque_requests_status ON mosque_requests(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_mosque_requests_user ON mosque_requests(submitted_by, created_at DESC);

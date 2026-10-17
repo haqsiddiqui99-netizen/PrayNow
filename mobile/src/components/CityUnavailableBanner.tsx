@@ -1,5 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 import { supportedCityNames } from '@/src/constants/cities'
+import { paperColors } from '@/src/constants/theme'
+import { makeStyles } from '@/src/context/ThemeContext'
 
 export function CityUnavailableBanner({
   detectedCity,
@@ -8,6 +10,7 @@ export function CityUnavailableBanner({
   detectedCity: string
   country?: string
 }) {
+  const styles = useStyles()
   return (
     <View style={styles.banner}>
       <Text style={styles.title}>City not covered yet</Text>
@@ -22,16 +25,19 @@ export function CityUnavailableBanner({
   )
 }
 
-const styles = StyleSheet.create({
-  banner: {
-    backgroundColor: '#f5f5f5',
-    borderWidth: 1,
-    borderColor: '#d4d4d4',
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 12,
-  },
-  title: { fontSize: 14, fontWeight: '800', color: '#0a0a0a', marginBottom: 6 },
-  body: { fontSize: 12, color: '#525252', lineHeight: 18, marginTop: 4 },
-  strong: { fontWeight: '800', color: '#0a0a0a' },
+const useStyles = makeStyles(({ mode }) => {
+  const paper = paperColors(mode)
+  return {
+    banner: {
+      backgroundColor: paper.card,
+      borderWidth: 1,
+      borderColor: paper.line,
+      borderRadius: 20,
+      padding: 14,
+      marginBottom: 12,
+    },
+    title: { fontFamily: 'Newsreader_600SemiBold', fontSize: 20, color: paper.ink, marginBottom: 6 },
+    body: { fontFamily: 'Figtree_500Medium', fontSize: 13, color: paper.muted, lineHeight: 18, marginTop: 4 },
+    strong: { fontFamily: 'Figtree_700Bold', color: paper.ink },
+  }
 })

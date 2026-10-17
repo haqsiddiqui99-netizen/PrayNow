@@ -6,6 +6,8 @@ import { signToken } from '../middleware/auth.js'
 import { fetchMosqueRows, fetchMosqueById, resolveMosqueDbId } from '../services/mosques.js'
 import { buildLiveAzanFeeds } from '../services/liveAzan.js'
 import { listUpcomingEvents } from '../services/mosqueEvents.js'
+import { listActiveJanaza } from '../services/mosqueJanaza.js'
+import { listNeeds } from '../services/mosqueNeeds.js'
 import { getLiveSessions, getLiveSessionForMosque, getLatestRecording, joinLiveListener, leaveLiveListener } from '../services/liveAzanSessions.js'
 import { buildAgoraCredentials } from '../services/agora.js'
 import { askOpenAiIslamicQuestion, transcribeOpenAiAudio } from '../services/islamicChat.js'
@@ -205,6 +207,34 @@ router.get('/mosques/:id/events', async (req, res) => {
   } catch (err) {
     console.error('mosque events failed', err)
     res.status(500).json({ error: err.message || 'Failed to load events' })
+  } finally {
+    client.release()
+  }
+})
+
+router.get('/janaza', async (_req, res) => {
+  const client = await pool.connect()
+  try {
+    await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+    res.json({ janaza: await listActiveJanaza(client) })
+  } catch (err) {
+    console.error('janaza list failed', err)
+    res.status(500).json({ error: err.message || 'Failed to load janaza' })
+  } finally {
+    client.release()
+  }
+})
+
+router.get('/mosques/:id/needs', async (req, res) => {
+  const client = await pool.connect()
+  try {
+    await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+    const dbId = await resolveMosqueDbId(client, req.params.id)
+    if (!dbId) return res.status(404).json({ error: 'Not found' })
+    res.json({ needs: await listNeeds(client, dbId) })
+  } catch (err) {
+    console.error('mosque needs failed', err)
+    res.status(500).json({ error: err.message || 'Failed to load needs' })
   } finally {
     client.release()
   }

@@ -142,6 +142,24 @@ export const palettes: Record<ThemeMode, ThemeColors> = {
   dark: darkColors,
 }
 
+/**
+ * Warm paper palette shared by the newer screens (home, calendar, halal).
+ * Light ink is navy; dark ink is the pale page colour, so buttons invert cleanly.
+ */
+export function paperColors(mode: ThemeMode | string) {
+  const dark = mode === 'dark'
+  return {
+    page: dark ? '#0C1818' : '#F6F4F0',
+    ink: dark ? '#EAF3F0' : '#0F1F2E',
+    muted: dark ? '#9DBAB4' : '#5A6676',
+    faint: dark ? '#6F8A86' : '#9AA3AE',
+    card: dark ? '#122027' : '#FFFFFF',
+    line: dark ? '#24343A' : '#E3E8EF',
+    chip: dark ? '#1C3330' : '#F3F1EC',
+    onInk: dark ? '#0F1F2E' : '#FFFFFF',
+  }
+}
+
 function webOrNativeShadow(webBox: string, native: ViewStyle): ViewStyle {
   if (Platform.OS === 'web') {
     return { boxShadow: webBox }

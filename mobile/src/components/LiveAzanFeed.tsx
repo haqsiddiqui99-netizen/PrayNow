@@ -33,6 +33,7 @@ import { CityUnavailableBanner } from '@/src/components/CityUnavailableBanner'
 import { GradientFill } from '@/src/components/GradientFill'
 import { UserMenu } from '@/src/components/UserMenu'
 import { CITY_RADIUS_KM, MOSQUE_RADIUS_STOPS, type MosqueRadiusKm } from '@/src/constants/mosqueRadius'
+import { paperColors } from '@/src/constants/theme'
 import { useMosqueNotify } from '@/src/context/MosqueNotifyContext'
 import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
@@ -370,7 +371,8 @@ export function LiveAzanFeed({
 }) {
   const styles = useStyles()
   const { mode } = useTheme()
-  const dark = mode === 'dark'
+  const paper = paperColors(mode)
+  const ink = paper.ink
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const { t, placeName, prayerName, formatDistance, formatRadius, digits } = useLanguage()
@@ -444,8 +446,6 @@ export function LiveAzanFeed({
 
   const rangeLabel = radiusKm >= CITY_RADIUS_KM ? t('feed.theCity') : formatRadius(radiusKm)
   const playing = playingId ? catalog.find((mosque) => mosque.id === playingId) ?? nearby.find((mosque) => mosque.id === playingId) : null
-  const ink = dark ? '#EAF3F0' : '#0F1F2E'
-  const muted = dark ? '#9DBAB4' : '#5F6B7A'
   const liveCount = view === 'all' ? lists.live.length : lists.followedLive.length
 
   return (
@@ -457,11 +457,11 @@ export function LiveAzanFeed({
         </View>
         <View style={styles.headSide}>
           <Pressable onPress={onPressLocation} accessibilityRole="button" accessibilityLabel={t('common.changeLocation')} style={styles.cityPill}>
-            <Ionicons name="location-outline" size={15} color="#FFFFFF" />
+            <Ionicons name="location-outline" size={15} color={paper.onInk} />
             <Text style={styles.cityText} numberOfLines={1}>
               {city}
             </Text>
-            <Ionicons name="chevron-down" size={14} color="#FFFFFF" />
+            <Ionicons name="chevron-down" size={14} color={paper.onInk} />
           </Pressable>
           <UserMenu />
         </View>
@@ -487,9 +487,9 @@ export function LiveAzanFeed({
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
               style={[styles.segBtn, on && styles.segBtnOn]}>
-              <Text style={[styles.segText, on && { color: ink }]}>{tab.label}</Text>
-              <View style={[styles.segN, tab.live && styles.segLive]}>
-                <Text style={[styles.segNText, tab.live && { color: '#FFFFFF' }]}>{digits(tab.count)}</Text>
+              <Text style={[styles.segText, on && { color: paper.onInk }]}>{tab.label}</Text>
+              <View style={[styles.segN, on && styles.segNOn, tab.live && styles.segLive]}>
+                <Text style={[styles.segNText, on && { color: paper.onInk }, tab.live && { color: '#FFFFFF' }]}>{digits(tab.count)}</Text>
               </View>
             </Pressable>
           )
@@ -499,7 +499,9 @@ export function LiveAzanFeed({
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: 24 + bottomInset + (playing ? 76 : 0) }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ink} colors={[ink]} progressBackgroundColor={paper.card} />
+        }>
         {!citySupported && !loading ? (
           <CityUnavailableBanner detectedCity={detectedCity} country={country} />
         ) : null}
@@ -527,7 +529,7 @@ export function LiveAzanFeed({
           </View>
           {view === 'sub' ? (
             <Pressable onPress={() => setSheet(true)} accessibilityRole="button" accessibilityLabel={t('feed.addMosque')} style={styles.addBtn}>
-              <Ionicons name="add" size={16} color="#FFFFFF" />
+              <Ionicons name="add" size={16} color={paper.onInk} />
               <Text style={styles.addText}>{t('feed.add')}</Text>
             </Pressable>
           ) : null}
@@ -544,7 +546,7 @@ export function LiveAzanFeed({
                   accessibilityRole="button"
                   accessibilityState={{ selected: on }}
                   style={[styles.range, on && styles.rangeOn]}>
-                  <Text style={[styles.rangeText, on && { color: '#FFFFFF' }]}>{formatRadius(stop.value)}</Text>
+                  <Text style={[styles.rangeText, on && { color: paper.onInk }]}>{formatRadius(stop.value)}</Text>
                 </Pressable>
               )
             })}
@@ -794,12 +796,13 @@ const MosqueRow = memo(function MosqueRow({
   formatDistance: (km: number) => string
 }) {
   const styles = useStyles()
+  const { mode } = useTheme()
   const { t, formatDuration, formatClock } = useLanguage()
   const next = nextAzan(mosque, now)
   return (
     <View style={styles.row}>
       <View style={styles.rowIcon}>
-        <Ionicons name={icon} size={18} color="#1F7A68" />
+        <Ionicons name={icon} size={18} color={paperColors(mode).ink} />
       </View>
       <View style={styles.cardTitle}>
         <Text style={styles.rowName} numberOfLines={1}>
@@ -823,6 +826,8 @@ const MosqueRow = memo(function MosqueRow({
 
 function SubPill({ on, name, onPress }: { on: boolean; name: string; onPress: () => void }) {
   const styles = useStyles()
+  const { mode } = useTheme()
+  const paper = paperColors(mode)
   const { t, placeName } = useLanguage()
   return (
     <Pressable
@@ -831,8 +836,8 @@ function SubPill({ on, name, onPress }: { on: boolean; name: string; onPress: ()
       accessibilityState={{ checked: on }}
       accessibilityLabel={t(on ? 'feed.unsubA11y' : 'feed.subA11y', { name: placeName(name) })}
       style={[styles.sub, on && styles.subOn]}>
-      <Ionicons name={on ? 'notifications' : 'notifications-outline'} size={14} color={on ? '#FFFFFF' : '#5F6B7A'} />
-      <Text style={[styles.subText, on && { color: '#FFFFFF' }]}>{on ? t('feed.subscribed') : t('feed.subscribe')}</Text>
+      <Ionicons name={on ? 'notifications' : 'notifications-outline'} size={14} color={on ? paper.onInk : paper.muted} />
+      <Text style={[styles.subText, on && { color: paper.onInk }]}>{on ? t('feed.subscribed') : t('feed.subscribe')}</Text>
     </Pressable>
   )
 }
@@ -850,6 +855,7 @@ function SectionTitle({ title, count }: { title: string; count: number }) {
 
 function Empty({ title, text, cta, onCta }: { title: string; text: string; cta?: string; onCta?: () => void }) {
   const styles = useStyles()
+  const paper = paperColors(useTheme().mode)
   return (
     <Animated.View entering={FadeInDown.duration(280)} style={styles.empty}>
       <View style={styles.emptyMark}>
@@ -859,7 +865,7 @@ function Empty({ title, text, cta, onCta }: { title: string; text: string; cta?:
       <Text style={styles.emptyText}>{text}</Text>
       {cta && onCta ? (
         <Pressable onPress={onCta} accessibilityRole="button" style={styles.cta}>
-          <Ionicons name="search" size={16} color="#FFFFFF" />
+          <Ionicons name="search" size={16} color={paper.onInk} />
           <Text style={styles.ctaText}>{cta}</Text>
         </Pressable>
       ) : null}
@@ -1107,13 +1113,14 @@ const mini = StyleSheet.create({
 
 const useStyles = makeStyles(({ mode }) => {
   const dark = mode === 'dark'
-  const page = dark ? '#0E1A22' : '#F1F3F7'
-  const card = dark ? '#122027' : '#FFFFFF'
-  const ink = dark ? '#EAF3F0' : '#0F1F2E'
-  const muted = dark ? '#9DBAB4' : '#5F6B7A'
-  const line = dark ? '#24343A' : '#E7EBF1'
-  const tile = dark ? '#1A3330' : '#F5F7FA'
-  const seg = dark ? '#1C3330' : '#E5E8EE'
+  const paper = paperColors(mode)
+  const page = paper.page
+  const card = paper.card
+  const ink = paper.ink
+  const muted = paper.muted
+  const line = paper.line
+  const tile = paper.chip
+  const onInk = paper.onInk
   return {
     screen: { flex: 1, backgroundColor: page },
     head: {
@@ -1126,7 +1133,7 @@ const useStyles = makeStyles(({ mode }) => {
       paddingBottom: 8,
     },
     brand: { fontFamily: F.bold, fontSize: 11, letterSpacing: 1.6, color: muted },
-    title: { fontFamily: F.display, fontSize: 23, lineHeight: 26, color: ink, marginTop: 1 },
+    title: { fontFamily: F.display, fontSize: 26, lineHeight: 30, color: ink, letterSpacing: -0.3, marginTop: 1 },
     cityPill: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1135,10 +1142,10 @@ const useStyles = makeStyles(({ mode }) => {
       paddingVertical: 7,
       paddingHorizontal: 10,
       borderRadius: 999,
-      backgroundColor: '#14232F',
+      backgroundColor: ink,
     },
     headSide: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1, justifyContent: 'flex-end' },
-    cityText: { flexShrink: 1, fontFamily: F.bold, fontSize: 13, color: '#FFFFFF' },
+    cityText: { flexShrink: 1, fontFamily: F.bold, fontSize: 13, color: onInk },
     seg: {
       flexDirection: 'row',
       gap: 4,
@@ -1146,11 +1153,12 @@ const useStyles = makeStyles(({ mode }) => {
       marginBottom: 6,
       padding: 4,
       borderRadius: 18,
-      backgroundColor: seg,
+      backgroundColor: tile,
     },
     segBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 10, borderRadius: 14 },
-    segBtnOn: { backgroundColor: card },
+    segBtnOn: { backgroundColor: ink },
     segText: { fontFamily: F.bold, fontSize: 14, color: muted },
+    segNOn: { backgroundColor: 'rgba(255,255,255,0.18)' },
     segN: {
       minWidth: 20,
       height: 20,
@@ -1175,12 +1183,12 @@ const useStyles = makeStyles(({ mode }) => {
       paddingLeft: 10,
       paddingRight: 12,
       borderRadius: 999,
-      backgroundColor: '#14232F',
+      backgroundColor: ink,
     },
-    addText: { fontFamily: F.bold, fontSize: 13, color: '#FFFFFF' },
+    addText: { fontFamily: F.bold, fontSize: 13, color: onInk },
     ranges: { gap: 8, paddingBottom: 12 },
-    range: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, backgroundColor: card, borderWidth: 1, borderColor: line },
-    rangeOn: { backgroundColor: '#14232F', borderColor: '#14232F' },
+    range: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, backgroundColor: tile },
+    rangeOn: { backgroundColor: ink },
     rangeText: { fontFamily: F.bold, fontSize: 13, color: muted },
     loader: { marginVertical: 24 },
     card: {
@@ -1233,7 +1241,7 @@ const useStyles = makeStyles(({ mode }) => {
       borderRadius: 999,
       backgroundColor: tile,
     },
-    subOn: { backgroundColor: '#1F7A68' },
+    subOn: { backgroundColor: ink },
     subText: { fontFamily: F.bold, fontSize: 12.5, color: muted },
     section: {
       flexDirection: 'row',
@@ -1252,7 +1260,7 @@ const useStyles = makeStyles(({ mode }) => {
       width: 36,
       height: 36,
       borderRadius: 12,
-      backgroundColor: dark ? 'rgba(31,122,104,0.2)' : 'rgba(31,122,104,0.12)',
+      backgroundColor: tile,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1287,9 +1295,9 @@ const useStyles = makeStyles(({ mode }) => {
       paddingLeft: 14,
       paddingRight: 16,
       borderRadius: 999,
-      backgroundColor: '#14232F',
+      backgroundColor: ink,
     },
-    ctaText: { fontFamily: F.bold, fontSize: 14, color: '#FFFFFF' },
+    ctaText: { fontFamily: F.bold, fontSize: 14, color: onInk },
     sheetFlex: { flex: 1 },
     backdrop: { flex: 1, backgroundColor: 'rgba(15,31,46,0.42)' },
     sheet: {
@@ -1331,8 +1339,8 @@ const useStyles = makeStyles(({ mode }) => {
     toastText: {
       fontFamily: F.semi,
       fontSize: 13,
-      color: '#FFFFFF',
-      backgroundColor: '#14232F',
+      color: onInk,
+      backgroundColor: ink,
       paddingVertical: 10,
       paddingHorizontal: 16,
       borderRadius: 14,

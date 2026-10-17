@@ -1,4 +1,5 @@
 import { Platform, StyleSheet, View } from 'react-native'
+import { paperColors } from '@/src/constants/theme'
 import { makeStyles } from '@/src/context/ThemeContext'
 
 /** Opaque tab bar backdrop, so scrolling content never bleeds through it. */
@@ -7,16 +8,18 @@ export function TabBarBackground() {
   return <View style={styles.shell} />
 }
 
-const useStyles = makeStyles(({ colors }) => ({
+const useStyles = makeStyles(({ mode }) => {
+  const paper = paperColors(mode)
+  return {
   shell: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: colors.tabBarBg,
+    backgroundColor: paper.card,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.tabBarBorder,
+    borderTopColor: paper.line,
     ...(Platform.OS === 'web'
       ? { boxShadow: '0 -3px 10px rgba(15, 23, 42, 0.06)' }
       : {
@@ -27,4 +30,5 @@ const useStyles = makeStyles(({ colors }) => ({
           elevation: 8,
         }),
   },
-}))
+  }
+})

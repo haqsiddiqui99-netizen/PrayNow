@@ -1,7 +1,9 @@
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { radius } from '@/src/constants/theme'
+import { paperColors } from '@/src/constants/theme'
+import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
+import { FACILITY_FILTERS, renderFacilityIcon, type FacilityFilterId } from '@/src/utils/facilities'
 import { MOSQUE_MADHAB_OPTIONS, type MosqueMadhabFilter } from '@/src/utils/mosqueSort'
 
 export type FilterDropdownAnchor = {
@@ -9,7 +11,7 @@ export type FilterDropdownAnchor = {
   right: number
 }
 
-const DROPDOWN_WIDTH = 210
+const DROPDOWN_WIDTH = 260
 const LIST_MAX_HEIGHT = 228
 
 export function MosqueFilterSheet({
@@ -17,6 +19,8 @@ export function MosqueFilterSheet({
   sectFilter,
   anchor,
   onChangeSect,
+  facilities = [],
+  onChangeFacilities,
   onClearAll,
   onClose,
 }: {
@@ -24,12 +28,22 @@ export function MosqueFilterSheet({
   sectFilter: MosqueMadhabFilter
   anchor: FilterDropdownAnchor | null
   onChangeSect: (madhab: MosqueMadhabFilter) => void
+  /** Leave out `onChangeFacilities` to hide the facility chips. */
+  facilities?: FacilityFilterId[]
+  onChangeFacilities?: (ids: FacilityFilterId[]) => void
   onClearAll: () => void
   onClose: () => void
 }) {
   const styles = useStyles()
-  const { colors } = useTheme()
-  const hasActiveFilters = sectFilter !== 'all'
+  const { mode } = useTheme()
+  const paper = paperColors(mode)
+  const { t } = useLanguage()
+  const hasActiveFilters = sectFilter !== 'all' || facilities.length > 0
+
+  const toggleFacility = (id: FacilityFilterId) => {
+    if (!onChangeFacilities) return
+    onChangeFacilities(facilities.includes(id) ? facilities.filter((x) => x !== id) : [...facilities, id])
+  }
 
   const pick = (id: MosqueMadhabFilter) => {
     onChangeSect(id)
@@ -52,8 +66,33 @@ export function MosqueFilterSheet({
           {hasActiveFilters ? (
             <View style={styles.clearRow}>
               <Pressable onPress={onClearAll} hitSlop={8}>
-                <Text style={styles.clearAllText}>Clear</Text>
+                <Text style={styles.clearAllText}>{t('filter.clear')}</Text>
               </Pressable>
+            </View>
+          ) : null}
+
+          {onChangeFacilities ? (
+            <View style={styles.facilities}>
+              <Text style={styles.groupLabel}>{t('filter.facilities')}</Text>
+              <View style={styles.chips}>
+                {FACILITY_FILTERS.map((f) => {
+                  const on = facilities.includes(f.id)
+                  return (
+                    <Pressable
+                      key={f.id}
+                      onPress={() => toggleFacility(f.id)}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: on }}
+                      style={[styles.chip, on && styles.chipOn]}>
+                      {renderFacilityIcon(f.icon, 13, on ? paper.onInk : paper.muted)}
+                      <Text style={[styles.chipText, on && styles.chipTextOn]} numberOfLines={1}>
+                        {t(f.label)}
+                      </Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+              <Text style={styles.groupLabel}>{t('filter.madhab')}</Text>
             </View>
           ) : null}
 
@@ -83,7 +122,7 @@ export function MosqueFilterSheet({
                     ) : null}
                   </View>
                   {active ? (
-                    <Ionicons name="checkmark" size={15} color={colors.primary} />
+                    <Ionicons name="checkmark" size={15} color={paper.ink} />
                   ) : (
                     <View style={styles.optionSpacer} />
                   )}
@@ -97,17 +136,19 @@ export function MosqueFilterSheet({
   )
 }
 
-const useStyles = makeStyles(({ colors, shadows }) => ({
+const useStyles = makeStyles(({ mode, shadows }) => {
+  const paper = paperColors(mode)
+  return {
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.12)',
   },
   dropdown: {
     position: 'absolute',
-    backgroundColor: colors.surface2,
-    borderRadius: radius.md,
+    backgroundColor: paper.card,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: paper.line,
     overflow: 'hidden',
     ...shadows.card,
   },
@@ -123,10 +164,32 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
     paddingBottom: 4,
   },
   clearAllText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.primary,
+    fontFamily: 'Figtree_700Bold',
+    fontSize: 12,
+    color: paper.ink,
   },
+  facilities: { paddingHorizontal: 12, paddingTop: 8 },
+  groupLabel: {
+    fontFamily: 'Figtree_700Bold',
+    fontSize: 11,
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+    color: paper.muted,
+    marginBottom: 6,
+  },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: paper.chip,
+  },
+  chipOn: { backgroundColor: paper.ink },
+  chipText: { fontFamily: 'Figtree_700Bold', fontSize: 12, color: paper.ink },
+  chipTextOn: { color: paper.onInk },
   listScroll: {
     maxHeight: LIST_MAX_HEIGHT,
   },
@@ -143,7 +206,7 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
   },
   optionRowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: paper.line,
   },
   optionCopy: {
     flex: 1,
@@ -151,24 +214,24 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
     gap: 2,
   },
   optionText: {
+    fontFamily: 'Figtree_600SemiBold',
     fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
+    color: paper.ink,
   },
   optionTextActive: {
-    color: colors.primary,
-    fontWeight: '800',
+    fontFamily: 'Figtree_700Bold',
   },
   imamText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.textMuted,
+    fontFamily: 'Figtree_500Medium',
+    fontSize: 11,
+    color: paper.muted,
     lineHeight: 13,
   },
   imamTextActive: {
-    color: colors.textSecondary,
+    color: paper.ink,
   },
   optionSpacer: {
     width: 15,
   },
-}))
+  }
+})

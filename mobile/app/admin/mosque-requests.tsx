@@ -27,6 +27,21 @@ import {
   type MosqueRequestStatus,
 } from '@/src/services/api'
 
+function timingLine(request: MosqueRequest) {
+  const parts: string[] = []
+  for (const name of ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']) {
+    const slot = request.timings?.[name]
+    const bits: string[] = []
+    if (name === 'Maghrib' && request.maghribOffsetMinutes != null) bits.push(`sunset +${request.maghribOffsetMinutes}m`)
+    else if (slot?.azan) bits.push(slot.azan)
+    if (slot?.jamat) bits.push(slot.jamat)
+    if (bits.length) parts.push(`${name} ${bits.join(' / ')}`)
+  }
+  if (request.nightTimings?.sehriEnd) parts.push(`Sehri ${request.nightTimings.sehriEnd}`)
+  if (request.nightTimings?.iftar) parts.push(`Iftar ${request.nightTimings.iftar}`)
+  return parts.join(' · ')
+}
+
 const FILTERS: { key: MosqueRequestStatus | 'all'; label: TranslationKey }[] = [
   { key: 'pending', label: 'owner.fPending' },
   { key: 'approved', label: 'owner.fApproved' },
@@ -177,6 +192,10 @@ export default function MosqueRequestsScreen() {
               </View>
             </View>
 
+            {request.facilities?.length ? (
+              <Text style={styles.meta}>{request.facilities.join(', ')}</Text>
+            ) : null}
+            {timingLine(request) ? <Text style={styles.meta}>{timingLine(request)}</Text> : null}
             {request.notes ? <Text style={styles.notes}>“{request.notes}”</Text> : null}
 
             <Text style={styles.submitter}>
@@ -223,7 +242,7 @@ export default function MosqueRequestsScreen() {
 const useStyles = makeStyles(({ colors }) => ({
   page: { flex: 1, backgroundColor: colors.surface0 },
   content: { padding: 16, paddingBottom: 40 },
-  lead: { fontSize: 12.5, color: colors.textSecondary, lineHeight: 18, marginBottom: 12 },
+  lead: {fontSize: 12.5, color: colors.textSecondary, lineHeight: 18, marginBottom: 12 },
   filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
   filterChip: {
     paddingHorizontal: 12,
@@ -234,11 +253,11 @@ const useStyles = makeStyles(({ colors }) => ({
     borderColor: colors.border,
   },
   filterChipActive: { backgroundColor: colors.primarySoft, borderColor: colors.pillBorder },
-  filterText: { fontSize: 12, fontWeight: '700', color: colors.textSecondary },
+  filterText: {fontSize: 12, fontWeight: '700', color: colors.textSecondary },
   filterTextActive: { color: colors.primary },
   loader: { marginTop: 24 },
-  empty: { fontSize: 13, color: colors.textMuted, marginTop: 16 },
-  error: { color: colors.accent, fontWeight: '600', fontSize: 12.5, marginBottom: 10 },
+  empty: {fontSize: 13, color: colors.textMuted, marginTop: 16 },
+  error: {color: colors.accent, fontWeight: '600', fontSize: 12.5, marginBottom: 10 },
   card: {
     backgroundColor: colors.surface2,
     borderRadius: radius.md,
@@ -248,9 +267,8 @@ const useStyles = makeStyles(({ colors }) => ({
     marginBottom: 12,
   },
   cardHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  name: { flex: 1, fontSize: 15, fontWeight: '800', color: colors.textPrimary },
-  statusPill: {
-    overflow: 'hidden',
+  name: {flex: 1, fontSize: 15, fontWeight: '800', color: colors.textPrimary },
+  statusPill: {overflow: 'hidden',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.pill,
@@ -262,8 +280,8 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   statusApproved: { color: colors.primary, backgroundColor: colors.primarySoft },
   statusRejected: { color: colors.accent, backgroundColor: colors.warningBg },
-  address: { fontSize: 12.5, color: colors.textSecondary, marginTop: 6, lineHeight: 18 },
-  meta: { fontSize: 11, color: colors.textMuted, marginTop: 4 },
+  address: {fontSize: 12.5, color: colors.textSecondary, marginTop: 6, lineHeight: 18 },
+  meta: {fontSize: 11, color: colors.textMuted, marginTop: 4 },
   photoRow: { marginTop: 10 },
   photo: {
     width: 96,
@@ -278,14 +296,13 @@ const useStyles = makeStyles(({ colors }) => ({
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  contactLabel: {
-    fontSize: 10,
+  contactLabel: {fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
     color: colors.textMuted,
   },
-  contactValue: { fontSize: 13.5, fontWeight: '700', color: colors.textPrimary, marginTop: 3 },
+  contactValue: {fontSize: 13.5, fontWeight: '700', color: colors.textPrimary, marginTop: 3 },
   contactActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   contactBtn: {
     flexDirection: 'row',
@@ -298,11 +315,10 @@ const useStyles = makeStyles(({ colors }) => ({
     borderWidth: 1,
     borderColor: colors.pillBorder,
   },
-  contactBtnText: { fontSize: 12, fontWeight: '700', color: colors.primary },
-  notes: { fontSize: 12, color: colors.textSecondary, marginTop: 10, fontStyle: 'italic', lineHeight: 17 },
-  submitter: { fontSize: 10.5, color: colors.textMuted, marginTop: 10 },
-  noteInput: {
-    borderWidth: 1,
+  contactBtnText: {fontSize: 12, fontWeight: '700', color: colors.primary },
+  notes: {fontSize: 12, color: colors.textSecondary, marginTop: 10, fontStyle: 'italic', lineHeight: 17 },
+  submitter: {fontSize: 10.5, color: colors.textMuted, marginTop: 10 },
+  noteInput: {borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 10,
@@ -321,7 +337,7 @@ const useStyles = makeStyles(({ colors }) => ({
     paddingVertical: 12,
     alignItems: 'center',
   },
-  approveText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  approveText: {color: '#fff', fontWeight: '800', fontSize: 13 },
   rejectBtn: {
     paddingHorizontal: 18,
     borderRadius: 10,
@@ -332,6 +348,6 @@ const useStyles = makeStyles(({ colors }) => ({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  rejectText: { color: colors.accent, fontWeight: '800', fontSize: 13 },
-  reviewNote: { fontSize: 11.5, color: colors.textSecondary, marginTop: 10, fontStyle: 'italic' },
+  rejectText: {color: colors.accent, fontWeight: '800', fontSize: 13 },
+  reviewNote: {fontSize: 11.5, color: colors.textSecondary, marginTop: 10, fontStyle: 'italic' },
 }))

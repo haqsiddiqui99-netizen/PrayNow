@@ -4,7 +4,7 @@ import { Modal, Pressable, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { userInitials } from '@/src/components/UserMenu.utils'
 import { HEADER_CONTROL_HEIGHT } from '@/src/constants/layout'
-import { radius } from '@/src/constants/theme'
+import { paperColors, radius } from '@/src/constants/theme'
 import { useAuth } from '@/src/context/AuthContext'
 import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
@@ -17,7 +17,8 @@ export { userInitials } from '@/src/components/UserMenu.utils'
  */
 export function UserMenu() {
   const styles = useStyles()
-  const { colors } = useTheme()
+  const { mode } = useTheme()
+  const paper = paperColors(mode)
   const router = useRouter()
   const { user, isGuest, logout } = useAuth()
   const { t } = useLanguage()
@@ -50,10 +51,10 @@ export function UserMenu() {
           {user ? (
             <Text style={styles.triggerInitials}>{userInitials(user.name, user.email)}</Text>
           ) : (
-            <Ionicons name="person" size={13} color={colors.primary} />
+            <Ionicons name="person" size={13} color={paper.ink} />
           )}
         </View>
-        <Ionicons name="chevron-down" size={13} color={colors.textMuted} />
+        <Ionicons name="chevron-down" size={13} color={paper.muted} />
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
@@ -64,7 +65,7 @@ export function UserMenu() {
                 {user ? (
                   <Text style={styles.avatarText}>{userInitials(user.name, user.email)}</Text>
                 ) : (
-                  <Ionicons name="person" size={17} color={colors.primary} />
+                  <Ionicons name="person" size={17} color={paper.ink} />
                 )}
               </View>
               <View style={styles.profileText}>
@@ -100,7 +101,9 @@ export function UserMenu() {
   )
 }
 
-const useStyles = makeStyles(({ colors }) => ({
+const useStyles = makeStyles(({ mode }) => {
+  const paper = paperColors(mode)
+  return {
   trigger: {
     flexShrink: 1,
     minWidth: 0,
@@ -111,23 +114,20 @@ const useStyles = makeStyles(({ colors }) => ({
     paddingLeft: 3,
     paddingRight: 8,
     borderRadius: radius.pill,
-    backgroundColor: colors.surface1,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: paper.chip,
   },
   triggerOpen: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.pillBorder,
+    backgroundColor: paper.line,
   },
   triggerAvatar: {
     width: HEADER_CONTROL_HEIGHT - 10,
     height: HEADER_CONTROL_HEIGHT - 10,
     borderRadius: (HEADER_CONTROL_HEIGHT - 10) / 2,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: paper.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  triggerInitials: { fontSize: 10, fontWeight: '800', color: colors.primary },
+  triggerInitials: { fontFamily: 'Figtree_700Bold', fontSize: 10, color: paper.onInk },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15,23,42,0.35)',
@@ -139,10 +139,10 @@ const useStyles = makeStyles(({ colors }) => ({
   panel: {
     width: 268,
     maxWidth: '92%',
-    backgroundColor: colors.surface2,
-    borderRadius: radius.md,
+    backgroundColor: paper.card,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: paper.line,
     overflow: 'hidden',
   },
   profile: {
@@ -151,22 +151,23 @@ const useStyles = makeStyles(({ colors }) => ({
     gap: 10,
     padding: 14,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: paper.line,
   },
   avatar: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: paper.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontSize: 13, fontWeight: '800', color: colors.primary },
+  avatarText: { fontFamily: 'Figtree_700Bold', fontSize: 13, color: paper.onInk },
   profileText: { flex: 1, minWidth: 0 },
-  name: { fontSize: 14, fontWeight: '800', color: colors.textPrimary },
-  subtitle: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
-  rowPressed: { backgroundColor: colors.surface1 },
+  name: { fontFamily: 'Figtree_700Bold', fontSize: 14, color: paper.ink },
+  subtitle: { fontFamily: 'Figtree_500Medium', fontSize: 12, color: paper.muted, marginTop: 2 },
+  rowPressed: { backgroundColor: paper.chip },
   authBtn: { paddingVertical: 13, alignItems: 'center' },
-  authText: { fontSize: 13, fontWeight: '800', color: colors.primary },
-  authTextDanger: { color: colors.accent },
-}))
+  authText: { fontFamily: 'Figtree_700Bold', fontSize: 13, color: paper.ink },
+  authTextDanger: { color: '#B3261E' },
+  }
+})

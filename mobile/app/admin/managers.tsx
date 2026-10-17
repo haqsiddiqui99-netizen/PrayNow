@@ -165,7 +165,7 @@ export default function ManagersScreen() {
 const useStyles = makeStyles(({ colors }) => ({
   page: { flex: 1, backgroundColor: colors.surface0 },
   content: { padding: 16, paddingBottom: 40 },
-  lead: { fontSize: 13, color: colors.textSecondary, marginBottom: 12, lineHeight: 18 },
+  lead: {fontSize: 13, color: colors.textSecondary, marginBottom: 12, lineHeight: 18 },
   add: {
     backgroundColor: colors.primary,
     borderRadius: 12,
@@ -173,7 +173,7 @@ const useStyles = makeStyles(({ colors }) => ({
     alignItems: 'center',
     marginBottom: 12,
   },
-  addText: { color: '#fff', fontWeight: '800' },
+  addText: {color: '#fff', fontWeight: '800' },
   form: {
     backgroundColor: colors.surface2,
     borderRadius: radius.md,
@@ -182,9 +182,8 @@ const useStyles = makeStyles(({ colors }) => ({
     padding: 14,
     marginBottom: 12,
   },
-  label: { fontSize: 11, fontWeight: '700', color: colors.textMuted, marginBottom: 4, marginTop: 8 },
-  input: {
-    borderWidth: 1,
+  label: {fontSize: 11, fontWeight: '700', color: colors.textMuted, marginBottom: 4, marginTop: 8 },
+  input: {color: colors.textPrimary, borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
@@ -201,7 +200,7 @@ const useStyles = makeStyles(({ colors }) => ({
     backgroundColor: colors.surface0,
   },
   checkOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  checkLabel: { flex: 1, fontSize: 13, fontWeight: '600' },
+  checkLabel: {color: colors.textPrimary, flex: 1, fontSize: 13, fontWeight: '600' },
   save: {
     marginTop: 12,
     backgroundColor: colors.success,
@@ -209,7 +208,7 @@ const useStyles = makeStyles(({ colors }) => ({
     paddingVertical: 12,
     alignItems: 'center',
   },
-  saveText: { color: '#fff', fontWeight: '800' },
+  saveText: {color: '#fff', fontWeight: '800' },
   card: {
     backgroundColor: colors.surface2,
     borderRadius: radius.md,
@@ -218,8 +217,8 @@ const useStyles = makeStyles(({ colors }) => ({
     padding: 14,
     marginBottom: 8,
   },
-  name: { fontWeight: '800', fontSize: 15 },
-  meta: { color: colors.textMuted, fontSize: 12, marginTop: 4 },
-  error: { color: colors.accent, fontWeight: '600', marginBottom: 8 },
-  ok: { color: colors.success, fontWeight: '700', marginBottom: 8 },
+  name: {color: colors.textPrimary, fontWeight: '800', fontSize: 15 },
+  meta: {color: colors.textMuted, fontSize: 12, marginTop: 4 },
+  error: {color: colors.accent, fontWeight: '600', marginBottom: 8 },
+  ok: {color: colors.success, fontWeight: '700', marginBottom: 8 },
 }))

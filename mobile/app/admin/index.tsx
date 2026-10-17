@@ -23,6 +23,7 @@ export default function AdminIndex() {
   const tiles = [
     { title: t('owner.mosquesTile'), desc: t('owner.mosquesDesc'), href: '/admin/mosques' as const },
     { title: t('owner.requests'), desc: t('owner.requestsDesc'), href: '/admin/mosque-requests' as const },
+    { title: t('correction.ownerTile'), desc: t('correction.ownerTileDesc'), href: '/admin/corrections' as const },
     { title: t('owner.admins'), desc: t('owner.adminsDesc'), href: '/admin/managers' as const },
     { title: t('owner.city'), desc: t('owner.cityDesc'), href: '/admin/city' as const },
     { title: t('owner.broadcast'), desc: t('owner.broadcastDesc'), href: '/admin/my-mosques' as const },

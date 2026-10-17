@@ -9,6 +9,7 @@ import { useAuth } from '@/src/context/AuthContext'
 import { isMosqueAdmin } from '@/src/utils/roles'
 import { useLanguage } from '@/src/context/LanguageContext'
 import { TAB_BAR_HEIGHT, tabBarBottomPadding } from '@/src/constants/layout'
+import { paperColors } from '@/src/constants/theme'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 
 /** Icon size is fixed so the slim tab bar keeps icon + label on one line. */
@@ -28,7 +29,8 @@ function TabImageIcon({
 
 export default function TabLayout() {
   const styles = useStyles()
-  const { colors } = useTheme()
+  const { mode } = useTheme()
+  const paper = paperColors(mode)
   const insets = useSafeAreaInsets()
   const { isReady, isAuthenticated, user } = useAuth()
   const { t } = useLanguage()
@@ -36,8 +38,8 @@ export default function TabLayout() {
 
   if (!isReady) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface0 }}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: paper.page }}>
+        <ActivityIndicator size="large" color={paper.ink} />
       </View>
     )
   }
@@ -51,8 +53,8 @@ export default function TabLayout() {
       <Tabs
         initialRouteName="index"
         screenOptions={{
-          tabBarActiveTintColor: colors.selectedBg,
-          tabBarInactiveTintColor: colors.tabInactive,
+          tabBarActiveTintColor: paper.ink,
+          tabBarInactiveTintColor: paper.muted,
           tabBarActiveBackgroundColor: 'transparent',
           tabBarInactiveBackgroundColor: 'transparent',
           tabBarShowLabel: true,
@@ -60,7 +62,7 @@ export default function TabLayout() {
           tabBarLabelStyle: styles.tabLabel,
           tabBarIconStyle: styles.tabIcon,
           headerShown: false,
-          sceneStyle: { backgroundColor: colors.surface0 },
+          sceneStyle: { backgroundColor: paper.page },
           tabBarBackground: () => <TabBarBackground />,
           tabBarButton: (props) => <SeparatedTabBarButton {...props} />,
           tabBarStyle: {
@@ -149,8 +151,8 @@ const useStyles = makeStyles(() => ({
     marginBottom: 0,
   },
   tabLabel: {
+    fontFamily: 'Figtree_700Bold',
     fontSize: 10,
-    fontWeight: '700',
     marginTop: 1,
     marginBottom: 0,
     letterSpacing: 0.1,

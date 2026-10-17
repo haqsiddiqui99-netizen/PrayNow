@@ -42,7 +42,9 @@ function mixHex(a: string, b: string, t: number) {
 /* -------------------------------------------------------------------------- */
 /*  Sun                                                                        */
 /* -------------------------------------------------------------------------- */
-const GLOW_RADII = [85, 76, 67, 58, 50, 43, 37];
+/** Many faint, closely spaced layers read as a soft radial glow instead of visible rings. */
+const GLOW_SIZES = Array.from({ length: 24 }, (_, i) => 170 - i * 4.6);
+const BODY_STEPS = Array.from({ length: 16 }, (_, i) => i / 15);
 
 export const SunOrb = memo(function SunOrb({ cx, cy, opacity, c1, c2 }: { cx: number; cy: number; opacity: number; c1: string; c2: string }) {
   const x = useSharedValue(cx);
@@ -60,12 +62,12 @@ export const SunOrb = memo(function SunOrb({ cx, cy, opacity, c1, c2 }: { cx: nu
   }));
   return (
     <Animated.View pointerEvents="none" style={[styles.orb, st]}>
-      {GLOW_RADII.map((r) => (
-        <View key={r} style={[disc(85, 85, r * 2, c2), { opacity: 0.08 }]} />
+      {GLOW_SIZES.map((d) => (
+        <View key={d} style={[disc(85, 85, d, c2), { opacity: 0.035 }]} />
       ))}
-      <View style={disc(85, 85, 60, c2)} />
-      <View style={disc(82, 81, 46, mixHex(c1, c2, 0.45))} />
-      <View style={disc(79, 78, 28, c1)} />
+      {BODY_STEPS.map((s) => (
+        <View key={s} style={disc(85, 85, 58 - s * 34, mixHex(c1, c2, (1 - s) * (1 - s)))} />
+      ))}
     </Animated.View>
   );
 });
@@ -323,7 +325,7 @@ const styles = StyleSheet.create({
   orb: { position: 'absolute', left: 0, top: 0, width: 170, height: 170 },
   moon: { overflow: 'hidden', backgroundColor: 'rgba(12,18,52,0.6)', borderColor: 'rgba(255,243,207,0.32)' },
   moonRow: { position: 'absolute', backgroundColor: '#FFF3CF' },
-  moonOrb: { position: 'absolute', top: 26, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  moonOrb: { position: 'absolute', top: 26, width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   cloud: { position: 'absolute', left: 0, width: 170, height: 60 },
   cloudBase: { position: 'absolute', left: 22, top: 38, width: 118, height: 16, borderRadius: 8 },
   skyline: {

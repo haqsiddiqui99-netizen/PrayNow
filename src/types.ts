@@ -42,9 +42,12 @@ export interface JumaTimings {
 export const MOSQUE_FACILITY_OPTIONS = [
   'Wudu Area',
   'Washroom',
-  'Parking',
+  'Two-wheeler parking',
+  'Four-wheeler parking',
   'WiFi',
   'Wheelchair access',
+  'Chairs available',
+  'Drinking water',
   'Women section',
   'Library',
   'AC',
@@ -63,6 +66,8 @@ export interface SehriTimings {
 export interface NightTimings {
   tahajjud: TahajjudTimings
   sehri: SehriTimings
+  /** Fixed iftar clock. Empty when the mosque has not published one. */
+  iftar?: string
 }
 
 export type MosqueTimings = Record<PrayerName, MosquePrayerSlot>
@@ -95,6 +100,8 @@ export interface Mosque {
   capacity: number
   timings: MosqueTimings
   nightTimings: NightTimings
+  /** Maghrib azan is sunset plus this many minutes. Null when the mosque prints a clock instead. */
+  maghribOffsetMinutes?: number | null
 }
 
 export interface Review {

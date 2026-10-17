@@ -8,14 +8,24 @@ import {
   fetchMosqueById,
   upsertMosqueTimings,
   upsertNightTimings,
+  saveMaghribOffset,
   mosqueFieldsFromBody,
   userCanManageMosque,
   resolveMosqueDbId,
 } from '../services/mosques.js'
 import { startSession, stopSession, getLiveSessionForMosque } from '../services/liveAzanSessions.js'
 import { buildAgoraCredentials } from '../services/agora.js'
-import { notifyMosqueSubscribers } from '../services/notifications.js'
+import { notifyMosqueSubscribers, notifyUsers } from '../services/notifications.js'
+import {
+  correctionFromRow,
+  correctionSummary,
+  fetchCorrectionById,
+  listCorrectionsForMosque,
+  listCorrectionsForOwner,
+} from '../services/mosqueCorrections.js'
 import { eventFieldsFromBody, fetchEventById } from '../services/mosqueEvents.js'
+import { fetchJanazaById, janazaFieldsFromBody } from '../services/mosqueJanaza.js'
+import { fetchNeedById, listNeeds, needFieldsFromBody } from '../services/mosqueNeeds.js'
 import {
   listCityDays,
   dayRowToScheduleAndExtras,
@@ -27,13 +37,14 @@ import {
   parseCityDaysCsv,
   generateYearFromDefaults,
 } from '../services/cityPrayerDays.js'
-import { generateYearFromAladhan } from '../services/aladhanCityDays.js'
+import { fetchSunTimes, generateYearFromAladhan } from '../services/aladhanCityDays.js'
 import {
   fetchRequestById,
   listRequestsForAdmin,
   markRequestReviewed,
   photoUrl,
   requestPhotoIds,
+  scheduleFromRequest,
 } from '../services/mosqueRequests.js'
 
 const router = Router()
@@ -180,6 +191,48 @@ router.post('/admin/users', authMiddleware, requireRole('admin'), async (req, re
   }
 })
 
+router.patch('/admin/users/:id', authMiddleware, requireRole('admin'), async (req, res) => {
+  const { isActive, password } = req.body || {}
+  const hasActive = typeof isActive === 'boolean'
+  const nextPassword = typeof password === 'string' ? password : ''
+  if (!hasActive && !nextPassword) {
+    return res.status(400).json({ error: 'Nothing to update' })
+  }
+  if (nextPassword && nextPassword.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' })
+  }
+
+  const client = await pool.connect()
+  try {
+    await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+    const { rows } = await client.query(`SELECT id, role FROM users WHERE id = $1`, [req.params.id])
+    const user = rows[0]
+    if (!user) return res.status(404).json({ error: 'User not found' })
+    if (hasActive && isActive === false && user.role === 'admin') {
+      const { rows: others } = await client.query(
+        `SELECT id FROM users WHERE role = 'admin' AND is_active = TRUE AND id <> $1`,
+        [user.id],
+      )
+      if (!others.length) {
+        return res.status(400).json({ error: 'Keep at least one active app owner' })
+      }
+    }
+    if (hasActive) {
+      await client.query(`UPDATE users SET is_active = $2, updated_at = NOW() WHERE id = $1`, [user.id, isActive])
+    }
+    if (nextPassword) {
+      const hash = await bcrypt.hash(nextPassword, 10)
+      await client.query(`UPDATE users SET password_hash = $2, updated_at = NOW() WHERE id = $1`, [user.id, hash])
+    }
+    res.json({ ok: true, isActive: hasActive ? isActive : undefined, passwordUpdated: Boolean(nextPassword) })
+  } catch (err) {
+    console.error('update user failed', err)
+    res.status(500).json({ error: err.message || 'Failed to update user' })
+  } finally {
+    client.release()
+  }
+})
+
 router.post('/admin/mosques', authMiddleware, requireRole('admin'), async (req, res) => {
   const body = req.body || {}
   const f = mosqueFieldsFromBody(body)
@@ -199,6 +252,9 @@ router.post('/admin/mosques', authMiddleware, requireRole('admin'), async (req, 
     const mosqueId = rows[0].id
     if (body.timings) await upsertMosqueTimings(client, mosqueId, body.timings)
     await upsertNightTimings(client, mosqueId, body.nightTimings)
+    if (Object.prototype.hasOwnProperty.call(body, 'maghribOffsetMinutes')) {
+      await saveMaghribOffset(client, mosqueId, body.maghribOffsetMinutes)
+    }
     const mosque = await fetchMosqueById(client, mosqueId)
     res.status(201).json(mosque)
   } catch (err) {
@@ -236,6 +292,9 @@ router.put('/admin/mosques/:id', authMiddleware, requireRole('admin'), async (re
     )
     if (b.timings) await upsertMosqueTimings(client, dbId, b.timings)
     await upsertNightTimings(client, dbId, b.nightTimings)
+    if (Object.prototype.hasOwnProperty.call(b, 'maghribOffsetMinutes')) {
+      await saveMaghribOffset(client, dbId, b.maghribOffsetMinutes)
+    }
     const mosque = await fetchMosqueById(client, dbId)
     if (b.timings) {
       try {
@@ -450,6 +509,15 @@ router.post('/admin/city/days/generate-year', authMiddleware, requireRole('admin
     res.status(400).json({ error: e instanceof Error ? e.message : 'Generate failed' })
   } finally {
     client.release()
+  }
+})
+
+// Sunset, Fajr tomorrow and sunrise for a place. The desk derives Tahajjud, Sehri and Iftar from these.
+router.get('/admin/sun-times', authMiddleware, requireRole('admin'), async (req, res) => {
+  try {
+    res.json(await fetchSunTimes({ lat: req.query.lat, lng: req.query.lng, date: req.query.date }))
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'Could not load sun times' })
   }
 })
 
@@ -764,6 +832,111 @@ router.delete(
   },
 )
 
+/** Runs `fn(client, dbId)` once the caller is confirmed to manage the mosque in `req.params.id`. */
+async function withManagedMosque(req, res, label, fn) {
+  const client = await pool.connect()
+  try {
+    await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+    const dbId = await resolveMosqueDbId(client, req.params.id)
+    if (!dbId) return res.status(404).json({ error: 'Mosque not found' })
+    const allowed = await userCanManageMosque(client, req.user.sub, req.user.role, dbId)
+    if (!allowed) return res.status(403).json({ error: 'Not assigned to this mosque' })
+    await fn(client, dbId)
+  } catch (err) {
+    console.error(`${label} failed`, err)
+    res.status(500).json({ error: err.message || `${label} failed` })
+  } finally {
+    client.release()
+  }
+}
+
+const isUuid = (value) => /^[0-9a-f-]{36}$/i.test(String(value || ''))
+
+// --- Janaza (funeral prayer) announcements ---
+
+router.post('/manager/mosques/:id/janaza', authMiddleware, requireRole('admin', 'mosque_manager'), (req, res) => {
+  const fields = janazaFieldsFromBody(req.body)
+  if (fields.error) return res.status(400).json({ error: fields.error })
+  return withManagedMosque(req, res, 'Janaza post', async (client, dbId) => {
+    const id = randomUUID()
+    await client.query(
+      `INSERT INTO mosque_janaza (id, mosque_id, deceased_name, after_prayer, prayer_at, burial, note, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [id, dbId, fields.deceasedName, fields.afterPrayer, fields.prayerAt, fields.burial, fields.note, req.user.sub],
+    )
+    const janaza = await fetchJanazaById(client, id)
+    let notified = 0
+    try {
+      const who = fields.deceasedName ? `${fields.deceasedName} · ` : ''
+      const result = await notifyMosqueSubscribers(client, dbId, {
+        type: 'janaza',
+        title: `Janaza at ${janaza.mosqueName}`.slice(0, 255),
+        body: `${who}${fields.afterPrayer ? `After ${fields.afterPrayer}` : 'Janaza prayer'}${fields.note ? ` · ${fields.note}` : ''}`.slice(0, 500),
+      })
+      notified = result.notified
+    } catch (err) {
+      console.warn('[notify] janaza fan-out failed', err instanceof Error ? err.message : err)
+    }
+    res.status(201).json({ janaza, notified })
+  })
+})
+
+router.delete('/manager/mosques/:id/janaza/:janazaId', authMiddleware, requireRole('admin', 'mosque_manager'), (req, res) => {
+  if (!isUuid(req.params.janazaId)) return res.status(404).json({ error: 'Janaza not found' })
+  return withManagedMosque(req, res, 'Janaza delete', async (client, dbId) => {
+    await client.query(`DELETE FROM mosque_janaza WHERE id = $1 AND mosque_id = $2`, [req.params.janazaId, dbId])
+    res.json({ ok: true })
+  })
+})
+
+// --- Needs board: volunteers, fundraising links, items ---
+
+router.get('/manager/mosques/:id/needs', authMiddleware, requireRole('admin', 'mosque_manager'), (req, res) =>
+  withManagedMosque(req, res, 'Needs list', async (client, dbId) => {
+    res.json({ needs: await listNeeds(client, dbId, { includeClosed: true }) })
+  }),
+)
+
+router.post('/manager/mosques/:id/needs', authMiddleware, requireRole('admin', 'mosque_manager'), (req, res) => {
+  const fields = needFieldsFromBody(req.body)
+  if (fields.error) return res.status(400).json({ error: fields.error })
+  return withManagedMosque(req, res, 'Need create', async (client, dbId) => {
+    const id = randomUUID()
+    await client.query(
+      `INSERT INTO mosque_needs (id, mosque_id, kind, title, details, link, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [id, dbId, fields.kind, fields.title, fields.details, fields.link, req.user.sub],
+    )
+    res.status(201).json({ need: await fetchNeedById(client, id) })
+  })
+})
+
+router.patch('/manager/mosques/:id/needs/:needId', authMiddleware, requireRole('admin', 'mosque_manager'), (req, res) => {
+  if (!isUuid(req.params.needId)) return res.status(404).json({ error: 'Need not found' })
+  const fields = needFieldsFromBody(req.body, { partial: true })
+  if (fields.error) return res.status(400).json({ error: fields.error })
+  return withManagedMosque(req, res, 'Need update', async (client, dbId) => {
+    const columns = Object.keys(fields)
+    if (columns.length) {
+      const sets = columns.map((col, i) => `${col} = $${i + 3}`)
+      const { rowCount } = await client.query(
+        `UPDATE mosque_needs SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $1 AND mosque_id = $2`,
+        [req.params.needId, dbId, ...columns.map((col) => fields[col])],
+      )
+      if (!rowCount) return res.status(404).json({ error: 'Need not found' })
+    }
+    res.json({ need: await fetchNeedById(client, req.params.needId) })
+  })
+})
+
+router.delete('/manager/mosques/:id/needs/:needId', authMiddleware, requireRole('admin', 'mosque_manager'), (req, res) => {
+  if (!isUuid(req.params.needId)) return res.status(404).json({ error: 'Need not found' })
+  return withManagedMosque(req, res, 'Need delete', async (client, dbId) => {
+    await client.query(`DELETE FROM mosque_needs WHERE id = $1 AND mosque_id = $2`, [req.params.needId, dbId])
+    res.json({ ok: true })
+  })
+})
+
 // Tell subscribers the azan is about to start.
 router.post(
   '/manager/mosques/:id/azan/alert',
@@ -924,6 +1097,90 @@ router.get(
   },
 )
 
+// --- Corrections reported by followers ---
+
+router.get(
+  '/manager/mosques/:id/corrections',
+  authMiddleware,
+  requireRole('admin', 'mosque_manager'),
+  async (req, res) => {
+    const client = await pool.connect()
+    try {
+      await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+      const dbId = await resolveMosqueDbId(client, req.params.id)
+      if (!dbId) return res.status(404).json({ error: 'Mosque not found' })
+      const allowed = await userCanManageMosque(client, req.user.sub, req.user.role, dbId)
+      if (!allowed) return res.status(403).json({ error: 'Not assigned to this mosque' })
+      const corrections = await listCorrectionsForMosque(client, dbId, String(req.query.status || 'pending'))
+      res.json({ corrections })
+    } catch (err) {
+      console.error('correction list failed', err)
+      res.status(500).json({ error: err.message || 'Failed to load corrections' })
+    } finally {
+      client.release()
+    }
+  },
+)
+
+router.get('/admin/corrections', authMiddleware, requireRole('admin'), async (req, res) => {
+  const client = await pool.connect()
+  try {
+    await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+    const corrections = await listCorrectionsForOwner(client, {
+      status: String(req.query.status || 'pending'),
+      unmanaged: req.query.scope !== 'all',
+    })
+    res.json({ corrections })
+  } catch (err) {
+    console.error('owner correction list failed', err)
+    res.status(500).json({ error: err.message || 'Failed to load corrections' })
+  } finally {
+    client.release()
+  }
+})
+
+router.patch(
+  '/manager/corrections/:id',
+  authMiddleware,
+  requireRole('admin', 'mosque_manager'),
+  async (req, res) => {
+    const status = String(req.body?.status || '')
+    if (status !== 'fixed' && status !== 'dismissed') {
+      return res.status(400).json({ error: 'Status must be fixed or dismissed' })
+    }
+    const client = await pool.connect()
+    try {
+      await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+      const existing = await fetchCorrectionById(client, req.params.id)
+      if (!existing) return res.status(404).json({ error: 'Correction not found' })
+      const allowed = await userCanManageMosque(client, req.user.sub, req.user.role, existing.mosque_db_id)
+      if (!allowed) return res.status(403).json({ error: 'Not assigned to this mosque' })
+      await client.query(
+        `UPDATE mosque_corrections SET status = $2, resolved_by = $3, resolved_at = NOW() WHERE id = $1`,
+        [existing.id, status, req.user.sub],
+      )
+      const row = await fetchCorrectionById(client, existing.id)
+      if (status === 'fixed' && existing.status !== 'fixed') {
+        try {
+          await notifyUsers(client, [existing.user_id], existing.mosque_db_id, {
+            type: 'correction',
+            title: `${existing.mosque_name} updated`.slice(0, 255),
+            body: `Thank you. Your correction (${correctionSummary(existing)}) is now live.`.slice(0, 500),
+          })
+        } catch (err) {
+          console.warn('[notify] correction thank-you failed', err instanceof Error ? err.message : err)
+        }
+      }
+      res.json({ correction: correctionFromRow(row) })
+    } catch (err) {
+      console.error('correction resolve failed', err)
+      res.status(500).json({ error: err.message || 'Failed to update the correction' })
+    } finally {
+      client.release()
+    }
+  },
+)
+
 // --- Review queue for user-submitted mosque requests ---
 
 router.get('/admin/mosque-requests', authMiddleware, requireRole('admin'), async (req, res) => {
@@ -965,6 +1222,7 @@ router.post('/admin/mosque-requests/:id/approve', authMiddleware, requireRole('a
       lat: request.lat,
       lng: request.lng,
       photos: photoIds.map(photoUrl),
+      facilities: toTextArray(request.facilities),
       capacity: 0,
     })
     const mosqueId = randomUUID()
@@ -982,6 +1240,11 @@ router.post('/admin/mosque-requests/:id/approve', authMiddleware, requireRole('a
         false,
       ],
     )
+
+    const schedule = scheduleFromRequest(request)
+    if (schedule.timings) await upsertMosqueTimings(client, mosqueId, schedule.timings)
+    if (schedule.night) await upsertNightTimings(client, mosqueId, schedule.night)
+    await saveMaghribOffset(client, mosqueId, schedule.maghribOffsetMinutes)
 
     await markRequestReviewed(client, request.id, {
       status: 'approved',

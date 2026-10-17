@@ -25,6 +25,8 @@ import Animated, {
 } from 'react-native-reanimated'
 import { useRouter } from 'expo-router'
 import { MosqueEventsList } from '@/src/components/MosqueEventsList'
+import { JanazaBanner } from '@/src/components/JanazaBanner'
+import { MosqueCorrectionSheet } from '@/src/components/MosqueCorrectionSheet'
 import { MosqueReminderSheet } from '@/src/components/MosqueReminderSheet'
 import { useAuth } from '@/src/context/AuthContext'
 import { useLanguage } from '@/src/context/LanguageContext'
@@ -36,6 +38,7 @@ import { getAzanState, subscribeAzan, toggleLiveAzan } from '@/src/utils/azanAud
 import { renderFacilityIcon } from '@/src/utils/facilities'
 import { getJumaSessions } from '@/src/utils/jumaTimings'
 import { openGoogleMaps } from '@/src/utils/maps'
+import { mosqueMessage, shareToWhatsApp } from '@/src/utils/share'
 import {
   getCurrentPrayerForMosques,
   getLivePrayerInfo,
@@ -415,18 +418,23 @@ function useNow(ms = 30000) {
 export function MosqueTabCard({
   mosque,
   travelMode,
+  showAllPrayers = false,
 }: {
   mosque: Mosque
   travelMode: TravelMode
+  /** Mosques tab lists every salah. Home keeps them behind the expander. */
+  showAllPrayers?: boolean
 }) {
   const styles = useStyles()
   const { mode } = useTheme()
   const router = useRouter()
-  const { t, prayerName, formatDistance, placeName, facilityName, digits } = useLanguage()
+  const lang = useLanguage()
+  const { t, prayerName, formatDistance, placeName, facilityName, digits } = lang
   const merLabel = (mer: string) => (mer === 'PM' ? t('time.pm') : mer === 'AM' ? t('time.am') : mer)
   const { user } = useAuth()
   const { isSubscribed, remindersFor } = useMosqueNotify()
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [correctionOpen, setCorrectionOpen] = useState(false)
   const now = useNow()
   const broadcast = useMosqueLive(mosque.id)
   const listeners = useLiveSession(mosque.id)?.listeners ?? 0
@@ -496,6 +504,17 @@ export function MosqueTabCard({
           {placeName(mosque.name)}
         </Text>
         <Pressable
+          onPress={(event) => {
+            event.stopPropagation?.()
+            void shareToWhatsApp(mosqueMessage(lang, mosque))
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={t('share.whatsapp')}
+          hitSlop={6}
+          style={styles.share}>
+          <Ionicons name="logo-whatsapp" size={15} color={chipInk} />
+        </Pressable>
+        <Pressable
           onPress={onOpenAlerts}
           accessibilityRole="button"
           accessibilityState={{ checked: subscribed }}
@@ -519,6 +538,7 @@ export function MosqueTabCard({
         onClose={() => setSheetOpen(false)}
         onFailed={() => showToast(t('mosque.updateFailBody'), 'cloud-offline-outline')}
       />
+      <JanazaBanner mosque={mosque} />
 
       <Pressable
         onPress={(event) => {
@@ -611,26 +631,28 @@ export function MosqueTabCard({
           />
         </View>
 
-        <Pressable
-          onPress={(event) => {
-            event.stopPropagation?.()
-            toggleAll()
-          }}
-          style={styles.more}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: showAll }}>
-          <Text style={styles.moreText}>{t('mosque.allToday')}</Text>
-          <Ionicons name={showAll ? 'chevron-up' : 'chevron-down'} size={16} color={panelMuted} />
-        </Pressable>
+        {showAllPrayers ? null : (
+          <Pressable
+            onPress={(event) => {
+              event.stopPropagation?.()
+              toggleAll()
+            }}
+            style={styles.more}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showAll }}>
+            <Text style={styles.moreText}>{t('mosque.allToday')}</Text>
+            <Ionicons name={showAll ? 'chevron-up' : 'chevron-down'} size={16} color={panelMuted} />
+          </Pressable>
+        )}
 
-        {showAll ? (
+        {showAllPrayers || showAll ? (
           <View style={styles.rowHead}>
             <Text style={styles.rowHeadName}>{t('mosque.prayer')}</Text>
             <Text style={styles.rowHeadTime}>{t('mosque.azan')}</Text>
             <Text style={styles.rowHeadTime}>{t('mosque.namaz')}</Text>
           </View>
         ) : null}
-        {showAll
+        {showAllPrayers || showAll
           ? PRAYERS.map((name) => {
               const times = slotTimes(mosque, name, now)
               const active = name === focus
@@ -643,33 +665,57 @@ export function MosqueTabCard({
               )
             })
           : null}
-        {showAll && jumaSessions.length > 0 ? (
-          <>
-            <View style={styles.fridayHead}>
-              <Text style={styles.rowHeadName}>{t('admin.friday')}</Text>
-              <Text style={styles.jumaHead}>{t('mosque.azan')}</Text>
-              <Text style={styles.jumaHead}>{t('mosque.khutbah')}</Text>
-              <Text style={styles.jumaHead}>{t('mosque.namaz')}</Text>
-            </View>
-            {jumaSessions.map((session, index) => (
-              <View key={`juma-${index}`} style={styles.row}>
-                <Text style={styles.rowName} numberOfLines={1}>
-                  {jumaSessions.length > 1 ? `${prayerName('Juma')} ${digits(index + 1)}` : prayerName('Juma')}
-                </Text>
-                <Text style={styles.jumaTime} numberOfLines={1}>
-                  {digits(session.azan.trim() || '\u2014')}
-                </Text>
-                <Text style={styles.jumaTime} numberOfLines={1}>
-                  {digits(session.khutba.trim() || '\u2014')}
-                </Text>
-                <Text style={styles.jumaTime} numberOfLines={1}>
-                  {digits(session.namaz.trim() || '\u2014')}
+        {showAllPrayers || (showAll && jumaSessions.length > 0) ? (
+          <View style={styles.jumaBlock}>
+            {jumaSessions.length === 0 ? (
+              <View style={styles.jumaRow}>
+                <Text style={styles.jumaName}>{prayerName('Juma')}</Text>
+                <Text style={styles.noJuma} numberOfLines={1}>
+                  {t('mosque.noJuma')}
                 </Text>
               </View>
-            ))}
-          </>
+            ) : (
+              <>
+                <View style={styles.jumaRow}>
+                  <Text style={styles.jumaTitle}>{prayerName('Juma')}</Text>
+                  <Text style={styles.jumaColHead}>{t('mosque.azan')}</Text>
+                  <Text style={styles.jumaColHead}>{t('mosque.khutbah')}</Text>
+                  <Text style={styles.jumaColHead}>{t('mosque.namaz')}</Text>
+                </View>
+                {jumaSessions.map((session, index) => (
+                  <View key={`juma-${index}`} style={styles.jumaRow}>
+                    <Text style={styles.jumaName}>
+                      {jumaSessions.length > 1 ? digits(index + 1) : prayerName('Juma')}
+                    </Text>
+                    <Text style={styles.jumaCol} numberOfLines={1}>
+                      {digits(session.azan.trim() || '\u2014')}
+                    </Text>
+                    <Text style={styles.jumaCol} numberOfLines={1}>
+                      {digits(session.khutba.trim() || '\u2014')}
+                    </Text>
+                    <Text style={styles.jumaCol} numberOfLines={1}>
+                      {digits(session.namaz.trim() || '\u2014')}
+                    </Text>
+                  </View>
+                ))}
+              </>
+            )}
+          </View>
+        ) : null}
+        {showAllPrayers || showAll ? (
+          <Pressable
+            onPress={(event) => {
+              event.stopPropagation?.()
+              setCorrectionOpen(true)
+            }}
+            accessibilityRole="button"
+            style={styles.suggest}>
+            <Ionicons name="create-outline" size={14} color={panelMuted} />
+            <Text style={styles.moreText}>{t('correction.cardLink')}</Text>
+          </Pressable>
         ) : null}
       </View>
+      <MosqueCorrectionSheet mosque={mosque} visible={correctionOpen} onClose={() => setCorrectionOpen(false)} />
     </View>
   )
 }
@@ -848,35 +894,52 @@ const useStyles = makeStyles(({ mode }) => {
       paddingVertical: 8,
     },
     moreText: { fontFamily: F.semi, fontSize: 13, color: panelMuted },
-    rowHead: {
-      flexDirection: 'row',
-      paddingTop: 4,
-      paddingBottom: 2,
-      paddingHorizontal: 4,
-    },
-    rowHeadName: { flex: 1, fontFamily: F.semi, fontSize: 10, letterSpacing: 0.6, textTransform: 'uppercase', color: panelMuted },
-    rowHeadTime: { width: 88, textAlign: 'right', fontFamily: F.semi, fontSize: 10, letterSpacing: 0.6, textTransform: 'uppercase', color: panelMuted },
-    fridayHead: {
+    suggest: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: 6,
-      paddingTop: 10,
-      paddingBottom: 2,
-      paddingHorizontal: 4,
+      justifyContent: 'center',
+      gap: 6,
+      marginTop: 2,
+      paddingVertical: 2,
+    },
+    share: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: chip,
+    },
+    rowHead: {
+      flexDirection: 'row',
+      paddingTop: 2,
+      paddingBottom: 0,
+      paddingHorizontal: 2,
+    },
+    rowHeadName: { flex: 1, fontFamily: F.semi, fontSize: 10, letterSpacing: 0.6, textTransform: 'uppercase', color: panelMuted },
+    rowHeadTime: { width: 76, textAlign: 'right', fontFamily: F.semi, fontSize: 10, letterSpacing: 0.6, textTransform: 'uppercase', color: panelMuted },
+    jumaBlock: {
+      marginTop: 2,
+      paddingTop: 4,
       borderTopWidth: 1,
       borderTopColor: dark ? 'rgba(255,255,255,0.08)' : 'rgba(15,31,46,0.09)',
     },
-    jumaHead: { width: 72, textAlign: 'right', fontFamily: F.semi, fontSize: 10, letterSpacing: 0.4, textTransform: 'uppercase', color: panelMuted },
-    jumaTime: { width: 72, textAlign: 'right', fontFamily: F.medium, fontSize: 12, color: panelMuted },
+    jumaRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 2, paddingHorizontal: 2, gap: 4 },
+    jumaTitle: { flex: 1, fontFamily: F.semi, fontSize: 10, letterSpacing: 0.6, textTransform: 'uppercase', color: panelMuted },
+    jumaName: { flex: 1, fontFamily: F.semi, fontSize: 13, color: panelInk },
+    jumaColHead: { width: 74, textAlign: 'right', fontFamily: F.semi, fontSize: 9, letterSpacing: 0.3, textTransform: 'uppercase', color: panelMuted },
+    jumaCol: { width: 74, textAlign: 'right', fontFamily: F.medium, fontSize: 12, color: panelMuted },
+    noJuma: { flex: 1, textAlign: 'right', fontFamily: F.medium, fontSize: 12, color: panelMuted },
     row: {
       flexDirection: 'row',
-      paddingVertical: 10,
-      paddingHorizontal: 4,
-      borderTopWidth: 1,
+      alignItems: 'center',
+      paddingVertical: 3,
+      paddingHorizontal: 2,
+      borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: dark ? 'rgba(255,255,255,0.08)' : 'rgba(15,31,46,0.09)',
     },
-    rowName: { flex: 1, fontFamily: F.semi, fontSize: 14, color: panelInk },
-    rowTime: { width: 88, textAlign: 'right', fontFamily: F.medium, fontSize: 14, color: panelMuted },
+    rowName: { flex: 1, fontFamily: F.semi, fontSize: 13, color: panelInk },
+    rowTime: { width: 76, textAlign: 'right', fontFamily: F.medium, fontSize: 13, color: panelMuted },
     rowNow: { color: '#9A5B00', fontFamily: F.bold },
   }
 })

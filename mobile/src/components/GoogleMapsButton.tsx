@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
 import { Image, Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native'
-import { radius } from '@/src/constants/theme'
+import { paperColors, radius } from '@/src/constants/theme'
 import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import type { Mosque, TravelMode } from '@/src/types'
@@ -131,7 +131,9 @@ export function GoogleMapsButton({
   )
 }
 
-const useStyles = makeStyles(({ colors, shadows }) => ({
+const useStyles = makeStyles(({ colors, shadows, mode }) => {
+  const paper = paperColors(mode)
+  return {
   wrap: { alignItems: 'center', minWidth: 52 },
   iconShell: {
     alignItems: 'center',
@@ -241,14 +243,11 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: radius.sm,
-    backgroundColor: colors.surface2,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.soft,
+    borderRadius: 999,
+    backgroundColor: paper.chip,
   },
   chipIcon: { width: 24, height: 24 },
-  chipLabel: { fontSize: 12, fontWeight: '800', color: colors.textPrimary },
+  chipLabel: { fontFamily: 'Figtree_700Bold', fontSize: 13, color: paper.ink },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -264,4 +263,5 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
   },
   buttonIcon: { width: 28, height: 28 },
   buttonLabel: { fontSize: 14, fontWeight: '800', color: colors.textPrimary },
-}))
+  }
+})

@@ -81,7 +81,7 @@ const useStyles = makeStyles(({ colors }) => ({
     alignItems: 'center',
     marginBottom: 12,
   },
-  addText: { color: '#fff', fontWeight: '800' },
+  addText: {color: '#fff', fontWeight: '800' },
   error: { color: colors.accent, marginBottom: 8 },
   card: {
     backgroundColor: colors.surface2,
@@ -91,6 +91,6 @@ const useStyles = makeStyles(({ colors }) => ({
     padding: 14,
     marginBottom: 8,
   },
-  name: { fontWeight: '800', fontSize: 15 },
-  meta: { color: colors.textMuted, fontSize: 12, marginTop: 4 },
+  name: {color: colors.textPrimary, fontWeight: '800', fontSize: 15 },
+  meta: {color: colors.textMuted, fontSize: 12, marginTop: 4 },
 }))

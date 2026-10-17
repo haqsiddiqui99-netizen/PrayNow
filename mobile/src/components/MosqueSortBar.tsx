@@ -11,7 +11,7 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { ScrollRevealRow } from '@/src/components/ScrollRevealRow'
-import { radius } from '@/src/constants/theme'
+import { paperColors, radius } from '@/src/constants/theme'
 import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { MOSQUE_SORT_OPTIONS, type MosqueSortMode } from '@/src/utils/mosqueSort'
@@ -39,8 +39,9 @@ export function MosqueSortBar({
   showIcons?: boolean
 }) {
   const styles = useStyles()
-  const { colors } = useTheme()
-  const resolvedHintBackgroundColor = hintBackgroundColor ?? colors.surface0
+  const { mode } = useTheme()
+  const paper = paperColors(mode)
+  const resolvedHintBackgroundColor = hintBackgroundColor ?? paper.page
   const { t } = useLanguage()
   const options = modes
     ? MOSQUE_SORT_OPTIONS.filter((option) => modes.includes(option.id))
@@ -122,7 +123,7 @@ export function MosqueSortBar({
                   <Ionicons
                     name={icon}
                     size={16}
-                    color={active ? colors.selectedText : colors.textMuted}
+                    color={active ? paper.onInk : paper.muted}
                   />
                 ) : null}
                 <Text
@@ -138,14 +139,14 @@ export function MosqueSortBar({
         {showLeftHint ? (
           <View style={[styles.edgeHint, styles.edgeHintLeft, styles.noPointerEvents]}>
             <View style={[styles.edgeFade, { backgroundColor: resolvedHintBackgroundColor }]} />
-            <Ionicons name="chevron-back" size={14} color={colors.textMuted} />
+            <Ionicons name="chevron-back" size={14} color={paper.muted} />
           </View>
         ) : null}
 
         {showRightHint ? (
           <View style={[styles.edgeHint, styles.edgeHintRight, styles.noPointerEvents]}>
             <View style={[styles.edgeFade, { backgroundColor: resolvedHintBackgroundColor }]} />
-            <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+            <Ionicons name="chevron-forward" size={14} color={paper.muted} />
           </View>
         ) : null}
       </View>
@@ -153,7 +154,9 @@ export function MosqueSortBar({
   )
 }
 
-const useStyles = makeStyles(({ colors }) => ({
+const useStyles = makeStyles(({ mode }) => {
+  const paper = paperColors(mode)
+  return {
   wrap: { marginTop: 12 },
   wrapCompact: { marginTop: 0, width: '100%', minWidth: 0 },
   scrollShell: {
@@ -167,9 +170,9 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   scrollCompact: { flex: 1, minWidth: 0 },
   label: {
+    fontFamily: 'Figtree_700Bold',
     fontSize: 11,
-    fontWeight: '700',
-    color: colors.textMuted,
+    color: paper.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
     marginHorizontal: 16,
@@ -186,9 +189,7 @@ const useStyles = makeStyles(({ colors }) => ({
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: radius.pill,
-    backgroundColor: colors.surface2,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: paper.chip,
   },
   chipCompact: {
     paddingHorizontal: 10,
@@ -196,12 +197,11 @@ const useStyles = makeStyles(({ colors }) => ({
     gap: 6,
   },
   chipActive: {
-    backgroundColor: colors.selectedBg,
-    borderColor: colors.selectedBg,
+    backgroundColor: paper.ink,
   },
-  chipText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
-  chipTextCompact: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
-  chipTextActive: { color: colors.selectedText, fontWeight: '700' },
+  chipText: { fontFamily: 'Figtree_700Bold', fontSize: 13, color: paper.ink },
+  chipTextCompact: { fontFamily: 'Figtree_700Bold', fontSize: 13, color: paper.ink },
+  chipTextActive: { color: paper.onInk },
   edgeHint: {
     position: 'absolute',
     top: 0,
@@ -227,4 +227,5 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   // `pointerEvents` as a prop is deprecated on web; `style.pointerEvents` replaces it.
   noPointerEvents: { pointerEvents: 'none' },
-}))
+  }
+})

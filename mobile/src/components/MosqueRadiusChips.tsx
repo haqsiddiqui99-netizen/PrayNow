@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native'
-import { radius } from '@/src/constants/theme'
+import { paperColors, radius } from '@/src/constants/theme'
 import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles } from '@/src/context/ThemeContext'
 import {
@@ -284,7 +284,9 @@ const TRACK_H = 3
 const TICK = 8
 const LABEL_W = 70
 
-const useStyles = makeStyles(({ colors }) => ({
+const useStyles = makeStyles(({ mode }) => {
+  const paper = paperColors(mode)
+  return {
   wrap: {
     width: '100%',
     overflow: 'visible',
@@ -311,12 +313,12 @@ const useStyles = makeStyles(({ colors }) => ({
     top: (RAIL_H - TRACK_H) / 2,
     height: TRACK_H,
     borderRadius: 2,
-    backgroundColor: colors.border,
+    backgroundColor: paper.line,
   },
   trackFill: {
     height: '100%',
     borderRadius: 2,
-    backgroundColor: colors.selectedBg,
+    backgroundColor: paper.ink,
   },
   thumbWrap: {
     position: 'absolute',
@@ -332,13 +334,13 @@ const useStyles = makeStyles(({ colors }) => ({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: colors.selectedBg,
+    backgroundColor: paper.ink,
     borderWidth: 3,
-    borderColor: '#fff',
+    borderColor: paper.card,
     ...(Platform.OS === 'web'
       ? { boxShadow: '0 1px 5px rgba(30, 41, 59, 0.35)' }
       : {
-          shadowColor: colors.headerBg,
+          shadowColor: paper.ink,
           shadowOpacity: 0.35,
           shadowRadius: 5,
           shadowOffset: { width: 0, height: 1 },
@@ -362,9 +364,9 @@ const useStyles = makeStyles(({ colors }) => ({
     width: TICK,
     height: TICK,
     borderRadius: TICK / 2,
-    backgroundColor: colors.surface2,
+    backgroundColor: paper.card,
     borderWidth: 1.5,
-    borderColor: colors.border,
+    borderColor: paper.line,
   },
   tickHidden: {
     opacity: 0,
@@ -393,16 +395,16 @@ const useStyles = makeStyles(({ colors }) => ({
     alignItems: 'flex-end',
   },
   km: {
+    fontFamily: 'Figtree_600SemiBold',
     fontSize: 9,
-    fontWeight: '600',
-    color: colors.textMuted,
+    color: paper.muted,
     textAlign: 'center',
   },
   kmFirst: { textAlign: 'left' },
   kmLast: { textAlign: 'right' },
   kmSelected: {
-    color: colors.pageAccent,
-    fontWeight: '800',
+    fontFamily: 'Figtree_700Bold',
+    color: paper.ink,
   },
   chipFullRow: {
     flexDirection: 'row',
@@ -435,9 +437,7 @@ const useStyles = makeStyles(({ colors }) => ({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface2,
+    backgroundColor: paper.chip,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -446,25 +446,24 @@ const useStyles = makeStyles(({ colors }) => ({
     paddingVertical: 8,
   },
   chipActive: {
-    backgroundColor: colors.selectedBg,
-    borderColor: colors.selectedBg,
+    backgroundColor: paper.ink,
   },
   chipText: {
+    fontFamily: 'Figtree_700Bold',
     fontSize: 13,
-    fontWeight: '700',
-    color: colors.textSecondary,
+    color: paper.ink,
     textAlign: 'center',
   },
   chipTextCompact: {
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     textAlign: 'center',
   },
   chipTextActive: {
-    color: colors.selectedText,
-    fontWeight: '700',
+    color: paper.onInk,
   },
   // `pointerEvents` as a prop is deprecated on web; `style.pointerEvents` replaces it.
   noPointerEvents: { pointerEvents: 'none' },
   boxNonePointerEvents: { pointerEvents: 'box-none' },
-}))
+  }
+})

@@ -830,27 +830,29 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0, onClose }
   }, [])
 
   const deleteChat = useCallback((chat: SavedChat) => {
+    const remove = () => {
+      setChats((prev) => {
+        const next = prev.filter((c) => c.id !== chat.id)
+        void writeChats(next)
+        return next
+      })
+      if (chatIdRef.current === chat.id) {
+        requestRef.current += 1
+        setBusy(false)
+        chatIdRef.current = null
+        turns.current = []
+        setMsgs([])
+        setInput('')
+      }
+    }
+    if (Platform.OS === 'web') {
+      const ok = typeof window !== 'undefined' && window.confirm(`${t('ai.deleteTitle')}\n\n${t('ai.deleteBody')}`)
+      if (ok) remove()
+      return
+    }
     Alert.alert(t('ai.deleteTitle'), t('ai.deleteBody'), [
       { text: t('mosque.cancel'), style: 'cancel' },
-      {
-        text: t('common.delete'),
-        style: 'destructive',
-        onPress: () => {
-          setChats((prev) => {
-            const next = prev.filter((c) => c.id !== chat.id)
-            void writeChats(next)
-            return next
-          })
-          if (chatIdRef.current === chat.id) {
-            requestRef.current += 1
-            setBusy(false)
-            chatIdRef.current = null
-            turns.current = []
-            setMsgs([])
-            setInput('')
-          }
-        },
-      },
+      { text: t('common.delete'), style: 'destructive', onPress: remove },
     ])
   }, [t])
 
@@ -1070,7 +1072,10 @@ export function AIGuideScreen({ ask, topics = TOPICS, bottomInset = 0, onClose }
                         <Text style={styles.histTime}>{chatWhen(chat.updatedAt)}</Text>
                       </Pressable>
                       <Pressable
-                        onPress={() => deleteChat(chat)}
+                        onPress={(event) => {
+                          event.stopPropagation()
+                          deleteChat(chat)
+                        }}
                         accessibilityRole="button"
                         accessibilityLabel={`Delete ${chat.title}`}
                         hitSlop={8}
@@ -1141,7 +1146,7 @@ const useStyles = makeStyles(({ mode }) => {
   histMain: { flex: 1, paddingVertical: 4, paddingRight: 8 },
   histName: { fontFamily: F.semi, fontSize: 15.5, lineHeight: 20, color: C.ink },
   histTime: { fontFamily: F.body, fontSize: 12.5, color: C.faint, marginTop: 2 },
-  histDel: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  histDel: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
   brand: { fontFamily: F.bold, fontSize: 11.5, letterSpacing: 1.6, color: C.muted },
   title: { fontFamily: F.display, fontSize: 23, lineHeight: 26, letterSpacing: -0.2, color: C.ink, marginTop: 1 },
   pad: { paddingHorizontal: 22, paddingTop: 18, paddingBottom: 30, gap: 34, flexGrow: 1 },

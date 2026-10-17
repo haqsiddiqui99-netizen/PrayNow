@@ -33,7 +33,7 @@ function RootStack() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="admin" options={{ headerShown: false }} />
       <Stack.Screen name="mosque/[id]" options={{ headerShown: false }} />
-      <Stack.Screen name="notifications" options={{ headerShown: true, title: t('more.notifications') }} />
+      <Stack.Screen name="notifications" options={{ headerShown: false }} />
       <Stack.Screen name="calendar" options={{ headerShown: false }} />
       <Stack.Screen name="tracker" options={{ headerShown: false }} />
       <Stack.Screen name="ai" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
@@ -41,7 +41,7 @@ function RootStack() {
       <Stack.Screen name="quran" options={{ headerShown: false }} />
       <Stack.Screen name="zakat" options={{ headerShown: false }} />
       <Stack.Screen name="halal" options={{ headerShown: false }} />
-      <Stack.Screen name="submit-mosque" options={{ headerShown: true, title: t('addMosque.title') }} />
+      <Stack.Screen name="submit-mosque" options={{ headerShown: false }} />
     </Stack>
   )
 }

@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } fro
 import { TabBarIcon, type TabBarIconName } from '@/src/components/TabBarIcon'
 import { UserMenu } from '@/src/components/UserMenu'
 import { HEADER_CONTROL_HEIGHT } from '@/src/constants/layout'
-import { radius } from '@/src/constants/theme'
+import { paperColors, radius } from '@/src/constants/theme'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 
 /** Breathing room between the status bar and the first header row. */
@@ -46,7 +46,7 @@ function HeaderShell({ topInset, onMeasureHeight, children }: HeaderShellProps) 
   )
 }
 
-/** Blue pill that shows the active city and opens the city picker. */
+/** Navy pill that shows the active city and opens the city picker. */
 export function LocationPill({
   text,
   onPress,
@@ -57,7 +57,8 @@ export function LocationPill({
   style?: StyleProp<ViewStyle>
 }) {
   const styles = useStyles()
-  const { colors } = useTheme()
+  const { mode } = useTheme()
+  const paper = paperColors(mode)
 
   return (
     <Pressable
@@ -66,11 +67,11 @@ export function LocationPill({
       hitSlop={6}
       accessibilityRole="button"
       accessibilityLabel={`Location ${text}. Tap to change`}>
-      <Ionicons name="location-sharp" size={14} color={colors.selectedText} />
+      <Ionicons name="location-sharp" size={14} color={paper.onInk} />
       <Text style={styles.locationText} numberOfLines={1}>
         {text}
       </Text>
-      <Ionicons name="chevron-down" size={13} color={colors.selectedText} />
+      <Ionicons name="chevron-down" size={13} color={paper.onInk} />
     </Pressable>
   )
 }
@@ -175,14 +176,15 @@ export function ScreenHeader({
   )
 }
 
-const useStyles = makeStyles(({ colors, shadows }) => ({
+const useStyles = makeStyles(({ mode }) => {
+  const paper = paperColors(mode)
+  return {
   shell: {
-    backgroundColor: colors.surface2,
+    backgroundColor: paper.page,
     paddingHorizontal: 16,
     paddingBottom: HEADER_BOTTOM_PAD,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-    ...shadows.soft,
+    borderBottomColor: paper.line,
   },
   topRow: {
     flexDirection: 'row',
@@ -215,11 +217,11 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
     minWidth: 0,
   },
   greetingName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
+    fontFamily: 'Newsreader_600SemiBold',
+    fontSize: 24,
+    lineHeight: 28,
+    color: paper.ink,
     letterSpacing: -0.3,
-    marginTop: -1,
   },
   homeLocation: {
     maxWidth: '42%',
@@ -228,7 +230,7 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
     width: HEADER_CONTROL_HEIGHT,
     height: HEADER_CONTROL_HEIGHT,
     borderRadius: radius.sm,
-    backgroundColor: colors.primary,
+    backgroundColor: paper.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -242,24 +244,24 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
     alignItems: 'center',
   },
   brandName: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: colors.success,
+    fontFamily: 'Newsreader_600SemiBold',
+    fontSize: 26,
+    color: paper.ink,
     letterSpacing: -0.3,
     textAlign: 'center',
   },
   screenTitle: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: colors.textPrimary,
-    letterSpacing: -0.4,
+    fontFamily: 'Newsreader_600SemiBold',
+    fontSize: 26,
+    color: paper.ink,
+    letterSpacing: -0.3,
   },
   screenTitleCentered: { textAlign: 'center' },
   subtitle: {
-    fontSize: 10.5,
-    fontWeight: '600',
-    color: colors.textMuted,
-    letterSpacing: 0.1,
+    fontFamily: 'Figtree_500Medium',
+    fontSize: 12,
+    color: paper.muted,
+    marginTop: 1,
   },
   subtitleCentered: { textAlign: 'center' },
   identityRow: {
@@ -280,13 +282,14 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
     paddingLeft: 10,
     paddingRight: 8,
     borderRadius: radius.pill,
-    backgroundColor: colors.selectedBg,
+    backgroundColor: paper.ink,
     borderWidth: 0,
   },
   locationText: {
     flexShrink: 1,
+    fontFamily: 'Figtree_700Bold',
     fontSize: 12.5,
-    fontWeight: '700',
-    color: colors.selectedText,
+    color: paper.onInk,
   },
-}))
+  }
+})

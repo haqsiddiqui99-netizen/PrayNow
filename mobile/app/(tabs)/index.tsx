@@ -25,7 +25,7 @@ import { MosqueRadiusChips } from '@/src/components/MosqueRadiusChips'
 import { MosqueSortBar } from '@/src/components/MosqueSortBar'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { PrayerHomeCard, prayerDayFromConfig } from '@/src/components/PrayerHomeCard'
-import { radius } from '@/src/constants/theme'
+import { paperColors, radius } from '@/src/constants/theme'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import {
   CITY_RADIUS_KM,
@@ -37,11 +37,13 @@ import {
 import { useCityPrayer } from '@/src/context/CityPrayerContext'
 import { useLanguage } from '@/src/context/LanguageContext'
 import type { TranslationKey } from '@/src/i18n/translations'
+import { filterMosquesByFacilities, type FacilityFilterId } from '@/src/utils/facilities'
 import { hijriOf } from '@/src/utils/hijriCalendar'
 import { useLocation } from '@/src/hooks/useLocation'
 import { useMosques } from '@/src/hooks/useMosques'
 import type { Mosque } from '@/src/types'
 import { getLivePrayerInfo } from '@/src/utils/prayerSchedule'
+import { shareToWhatsApp, todayTimesMessage } from '@/src/utils/share'
 import {
   filterMosquesBySect,
   sortMosques,
@@ -61,14 +63,16 @@ const HOME_SORT_MODES: ReadonlyArray<MosqueSortMode> = [
 
 export default function HomeScreen() {
   const styles = useStyles()
-  const { colors, mode } = useTheme()
+  const { mode } = useTheme()
+  const paper = paperColors(mode)
   const router = useRouter()
   const navigation = useNavigation()
   const insets = useSafeAreaInsets()
   const tabBarHeight = useBottomTabBarHeight()
   const scrollRef = useRef<ScrollView>(null)
   const scrollY = useRef(new Animated.Value(0)).current
-  const { t, formatRadius, placeName, digits } = useLanguage()
+  const lang = useLanguage()
+  const { t, formatRadius, placeName, digits } = lang
   const { config: cityPrayer, reload: reloadCityPrayer } = useCityPrayer()
   const {
     location,
@@ -84,6 +88,7 @@ export default function HomeScreen() {
   const [prayerInfo, setPrayerInfo] = useState(() => getLivePrayerInfo(new Date(), cityPrayer))
   const [sortMode, setSortMode] = useState<MosqueSortMode>('nearest')
   const [sectFilter, setSectFilter] = useState<MosqueSectFilter>('all')
+  const [facilityFilter, setFacilityFilter] = useState<FacilityFilterId[]>([])
   const [radiusKm, setRadiusKm] = useState<MosqueRadiusKm>(DEFAULT_MOSQUE_RADIUS_KM)
   const [filterOpen, setFilterOpen] = useState(false)
   const [filterAnchor, setFilterAnchor] = useState<FilterDropdownAnchor | null>(null)
@@ -147,7 +152,7 @@ export default function HomeScreen() {
     }
   }, [cityPrayer])
 
-  const filtered = filterMosquesBySect(mosques, sectFilter)
+  const filtered = filterMosquesByFacilities(filterMosquesBySect(mosques, sectFilter), facilityFilter)
   const nearbyByRadius = filterMosquesByRadius(sortMosques(filtered, sortMode), radiusKm)
   const searchQuery = mosqueSearch.trim().toLowerCase()
   const nearbyAll = searchQuery
@@ -165,7 +170,7 @@ export default function HomeScreen() {
       : nearbyAll.slice(0, HOME_NEARBY_PREVIEW_LIMIT)
   const nearbyTotal = nearbyAll.length
   const activeFilterCount =
-    (sectFilter !== 'all' ? 1 : 0) + (radiusKm !== DEFAULT_MOSQUE_RADIUS_KM ? 1 : 0)
+    (sectFilter !== 'all' ? 1 : 0) + (radiusKm !== DEFAULT_MOSQUE_RADIUS_KM ? 1 : 0) + facilityFilter.length
   const locationLine = locLoading
     ? t('common.updating')
     : location.region && location.region !== location.city
@@ -208,7 +213,7 @@ export default function HomeScreen() {
       style={styles.filterBtn}
       onPress={openFilter}
       hitSlop={6}>
-      <Ionicons name="options-outline" size={16} color={colors.textSecondary} />
+      <Ionicons name="options-outline" size={16} color={paper.ink} />
       <Text style={styles.filterBtnText}>{t('common.filter')}</Text>
       {activeFilterCount > 0 && (
         <View style={styles.filterBadge}>
@@ -252,10 +257,10 @@ export default function HomeScreen() {
             onRefresh={() => {
               void refreshHome()
             }}
-            tintColor={colors.primary}
-            colors={[colors.primary, colors.primaryLight]}
+            tintColor={paper.ink}
+            colors={[paper.ink]}
             progressViewOffset={Platform.OS === 'android' ? headerHeight : 0}
-            progressBackgroundColor={colors.surface2}
+            progressBackgroundColor={paper.card}
           />
         }>
         <View style={{ height: headerHeight }} />
@@ -267,6 +272,17 @@ export default function HomeScreen() {
             lon={cityPrayer.lng}
             storage={AsyncStorage}
           />
+          <Pressable
+            onPress={() =>
+              void shareToWhatsApp(
+                todayTimesMessage(lang, location.supportedCity?.name ?? cityPrayer.city, cityPrayer.prayerSchedule, hijriToday),
+              )
+            }
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.shareToday, pressed && { opacity: 0.8 }]}>
+            <Ionicons name="logo-whatsapp" size={15} color={paper.ink} />
+            <Text style={styles.shareTodayText}>{t('share.today')}</Text>
+          </Pressable>
         </View>
 
         <View style={styles.mosqueList}>
@@ -284,7 +300,7 @@ export default function HomeScreen() {
           </View>
           {nearbyRadius}
           <View style={styles.searchWrap}>
-            <Ionicons name="search" size={15} color={colors.textMuted} style={styles.searchIcon} />
+            <Ionicons name="search" size={15} color={paper.muted} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
               placeholder={
@@ -292,7 +308,7 @@ export default function HomeScreen() {
                   ? t('home.searchInCity')
                   : t('home.searchInRange')
               }
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={paper.faint}
               value={mosqueSearch}
               onChangeText={setMosqueSearch}
               returnKeyType="search"
@@ -302,7 +318,7 @@ export default function HomeScreen() {
             />
             {mosqueSearch.length > 0 ? (
               <Pressable onPress={() => setMosqueSearch('')} hitSlop={8} accessibilityLabel={t('common.clearSearch')}>
-                <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+                <Ionicons name="close-circle" size={16} color={paper.muted} />
               </Pressable>
             ) : null}
           </View>
@@ -316,7 +332,7 @@ export default function HomeScreen() {
           )}
           </View>
           {loading && nearbyTotal === 0 ? (
-            <ActivityIndicator color={colors.primary} style={styles.loader} />
+            <ActivityIndicator color={paper.ink} style={styles.loader} />
           ) : (
             nearby.map((m) => (
               <MosqueCard
@@ -350,7 +366,12 @@ export default function HomeScreen() {
         anchor={filterAnchor}
         sectFilter={sectFilter}
         onChangeSect={setSectFilter}
-        onClearAll={() => setSectFilter('all')}
+        facilities={facilityFilter}
+        onChangeFacilities={setFacilityFilter}
+        onClearAll={() => {
+          setSectFilter('all')
+          setFacilityFilter([])
+        }}
         onClose={() => setFilterOpen(false)}
       />
 
@@ -371,8 +392,10 @@ export default function HomeScreen() {
   )
 }
 
-const useStyles = makeStyles(({ colors, mode }) => ({
-  page: { flex: 1, backgroundColor: colors.surface0 },
+const useStyles = makeStyles(({ mode }) => {
+  const paper = paperColors(mode)
+  return {
+  page: { flex: 1, backgroundColor: paper.page },
   headerWrap: {
     position: 'absolute',
     top: 0,
@@ -384,6 +407,18 @@ const useStyles = makeStyles(({ colors, mode }) => ({
   scroll: { flex: 1 },
   section: { paddingHorizontal: 14, marginTop: 12 },
   prayerSection: { marginTop: 12 },
+  shareToday: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: paper.chip,
+  },
+  shareTodayText: { fontFamily: 'Figtree_700Bold', fontSize: 13, color: paper.ink },
   nearbyCard: {
     marginTop: 0,
     marginBottom: 0,
@@ -391,10 +426,10 @@ const useStyles = makeStyles(({ colors, mode }) => ({
     paddingTop: 14,
     paddingBottom: 12,
     borderRadius: 0,
-    backgroundColor: mode === 'dark' ? '#122027' : '#FFFFFF',
+    backgroundColor: paper.card,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: mode === 'dark' ? '#24343A' : '#E3E8EF',
+    borderColor: paper.line,
   },
   nearbyHeadingRow: {
     flexDirection: 'row',
@@ -408,14 +443,14 @@ const useStyles = makeStyles(({ colors, mode }) => ({
     fontSize: 22,
     lineHeight: 26,
     fontFamily: 'Newsreader_600SemiBold',
-    color: colors.textPrimary,
+    color: paper.ink,
     letterSpacing: -0.4,
   },
   nearbyCount: {
     flexShrink: 0,
     fontSize: 12,
     fontFamily: 'Figtree_600SemiBold',
-    color: colors.textMuted,
+    color: paper.muted,
   },
 
   filterBtn: {
@@ -428,16 +463,14 @@ const useStyles = makeStyles(({ colors, mode }) => ({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: radius.pill,
-    backgroundColor: colors.surface2,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: paper.chip,
   },
-  filterBtnText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
+  filterBtnText: { fontFamily: 'Figtree_700Bold', fontSize: 13, color: paper.ink },
   filterBadge: {
     minWidth: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: colors.accent,
+    backgroundColor: '#B3261E',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 3,
@@ -455,9 +488,10 @@ const useStyles = makeStyles(({ colors, mode }) => ({
     minWidth: 0,
   },
   emptyNearby: {
+    fontFamily: 'Figtree_500Medium',
     fontSize: 13,
     lineHeight: 19,
-    color: colors.textSecondary,
+    color: paper.muted,
     textAlign: 'center',
     paddingVertical: 16,
     paddingHorizontal: 8,
@@ -467,8 +501,8 @@ const useStyles = makeStyles(({ colors, mode }) => ({
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface1,
-    borderRadius: radius.pill,
+    backgroundColor: paper.chip,
+    borderRadius: 16,
     paddingHorizontal: 14,
     marginTop: 10,
     marginBottom: 8,
@@ -477,14 +511,16 @@ const useStyles = makeStyles(({ colors, mode }) => ({
   searchInput: {
     flex: 1,
     paddingVertical: 10,
+    fontFamily: 'Figtree_500Medium',
     fontSize: 14,
-    color: colors.textPrimary,
+    color: paper.ink,
   },
   peekHint: {
     fontSize: 11,
     fontFamily: 'Figtree_500Medium',
-    color: colors.textMuted,
+    color: paper.muted,
     marginTop: 2,
     lineHeight: 16,
   },
-}))
+  }
+})

@@ -8,6 +8,7 @@ import { useEventWhen, useMosqueEvents } from '@/src/hooks/useMosqueEvents'
 import type { MosqueEvent } from '@/src/services/api'
 import { EVENT_LEAD } from '@/src/services/mosqueEvents'
 import type { Mosque } from '@/src/types'
+import { eventMessage, shareToWhatsApp } from '@/src/utils/share'
 
 const F = {
   medium: 'Figtree_500Medium',
@@ -21,7 +22,8 @@ const PREVIEW = 2
 export function MosqueEventsList({ mosque }: { mosque: Mosque }) {
   const styles = useStyles()
   const { mode } = useTheme()
-  const { t, placeName } = useLanguage()
+  const lang = useLanguage()
+  const { t, placeName } = lang
   const when = useEventWhen()
   const { upcoming, reminding, toggle } = useMosqueEvents(mosque.id)
   const [open, setOpen] = useState(false)
@@ -63,6 +65,17 @@ export function MosqueEventsList({ mosque }: { mosque: Mosque }) {
                 </Text>
               ) : null}
             </View>
+            <Pressable
+              onPress={(press) => {
+                press.stopPropagation?.()
+                void shareToWhatsApp(eventMessage(lang, event, when(next), mosque))
+              }}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t('share.whatsapp')}
+              style={styles.bell}>
+              <Ionicons name="logo-whatsapp" size={15} color={ink} />
+            </Pressable>
             <Pressable
               onPress={(press) => {
                 press.stopPropagation?.()

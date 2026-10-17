@@ -35,6 +35,8 @@ export interface JumaTimings {
 export interface NightTimings {
   tahajjud: { start: string; end: string }
   sehri: { start: string; end: string }
+  /** Fixed iftar clock. Empty when the mosque has not published one. */
+  iftar?: string
 }
 
 /** Ramadan night prayer after Isha. Each mosque finishes on its own schedule. */
@@ -83,5 +85,7 @@ export interface Mosque {
   capacity: number
   timings: MosqueTimings
   nightTimings: NightTimings
+  /** Maghrib azan is sunset plus this many minutes. Null when the mosque prints a clock instead. */
+  maghribOffsetMinutes?: number | null
   taraweeh?: TaraweehSettings
 }

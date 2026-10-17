@@ -4,6 +4,8 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { Ionicons } from '@expo/vector-icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { MosqueCard } from '@/src/components/MosqueCard'
+import { MosqueNeedsSection } from '@/src/components/MosqueNeeds'
+import { MosqueCorrectionSheet } from '@/src/components/MosqueCorrectionSheet'
 import { getOtherMosqueEvents, MosqueFridaySection } from '@/src/components/MosqueFridaySection'
 import { MosqueStaffSection } from '@/src/components/MosqueStaffSection'
 import { MosqueTimingsGrid } from '@/src/components/MosqueTimingsGrid'
@@ -13,7 +15,6 @@ import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { fetchMosques } from '@/src/services/api'
 import type { Mosque } from '@/src/types'
 import { getCurrentPrayerForMosques } from '@/src/utils/prayerSchedule'
-
 export default function MosqueDetailScreen() {
   const styles = useStyles()
   const { colors } = useTheme()
@@ -23,6 +24,7 @@ export default function MosqueDetailScreen() {
   const { t } = useLanguage()
   const [mosque, setMosque] = useState<Mosque | null>(null)
   const [loading, setLoading] = useState(true)
+  const [correctionOpen, setCorrectionOpen] = useState(false)
   const currentPrayer = getCurrentPrayerForMosques()
   const otherEvents = mosque ? getOtherMosqueEvents(mosque.events) : []
 
@@ -100,7 +102,23 @@ export default function MosqueDetailScreen() {
             ))}
           </View>
         ) : null}
+
+        <MosqueNeedsSection mosqueId={mosque.id} />
+
+        <Pressable
+          onPress={() => setCorrectionOpen(true)}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.card, styles.actionRow, pressed && { opacity: 0.85 }]}>
+          <Ionicons name="create-outline" size={18} color={colors.textPrimary} />
+          <View style={styles.actionText}>
+            <Text style={styles.actionTitle}>{t('correction.title')}</Text>
+            <Text style={styles.sectionHint}>{t('correction.entryHint')}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+        </Pressable>
       </ScrollView>
+
+      <MosqueCorrectionSheet mosque={mosque} visible={correctionOpen} onClose={() => setCorrectionOpen(false)} />
     </View>
   )
 }
@@ -118,6 +136,9 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  actionText: { flex: 1, minWidth: 0, gap: 2 },
+  actionTitle: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
   backRow: {
     flexDirection: 'row',
     alignItems: 'center',

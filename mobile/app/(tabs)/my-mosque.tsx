@@ -10,7 +10,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { GradientFill } from '@/src/components/GradientFill'
+import { MosqueCorrectionsManager } from '@/src/components/MosqueCorrectionsManager'
 import { MosqueEventsManager } from '@/src/components/MosqueEventsManager'
+import { MosqueJanazaManager } from '@/src/components/MosqueJanazaManager'
+import { MosqueNeedsManager } from '@/src/components/MosqueNeeds'
 import { TabLiveButton } from '@/src/components/MosqueTabCard'
 import { TimePickerField } from '@/src/components/TimePickerField'
 import { VoiceNotePlayer } from '@/src/components/VoiceNotePlayer'
@@ -41,10 +44,13 @@ const TARAWEH_RAKAHS = [8, 20] as const
 const MAX_VOICE_MS = 120000
 const SUGGESTED_FEATURES = [
   'Wudu Area',
-  'Parking',
+  'Two-wheeler parking',
+  'Four-wheeler parking',
   'Washroom',
   'Women section',
   'Wheelchair access',
+  'Chairs available',
+  'Drinking water',
   'WiFi',
   'Library',
   'AC',
@@ -498,6 +504,18 @@ export default function MyMosqueTab() {
               <Text style={styles.sendText}>{sending ? t('admin.sending') : t('admin.send')}</Text>
             </Pressable>
             {messageNote ? <Text style={styles.ok}>{messageNote}</Text> : null}
+          </Panel>
+
+          <Panel>
+            <MosqueJanazaManager mosque={mosque} />
+          </Panel>
+
+          <Panel>
+            <MosqueCorrectionsManager mosqueId={mosque.id} />
+          </Panel>
+
+          <Panel>
+            <MosqueNeedsManager mosqueId={mosque.id} />
           </Panel>
 
           <Panel>

@@ -12,6 +12,15 @@ import {
   listRequestsForUser,
   normalizeRequestInput,
 } from '../services/mosqueRequests.js'
+import {
+  correctionFieldsFromBody,
+  correctionFromRow,
+  correctionLimitReason,
+  correctionReviewerIds,
+  correctionSummary,
+  fetchCorrectionById,
+} from '../services/mosqueCorrections.js'
+import { notifyUsers } from '../services/notifications.js'
 
 const router = Router()
 const pool = getPool()
@@ -310,6 +319,43 @@ router.post('/me/mosque-requests', authMiddleware, async (req, res) => {
  * Photos of approved requests are public because they end up on the mosque
  * profile; anything still pending or rejected stays visible to admins only.
  */
+// A follower reports a wrong time or detail; the mosque admin (or app owner) is told.
+router.post('/mosques/:id/corrections', authMiddleware, async (req, res) => {
+  const fields = correctionFieldsFromBody(req.body)
+  if (fields.error) return res.status(400).json({ error: fields.error })
+  try {
+    const result = await withClient(async (client) => {
+      const dbId = await resolveMosqueDbId(client, req.params.id)
+      if (!dbId) return { status: 404, error: 'Mosque not found' }
+      const limit = await correctionLimitReason(client, req.user.sub, dbId)
+      if (limit) return { status: 429, error: limit }
+      const id = randomUUID()
+      await client.query(
+        `INSERT INTO mosque_corrections (id, mosque_id, user_id, topic, prayer, suggestion, note)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [id, dbId, req.user.sub, fields.topic, fields.prayer, fields.suggestion, fields.note],
+      )
+      const row = await fetchCorrectionById(client, id)
+      try {
+        const reviewers = (await correctionReviewerIds(client, dbId)).filter((uid) => String(uid) !== String(req.user.sub))
+        await notifyUsers(client, reviewers, dbId, {
+          type: 'correction',
+          title: `Correction for ${row.mosque_name}`.slice(0, 255),
+          body: `${correctionSummary(fields)}${fields.note ? ` · ${fields.note}` : ''}`.slice(0, 500),
+        })
+      } catch (err) {
+        console.warn('[notify] correction alert failed', err instanceof Error ? err.message : err)
+      }
+      return { correction: correctionFromRow(row) }
+    })
+    if (result.error) return res.status(result.status).json({ error: result.error })
+    res.status(201).json(result)
+  } catch (err) {
+    console.error('correction submit failed', err)
+    res.status(500).json({ error: err.message || 'Failed to send the correction' })
+  }
+})
+
 router.get('/mosque-requests/photos/:photoId', optionalAuthMiddleware, async (req, res) => {
   try {
     const photo = await withClient((client) => fetchPhotoWithStatus(client, req.params.photoId))

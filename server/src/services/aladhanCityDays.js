@@ -5,6 +5,7 @@
 import https from 'node:https'
 import { catalogEntry } from '../data/cityCatalog.js'
 import { normalizeCityName, normalizeDayInput, upsertCityDays } from './cityPrayerDays.js'
+import { sunMinutes } from './sunCalc.js'
 
 const DEFAULT_METHOD = Number(process.env.ALADHAN_METHOD || 1)
 
@@ -130,6 +131,69 @@ export function mapAladhanDaysToCityDays(aladhanDays, city) {
       cityName,
     )
   })
+}
+
+function minutesTo12(total) {
+  const m = ((Math.round(total) % (24 * 60)) + 24 * 60) % (24 * 60)
+  return to12({ h: Math.floor(m / 60), min: m % 60 })
+}
+
+function ymdOffset(ymd, deltaDays) {
+  const [y, m, d] = ymd.split('-').map(Number)
+  const next = new Date(Date.UTC(y, m - 1, d + deltaDays))
+  return next.toISOString().slice(0, 10)
+}
+
+async function fetchDayTimings(ymd, lat, lng, method) {
+  const [y, m, d] = ymd.split('-')
+  const url =
+    `https://api.aladhan.com/v1/timings/${d}-${m}-${y}` +
+    `?latitude=${lat}&longitude=${lng}&method=${method}`
+  const json = await fetchJson(url)
+  if (!json?.data?.timings) throw new Error(`Aladhan returned no timings for ${ymd}`)
+  return json.data.timings
+}
+
+/**
+ * Sun-based clocks for one place and date: Maghrib (sunset), Fajr tomorrow and sunrise.
+ * Used by the desk to pre-fill Tahajjud, Sehri and Iftar.
+ */
+export async function fetchSunTimes({ lat, lng, date, method = DEFAULT_METHOD }) {
+  const latitude = Number(lat)
+  const longitude = Number(lng)
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    throw new Error('Latitude and longitude are needed to work out sun times.')
+  }
+  const ymd = /^\d{4}-\d{2}-\d{2}$/.test(String(date || '')) ? String(date) : new Date().toISOString().slice(0, 10)
+  try {
+    const [today, tomorrow] = await Promise.all([
+      fetchDayTimings(ymd, latitude, longitude, method),
+      fetchDayTimings(ymdOffset(ymd, 1), latitude, longitude, method),
+    ])
+    return {
+      date: ymd,
+      source: 'aladhan',
+      sunrise: to12(parse24(today.Sunrise)),
+      fajr: to12(parse24(today.Fajr)),
+      maghrib: to12(parse24(today.Maghrib)),
+      fajrTomorrow: to12(parse24(tomorrow.Fajr)),
+    }
+  } catch (err) {
+    // Aladhan can be blocked (for example by a proxy with its own certificate). Work it out offline instead.
+    const today = sunMinutes({ lat: latitude, lng: longitude, ymd })
+    const tomorrow = sunMinutes({ lat: latitude, lng: longitude, ymd: ymdOffset(ymd, 1) })
+    if (!today || !tomorrow) {
+      throw new Error(`No sunset or Fajr at this latitude on ${ymd}. ${err instanceof Error ? err.message : ''}`.trim())
+    }
+    return {
+      date: ymd,
+      source: 'calculated',
+      sunrise: minutesTo12(today.sunrise),
+      fajr: minutesTo12(today.fajr),
+      maghrib: minutesTo12(today.maghrib),
+      fajrTomorrow: minutesTo12(tomorrow.fajr),
+    }
+  }
 }
 
 /** Fetch all months for a year from Aladhan. */

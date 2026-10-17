@@ -36,7 +36,11 @@ function formatTime(t: string) {
 function getAzanTime(mosque: Mosque, name: PrayerName) {
   const slot = mosque.timings[name]
   const isJuma = name === 'Dhuhr' && isFriday()
-  return isJuma && mosque.jumaTimings.khutba ? mosque.jumaTimings.khutba : slot.azan
+  if (isJuma && mosque.jumaTimings.khutba) return mosque.jumaTimings.khutba
+  if (name === 'Maghrib' && !slot.azan && mosque.maghribOffsetMinutes != null) {
+    return `+${mosque.maghribOffsetMinutes} min`
+  }
+  return slot.azan
 }
 
 function getJamatTime(mosque: Mosque, name: PrayerName) {
@@ -373,10 +377,9 @@ export function MosqueTimingsTable({
       {PRAYERS.map((name) => {
         const slot = mosque.timings[name]
         const active = currentPrayer === name
-        const isJuma = name === 'Dhuhr' && isFriday()
         const label = getPrayerDisplayName(name)
-        const azan = isJuma && mosque.jumaTimings.khutba ? mosque.jumaTimings.khutba : slot.azan
-        const jamat = isJuma && mosque.jumaTimings.namaz ? mosque.jumaTimings.namaz : slot.jamat
+        const azan = getAzanTime(mosque, name)
+        const jamat = getJamatTime(mosque, name)
 
         return (
           <View key={name} style={[styles.tableRow, active && styles.tableRowActive]}>
@@ -389,11 +392,22 @@ export function MosqueTimingsTable({
           </View>
         )
       })}
+      {mosque.nightTimings?.sehri?.end || mosque.nightTimings?.iftar ? (
+        <Text style={styles.fixedLine}>
+          {[
+            mosque.nightTimings.sehri.end ? `${t('timings.sehri')} ${digits(mosque.nightTimings.sehri.end)}` : '',
+            mosque.nightTimings.iftar ? `${t('timings.eftari')} ${digits(mosque.nightTimings.iftar)}` : '',
+          ]
+            .filter(Boolean)
+            .join('   ·   ')}
+        </Text>
+      ) : null}
     </View>
   )
 }
 
 const useStyles = makeStyles(({ colors }) => ({
+  fixedLine: { marginTop: 8, fontSize: 13, color: colors.textMuted, fontFamily: 'Figtree_600SemiBold' },
   currentBlock: { marginTop: 4, gap: 2 },
   currentBlockProminent: { marginTop: 0, gap: 6, flex: 1 },
   // Matches the mosque name header's family/weight (Poppins_500Medium).

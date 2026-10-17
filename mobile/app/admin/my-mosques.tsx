@@ -134,9 +134,9 @@ const useStyles = makeStyles(({ colors }) => ({
   page: { flex: 1, backgroundColor: colors.surface0 },
   content: { padding: 16, paddingBottom: 32 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: colors.surface0 },
-  redirect: { color: colors.textMuted, fontSize: 13 },
-  lead: { fontSize: 13, color: colors.textSecondary, marginBottom: 12, lineHeight: 18 },
-  error: { color: colors.accent, marginBottom: 10, fontWeight: '600' },
+  redirect: {color: colors.textMuted, fontSize: 13 },
+  lead: {fontSize: 13, color: colors.textSecondary, marginBottom: 12, lineHeight: 18 },
+  error: {color: colors.accent, marginBottom: 10, fontWeight: '600' },
   emptyBox: { marginTop: 28, paddingHorizontal: 12, alignItems: 'center', gap: 14 },
   empty: { textAlign: 'center', color: colors.textSecondary, lineHeight: 20 },
   relogin: {
@@ -145,7 +145,7 @@ const useStyles = makeStyles(({ colors }) => ({
     paddingVertical: 12,
     borderRadius: 10,
   },
-  reloginText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  reloginText: {color: '#fff', fontWeight: '800', fontSize: 13 },
   card: {
     backgroundColor: colors.surface2,
     borderRadius: radius.md,
@@ -155,7 +155,7 @@ const useStyles = makeStyles(({ colors }) => ({
     marginBottom: 10,
   },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  name: { flex: 1, fontSize: 16, fontWeight: '800', color: colors.textPrimary },
+  name: {flex: 1, fontSize: 16, fontWeight: '800', color: colors.textPrimary },
   chip: {
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -164,9 +164,9 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   chipLive: { backgroundColor: colors.successBg, borderColor: colors.success },
   chipOff: { backgroundColor: 'rgba(148,163,184,0.15)', borderColor: colors.border },
-  chipText: { fontSize: 10, fontWeight: '800', color: colors.textMuted, letterSpacing: 0.4 },
+  chipText: {fontSize: 10, fontWeight: '800', color: colors.textMuted, letterSpacing: 0.4 },
   chipTextLive: { color: colors.success },
-  meta: { marginTop: 6, fontSize: 12, color: colors.textMuted },
+  meta: {marginTop: 6, fontSize: 12, color: colors.textMuted },
   actions: { flexDirection: 'row', gap: 8, marginTop: 12 },
   actionBtn: {
     flex: 1,
@@ -178,5 +178,5 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   actionAzan: { backgroundColor: colors.success },
   actionTime: { backgroundColor: colors.primary },
-  actionText: { color: '#fff', fontWeight: '800', fontSize: 13, textAlign: 'center' },
+  actionText: {color: '#fff', fontWeight: '800', fontSize: 13, textAlign: 'center' },
 }))

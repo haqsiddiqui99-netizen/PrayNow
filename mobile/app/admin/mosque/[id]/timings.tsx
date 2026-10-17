@@ -293,9 +293,8 @@ const useStyles = makeStyles(({ colors }) => ({
   page: { flex: 1, backgroundColor: colors.surface0 },
   content: { padding: 12, paddingBottom: 28 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 16, fontWeight: '800', marginBottom: 10, color: colors.textPrimary },
-  sectionTitle: {
-    marginTop: 10,
+  title: {fontSize: 16, fontWeight: '800', marginBottom: 10, color: colors.textPrimary },
+  sectionTitle: {marginTop: 10,
     marginBottom: 6,
     fontSize: 11,
     fontWeight: '800',
@@ -324,8 +323,7 @@ const useStyles = makeStyles(({ colors }) => ({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  colLabel: {
-    flex: 1,
+  colLabel: {flex: 1,
     fontSize: 10,
     fontWeight: '800',
     color: colors.primary,
@@ -342,8 +340,7 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   rowAlt: { backgroundColor: 'rgba(148,163,184,0.08)', borderRadius: 8 },
   jumaRow: { backgroundColor: 'transparent' },
-  prayerName: {
-    flex: 0.85,
+  prayerName: {flex: 0.85,
     fontWeight: '800',
     color: colors.primary,
     fontSize: 13,
@@ -355,7 +352,7 @@ const useStyles = makeStyles(({ colors }) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  removeText: { color: colors.accent, fontWeight: '800', fontSize: 18, lineHeight: 20 },
+  removeText: {color: colors.accent, fontWeight: '800', fontSize: 18, lineHeight: 20 },
   addJuma: {
     marginTop: 4,
     marginBottom: 4,
@@ -367,7 +364,7 @@ const useStyles = makeStyles(({ colors }) => ({
     alignItems: 'center',
     backgroundColor: colors.surface2,
   },
-  addJumaText: { color: colors.primary, fontWeight: '800', fontSize: 12 },
+  addJumaText: {color: colors.primary, fontWeight: '800', fontSize: 12 },
   save: {
     marginTop: 12,
     backgroundColor: colors.primary,
@@ -375,11 +372,11 @@ const useStyles = makeStyles(({ colors }) => ({
     paddingVertical: 13,
     alignItems: 'center',
   },
-  saveText: { color: '#fff', fontWeight: '800' },
-  error: { color: colors.accent, fontWeight: '600', marginTop: 8 },
-  ok: { color: colors.success, fontWeight: '700', marginTop: 8 },
-  taraweehHint: { fontSize: 12, color: colors.textMuted, lineHeight: 17, marginBottom: 10, marginTop: 8 },
-  fieldLabel: { fontSize: 12, fontWeight: '700', color: colors.textSecondary, marginTop: 10, marginBottom: 6 },
+  saveText: {color: '#fff', fontWeight: '800' },
+  error: {color: colors.accent, fontWeight: '600', marginTop: 8 },
+  ok: {color: colors.success, fontWeight: '700', marginTop: 8 },
+  taraweehHint: {fontSize: 12, color: colors.textMuted, lineHeight: 17, marginBottom: 10, marginTop: 8 },
+  fieldLabel: {fontSize: 12, fontWeight: '700', color: colors.textSecondary, marginTop: 10, marginBottom: 6 },
   toggle: {
     borderRadius: 12,
     borderWidth: 1,
@@ -389,7 +386,7 @@ const useStyles = makeStyles(({ colors }) => ({
     backgroundColor: colors.surface0,
   },
   toggleOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  toggleText: { fontWeight: '800', color: colors.textPrimary },
+  toggleText: {fontWeight: '800', color: colors.textPrimary },
   toggleTextOn: { color: '#fff' },
   choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   choice: {
@@ -403,7 +400,7 @@ const useStyles = makeStyles(({ colors }) => ({
     alignItems: 'center',
   },
   choiceOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  choiceText: { fontWeight: '800', color: colors.textPrimary },
+  choiceText: {fontWeight: '800', color: colors.textPrimary },
   choiceTextOn: { color: '#fff' },
   nightRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
   step: {
@@ -416,6 +413,6 @@ const useStyles = makeStyles(({ colors }) => ({
     justifyContent: 'center',
     backgroundColor: colors.surface0,
   },
-  stepText: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
-  nightValue: { fontSize: 16, fontWeight: '800', color: colors.textPrimary },
+  stepText: {fontSize: 20, fontWeight: '700', color: colors.textPrimary },
+  nightValue: {fontSize: 16, fontWeight: '800', color: colors.textPrimary },
 }))

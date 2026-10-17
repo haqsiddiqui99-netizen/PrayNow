@@ -8,7 +8,7 @@ async function loadMosqueExtras(client, mosqueId) {
     [mosqueId],
   )
   const { rows: nightRows } = await client.query(
-    `SELECT tahajjud_start, tahajjud_end, sehri_start, sehri_end
+    `SELECT tahajjud_start, tahajjud_end, sehri_start, sehri_end, iftar_time
      FROM mosque_night_timings WHERE mosque_id = $1`,
     [mosqueId],
   )
@@ -137,9 +137,14 @@ function mapMosqueRow(row, timingRows = [], night = null) {
     photos: Array.isArray(row.photos) ? row.photos : [],
     isActive: row.is_active,
     timings,
+    maghribOffsetMinutes:
+      row.maghrib_offset_minutes == null || row.maghrib_offset_minutes === ''
+        ? null
+        : Number(row.maghrib_offset_minutes),
     nightTimings: {
       tahajjud: { start: night?.tahajjud_start || '', end: night?.tahajjud_end || '' },
       sehri: { start: night?.sehri_start || '', end: night?.sehri_end || '' },
+      iftar: night?.iftar_time || '',
     },
     taraweeh: {
       enabled: Boolean(row.taraweeh_enabled),
@@ -237,12 +242,40 @@ export async function upsertMosqueTimings(client, mosqueId, timings) {
 export async function upsertNightTimings(client, mosqueId, nightTimings) {
   if (!nightTimings) return
   const n = nightTimings
+  const tahajjud = n.tahajjud || {}
+  const sehri = n.sehri || {}
+  const hasIftar = n.iftar !== undefined
   await client.query(
-    `INSERT INTO mosque_night_timings (mosque_id, tahajjud_start, tahajjud_end, sehri_start, sehri_end)
-     VALUES ($1,$2,$3,$4,$5) ON CONFLICT (mosque_id) DO UPDATE SET
+    `INSERT INTO mosque_night_timings (mosque_id, tahajjud_start, tahajjud_end, sehri_start, sehri_end, iftar_time)
+     VALUES ($1,$2,$3,$4,$5,COALESCE($6, '')) ON CONFLICT (mosque_id) DO UPDATE SET
        tahajjud_start=EXCLUDED.tahajjud_start, tahajjud_end=EXCLUDED.tahajjud_end,
-       sehri_start=EXCLUDED.sehri_start, sehri_end=EXCLUDED.sehri_end`,
-    [mosqueId, n.tahajjud.start, n.tahajjud.end || n.tahajjud.jamat || '', n.sehri.start, n.sehri.end],
+       sehri_start=EXCLUDED.sehri_start, sehri_end=EXCLUDED.sehri_end,
+       iftar_time = CASE WHEN $7 THEN EXCLUDED.iftar_time ELSE mosque_night_timings.iftar_time END`,
+    [
+      mosqueId,
+      tahajjud.start || '',
+      tahajjud.end || tahajjud.jamat || '',
+      sehri.start || '',
+      sehri.end || '',
+      hasIftar ? n.iftar || '' : null,
+      hasIftar,
+    ],
+  )
+}
+
+/** Blank clears the gap. A mosque that prints a Maghrib clock can leave this empty. */
+export async function saveMaghribOffset(client, mosqueId, value) {
+  let offset = null
+  if (value !== null && value !== undefined && value !== '') {
+    const n = Number(value)
+    if (!Number.isInteger(n) || n < 0 || n > 45) {
+      throw new Error('Maghrib minutes after sunset must be a whole number from 0 to 45')
+    }
+    offset = n
+  }
+  await client.query(
+    `UPDATE mosques SET maghrib_offset_minutes = $2, updated_at = NOW() WHERE id = $1`,
+    [mosqueId, offset],
   )
 }
 

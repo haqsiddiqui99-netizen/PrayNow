@@ -333,6 +333,29 @@ function windowOf(start: string, end: string) {
   return { start: s, end: e };
 }
 
+/**
+ * The night runs from Maghrib to the next Fajr. Split in half it gives midnight; split in thirds, the last
+ * third starts at two thirds of the way through. Minutes may pass 1440 (they roll into the next day).
+ * Example: Maghrib 6:13 PM and Fajr 5:22 AM give midnight 11:48 PM and the last third from 1:39 AM.
+ */
+export function nightWindow(prayers: PrayerWindow[]) {
+  const maghrib = prayers.find((p) => p.key === 'maghrib');
+  const fajr = prayers.find((p) => p.key === 'fajr');
+  const isha = prayers.find((p) => p.key === 'isha');
+  if (!maghrib || !fajr) return null;
+  const nextFajr = fajr.start + 1440;
+  // Isha ends at tomorrow's Fajr when the calendar has that day; otherwise today's Fajr stands in.
+  const end = isha && Math.abs(isha.end - nextFajr) <= 15 ? isha.end : nextFajr;
+  const length = end - maghrib.start;
+  if (length <= 0) return null;
+  return {
+    start: maghrib.start,
+    end,
+    midnight: Math.round(maghrib.start + length / 2),
+    lastThird: Math.round(maghrib.start + (length * 2) / 3),
+  };
+}
+
 export function prayerDayFromConfig(config: CityPrayerConfig, hijri: string): PrayerDay {
   const prayers = config.prayerSchedule.map((p) => ({
     ...PRAYER_META[p.name],
@@ -340,6 +363,15 @@ export function prayerDayFromConfig(config: CityPrayerConfig, hijri: string): Pr
     ...windowOf(p.start, p.end),
   }));
   const maghrib = prayers.find((p) => p.key === 'maghrib')?.start ?? parseTime(config.sunrise) + 12 * 60;
+  const night = nightWindow(prayers);
+  const tahajjud: ExtraWindow[] = night
+    ? [
+        { name: 'Tahajjud', note: 'Midnight starts', kind: 'optional', icon: 'star-four-points-outline', start: night.midnight, end: night.end },
+        { name: 'Last third of night', note: 'Best time for Tahajjud', kind: 'optional', icon: 'star-shooting-outline', start: night.lastThird, end: night.end },
+      ]
+    : [
+        { name: 'Tahajjud', note: 'Night prayer', kind: 'optional', icon: 'star-four-points-outline', ...windowOf(config.nightTimings.tahajjud.start, config.nightTimings.tahajjud.end) },
+      ];
   return {
     hijri,
     prayers,
@@ -350,7 +382,7 @@ export function prayerDayFromConfig(config: CityPrayerConfig, hijri: string): Pr
       iftar: maghrib,
     },
     extras: [
-      { name: 'Tahajjud', note: 'Night prayer', kind: 'optional', icon: 'star-four-points-outline', ...windowOf(config.nightTimings.tahajjud.start, config.nightTimings.tahajjud.end) },
+      ...tahajjud,
       { name: 'Tulu Aftab', note: 'Sun is rising', kind: 'avoid', icon: 'weather-sunset-up', ...windowOf(config.tuluAftab.start, config.tuluAftab.end) },
       { name: 'Ishraq', note: 'After sunrise', kind: 'optional', icon: 'white-balance-sunny', ...windowOf(config.ishraq.start, config.ishraq.end) },
       { name: 'Chasht', note: 'Forenoon prayer', kind: 'optional', icon: 'weather-partly-cloudy', ...windowOf(config.chasht.start, config.chasht.end) },
@@ -393,6 +425,12 @@ const EXTRA_NOTES: Record<string, TranslationKey> = {
   Zawal: 'extra.sunPeak',
 };
 
+/** Notes written into the schedule itself (the night split), looked up by their English text. */
+const NOTE_KEYS: Record<string, TranslationKey> = {
+  'Midnight starts': 'extra.midnightStarts',
+  'Best time for Tahajjud': 'extra.lastThirdNote',
+};
+
 function useClock() {
   const { t, prayerName, formatDuration, language, digits } = useLanguage();
   return useMemo(() => {
@@ -404,9 +442,10 @@ function useClock() {
     const t12L = (min: number) => `${hmL(min)} ${merL(min)}`;
     const rangeL = (a: number, b: number) =>
       mer(a) === mer(b) ? `${hmL(a)} – ${hmL(b)} ${merL(b)}` : `${t12L(a)} – ${t12L(b)}`;
-    const nameOf = (name: string) => (name === 'Tulu Aftab' ? t('timings.tuluAftab') : prayerName(name));
+    const nameOf = (name: string) =>
+      name === 'Tulu Aftab' ? t('timings.tuluAftab') : name === 'Last third of night' ? t('extra.lastThird') : prayerName(name);
     const noteOf = (name: string, fallback: string) => {
-      const key = EXTRA_NOTES[name];
+      const key = NOTE_KEYS[fallback] ?? EXTRA_NOTES[name];
       return key ? t(key) : fallback;
     };
     const moonOf = (name: string) => {
@@ -469,7 +508,7 @@ type SkyCfg = {
 };
 
 const SKY: Record<SkyKey, SkyCfg> = {
-  fajr: { grad: ['#D9E6FA', '#EBDDF0', '#FBE3D6'], ink: '#1F2D4D', ink2: 'rgba(31,45,77,0.72)', sil: '#6679A3', sun1: '#FFF4D6', sun2: '#FFB98A', sunO: 0.9, moonO: 0, stars: 0, sx: 0.2, sy: 178, glass: 'rgba(255,255,255,0.55)', glassLine: 'rgba(255,255,255,0.8)', track: 'rgba(31,45,77,0.14)' },
+  fajr: { grad: ['#D9E6FA', '#EBDDF0', '#FCD8C2'], ink: '#1F2D4D', ink2: 'rgba(31,45,77,0.72)', sil: '#6679A3', sun1: '#FFEFC9', sun2: '#FF9E66', sunO: 0.95, moonO: 0, stars: 0, sx: 0.2, sy: 212, glass: 'rgba(255,255,255,0.55)', glassLine: 'rgba(255,255,255,0.8)', track: 'rgba(31,45,77,0.14)' },
   dhuhr: { grad: ['#C6E4FB', '#E4F2FD', '#FFF4D2'], ink: '#17324A', ink2: 'rgba(23,50,74,0.72)', sil: '#5B87AE', sun1: '#FFFBD6', sun2: '#FFD54A', sunO: 1, moonO: 0, stars: 0, sx: 0.52, sy: 46, glass: 'rgba(255,255,255,0.6)', glassLine: 'rgba(255,255,255,0.85)', track: 'rgba(23,50,74,0.14)' },
   asr: { grad: ['#FBEBC4', '#F8D6A5', '#F3BFA0'], ink: '#3A2415', ink2: 'rgba(58,36,21,0.72)', sil: '#A0714F', sun1: '#FFEAB3', sun2: '#FFA94D', sunO: 1, moonO: 0, stars: 0, sx: 0.74, sy: 98, glass: 'rgba(255,255,255,0.55)', glassLine: 'rgba(255,255,255,0.8)', track: 'rgba(58,36,21,0.14)' },
   maghrib: { grad: ['#FFE6D2', '#FBC9B4', '#E7B2C8'], ink: '#2B2142', ink2: 'rgba(43,33,66,0.72)', sil: '#6C5A96', sun1: '#FFE3A8', sun2: '#FF9358', sunO: 1, moonO: 0, stars: 0, sx: 0.3, sy: 206, glass: 'rgba(255,255,255,0.5)', glassLine: 'rgba(255,255,255,0.75)', track: 'rgba(43,33,66,0.14)' },
@@ -683,12 +722,15 @@ const Hero = memo(function Hero(p: HeroProps) {
 const Strip = memo(function Strip({
   prayers,
   cur,
+  doneBefore,
   sel,
   reminders,
   onSelect,
 }: {
   prayers: PrayerWindow[];
   cur: number;
+  /** Indexes below this are finished. Equals `cur` except in the Chasht gap, when Fajr is passed and no prayer is current. */
+  doneBefore: number;
   sel: number;
   reminders: ReadonlySet<string>;
   onSelect: (i: number) => void;
@@ -700,7 +742,7 @@ const Strip = memo(function Strip({
     <View style={styles.strip} accessibilityRole="tablist">
       {prayers.map((p, i) => {
         const isCur = i === cur;
-        const done = i < cur;
+        const done = i < doneBefore;
         const isSel = i === sel;
         const mark = done ? 'check' : reminders.has(p.key) ? 'bell' : null;
         return (
@@ -1053,6 +1095,14 @@ export function PrayerHomeCard({
   const nowMin = Math.floor(sec / 60);
   const conditions = useSkyConditions({ lat, lon, storage });
   const { cur, t: nowSec } = locate(data.prayers, sec);
+  const fajrWindow = data.prayers.find((prayer) => prayer.key === 'fajr');
+  const dhuhrIndex = data.prayers.findIndex((prayer) => prayer.key === 'dhuhr');
+  const dhuhrWindow = dhuhrIndex >= 0 ? data.prayers[dhuhrIndex] : undefined;
+  const chasht = data.extras.find((extra) => extra.name === 'Chasht');
+  // Fajr's window is over and Dhuhr has not begun: Chasht takes the card.
+  const chashtNow = Boolean(
+    chasht && fajrWindow && dhuhrWindow && nowMin >= fajrWindow.end && nowMin < dhuhrWindow.start,
+  );
 
   const [sel, setSel] = useState<number | null>(null);
   const [reminders, setReminders] = useState<Set<string>>(() => new Set(initialReminders));
@@ -1189,8 +1239,19 @@ export function PrayerHomeCard({
   }, [cur]);
   const selected = sel ?? cur;
   const p = data.prayers[selected];
+  const showChasht = chashtNow && sel === null && chasht != null && dhuhrWindow != null;
 
   const cd = useMemo(() => {
+    if (showChasht && chasht && dhuhrWindow) {
+      const endMin = nowMin < chasht.end ? chasht.end : dhuhrWindow.start;
+      const span = Math.max(60, (chasht.end - chasht.start) * 60);
+      return {
+        kind: 'now' as const,
+        text: clock.mmss(endMin * 60 - nowSec),
+        sub: clock.t('home.left'),
+        progress: clamp01((nowSec - chasht.start * 60) / span),
+      };
+    }
     if (selected === cur) {
       const left = p.end * 60 - nowSec;
       return { kind: 'now' as const, text: clock.mmss(left), sub: clock.t('home.left'), progress: clamp01((nowSec - p.start * 60) / ((p.end - p.start) * 60)) };
@@ -1198,7 +1259,7 @@ export function PrayerHomeCard({
     if (selected < cur) return { kind: 'done' as const, text: '', sub: clock.t('home.completed'), progress: 1 };
     const secs = p.start * 60 - nowSec;
     return { kind: 'later' as const, text: clock.formatDuration(Math.max(1, Math.ceil(secs / 60))), sub: clock.t('home.toStart'), progress: 0 };
-  }, [selected, cur, p, nowSec, clock]);
+  }, [showChasht, chasht, dhuhrWindow, nowMin, selected, cur, p, nowSec, clock]);
 
   const label = selected === cur ? clock.t('home.now') : selected < cur ? clock.t('home.earlierToday') : clock.t('home.laterToday');
   const clockText = (() => {
@@ -1222,7 +1283,7 @@ export function PrayerHomeCard({
   return (
     <View style={styles.card}>
       <Hero
-        sky={p.key}
+        sky={showChasht ? 'dhuhr' : p.key}
         weather={conditions.weather}
         tempC={conditions.tempC}
         weatherLoading={conditions.status === 'loading'}
@@ -1230,12 +1291,19 @@ export function PrayerHomeCard({
         hijri={data.hijri}
         clockText={clockText}
         label={label}
-        title={clock.nameOf(p.name)}
-        windowText={clock.range(p.start, p.end)}
+        title={showChasht ? clock.nameOf('Chasht') : clock.nameOf(p.name)}
+        windowText={showChasht && chasht ? clock.range(chasht.start, chasht.end) : clock.range(p.start, p.end)}
         cd={cd}
       />
 
-      <Strip prayers={data.prayers} cur={cur} sel={selected} reminders={reminders} onSelect={setSel} />
+      <Strip
+        prayers={data.prayers}
+        cur={chashtNow ? -1 : cur}
+        doneBefore={chashtNow ? dhuhrIndex : cur}
+        sel={showChasht ? -1 : selected}
+        reminders={reminders}
+        onSelect={setSel}
+      />
 
       <View style={styles.rem}>
         {selected < cur ? (

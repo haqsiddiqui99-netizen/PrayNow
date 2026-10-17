@@ -539,7 +539,7 @@ export async function registerPushToken(token: string, platform = 'unknown'): Pr
 
 export type AppNotification = {
   id: string
-  type: 'timings' | 'announcement' | 'azan_alert' | 'facilities'
+  type: 'timings' | 'announcement' | 'azan_alert' | 'facilities' | 'correction' | 'janaza'
   title: string
   body: string
   mosqueId: string | null
@@ -670,6 +670,11 @@ export type MosqueRequestInput = {
   ownerMobile: string
   ownerEmail: string
   notes: string
+  facilities: string[]
+  timings: Record<'Fajr' | 'Dhuhr' | 'Asr' | 'Maghrib' | 'Isha', { azan: string; jamat: string }>
+  nightTimings: { sehriEnd: string; iftar: string }
+  /** Minutes after sunset for Maghrib azan. Null when the mosque has not set one. */
+  maghribOffsetMinutes: number | null
   /** Each entry is a `data:image/...;base64,` URL produced on the device. */
   photos: string[]
 }
@@ -686,6 +691,10 @@ export type MosqueRequest = {
   ownerMobile: string
   ownerEmail: string
   notes: string
+  facilities: string[]
+  timings?: Record<string, { azan?: string; jamat?: string }> | null
+  nightTimings?: { sehriEnd?: string; iftar?: string } | null
+  maghribOffsetMinutes?: number | null
   status: MosqueRequestStatus
   reviewNote: string
   reviewedAt: string | null
@@ -754,5 +763,180 @@ export async function rejectMosqueRequest(id: string, reviewNote = ''): Promise<
     body: JSON.stringify({ reviewNote }),
   })
   if (!res.ok) await parseError(res, 'Failed to reject request')
+}
+
+// --- Corrections reported by followers ---
+
+export type CorrectionTopic = 'jamaat' | 'juma' | 'address' | 'phone' | 'facilities' | 'other'
+export type CorrectionStatus = 'pending' | 'fixed' | 'dismissed'
+
+export type MosqueCorrection = {
+  id: string
+  mosqueId: string
+  mosqueName: string
+  topic: CorrectionTopic
+  prayer: PrayerName | null
+  suggestion: string
+  note: string
+  status: CorrectionStatus
+  /** First name only. */
+  reporterName: string
+  createdAt: string
+  resolvedAt: string | null
+}
+
+export async function submitCorrection(
+  mosqueId: string,
+  body: { topic: CorrectionTopic; prayer?: PrayerName | null; suggestion: string; note: string },
+): Promise<MosqueCorrection> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/mosques/${mosqueId}/corrections`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) await parseError(res, 'Failed to send the correction')
+  return ((await res.json()) as { correction: MosqueCorrection }).correction
+}
+
+export async function fetchMosqueCorrections(
+  mosqueId: string,
+  status: CorrectionStatus | 'all' = 'pending',
+): Promise<MosqueCorrection[]> {
+  const res = await fetchWithTimeout(
+    `${getApiBaseUrl()}/api/manager/mosques/${mosqueId}/corrections?status=${status}`,
+    { headers: await authHeaders(false) },
+  )
+  if (!res.ok) await parseError(res, 'Failed to load corrections')
+  return ((await res.json()) as { corrections?: MosqueCorrection[] }).corrections ?? []
+}
+
+/** App owner queue; `unmanaged` shows only mosques without an admin. */
+export async function fetchAdminCorrections(
+  scope: 'unmanaged' | 'all' = 'unmanaged',
+  status: CorrectionStatus | 'all' = 'pending',
+): Promise<MosqueCorrection[]> {
+  const res = await fetchWithTimeout(
+    `${getApiBaseUrl()}/api/admin/corrections?scope=${scope}&status=${status}`,
+    { headers: await authHeaders(false) },
+  )
+  if (!res.ok) await parseError(res, 'Failed to load corrections')
+  return ((await res.json()) as { corrections?: MosqueCorrection[] }).corrections ?? []
+}
+
+// --- Janaza (funeral prayer) announcements ---
+
+export type MosqueJanaza = {
+  id: string
+  mosqueId: string
+  mosqueName: string
+  deceasedName: string
+  afterPrayer: PrayerName | null
+  /** ISO time of the prayer. */
+  prayerAt: string
+  burial: string
+  note: string
+  createdAt: string
+}
+
+export async function fetchActiveJanaza(): Promise<MosqueJanaza[]> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/janaza`)
+  if (!res.ok) await parseError(res, 'Failed to load janaza')
+  return ((await res.json()) as { janaza?: MosqueJanaza[] }).janaza ?? []
+}
+
+export async function postJanaza(
+  mosqueId: string,
+  body: { deceasedName: string; afterPrayer: PrayerName | null; prayerAt: string; burial: string; note: string },
+): Promise<{ janaza: MosqueJanaza; notified: number }> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/manager/mosques/${mosqueId}/janaza`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) await parseError(res, 'Failed to post janaza')
+  return (await res.json()) as { janaza: MosqueJanaza; notified: number }
+}
+
+export async function deleteJanaza(mosqueId: string, janazaId: string): Promise<void> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/manager/mosques/${mosqueId}/janaza/${janazaId}`, {
+    method: 'DELETE',
+    headers: await authHeaders(false),
+  })
+  if (!res.ok) await parseError(res, 'Failed to remove janaza')
+}
+
+// --- Needs board ---
+
+export type NeedKind = 'volunteers' | 'fundraising' | 'items' | 'other'
+
+export type MosqueNeed = {
+  id: string
+  mosqueId: string
+  kind: NeedKind
+  title: string
+  details: string
+  /** Empty or an https link. */
+  link: string
+  status: 'open' | 'closed'
+  createdAt: string
+  updatedAt: string
+}
+
+export type MosqueNeedInput = { kind: NeedKind; title: string; details: string; link: string }
+
+export async function fetchMosqueNeeds(mosqueId: string): Promise<MosqueNeed[]> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/mosques/${mosqueId}/needs`)
+  if (!res.ok) await parseError(res, 'Failed to load needs')
+  return ((await res.json()) as { needs?: MosqueNeed[] }).needs ?? []
+}
+
+export async function fetchManagerNeeds(mosqueId: string): Promise<MosqueNeed[]> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/manager/mosques/${mosqueId}/needs`, {
+    headers: await authHeaders(false),
+  })
+  if (!res.ok) await parseError(res, 'Failed to load needs')
+  return ((await res.json()) as { needs?: MosqueNeed[] }).needs ?? []
+}
+
+export async function createNeed(mosqueId: string, body: MosqueNeedInput): Promise<MosqueNeed> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/manager/mosques/${mosqueId}/needs`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) await parseError(res, 'Failed to add need')
+  return ((await res.json()) as { need: MosqueNeed }).need
+}
+
+export async function updateNeed(
+  mosqueId: string,
+  needId: string,
+  body: Partial<MosqueNeedInput> & { status?: 'open' | 'closed' },
+): Promise<MosqueNeed> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/manager/mosques/${mosqueId}/needs/${needId}`, {
+    method: 'PATCH',
+    headers: await authHeaders(),
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) await parseError(res, 'Failed to update need')
+  return ((await res.json()) as { need: MosqueNeed }).need
+}
+
+export async function deleteNeed(mosqueId: string, needId: string): Promise<void> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/manager/mosques/${mosqueId}/needs/${needId}`, {
+    method: 'DELETE',
+    headers: await authHeaders(false),
+  })
+  if (!res.ok) await parseError(res, 'Failed to remove need')
+}
+
+export async function resolveCorrection(id: string, status: 'fixed' | 'dismissed'): Promise<MosqueCorrection> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/manager/corrections/${id}`, {
+    method: 'PATCH',
+    headers: await authHeaders(),
+    body: JSON.stringify({ status }),
+  })
+  if (!res.ok) await parseError(res, 'Failed to update the correction')
+  return ((await res.json()) as { correction: MosqueCorrection }).correction
 }
 

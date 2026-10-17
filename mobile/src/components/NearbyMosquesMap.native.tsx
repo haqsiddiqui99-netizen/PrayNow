@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Platform, StyleSheet, Text, View } from 'react-native'
 import MapView, { Marker, PROVIDER_GOOGLE, type Region } from 'react-native-maps'
 import { GoogleMapsButton } from '@/src/components/GoogleMapsButton'
-import { radius } from '@/src/constants/theme'
+import { paperColors } from '@/src/constants/theme'
 import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import type { Mosque } from '@/src/types'
@@ -48,7 +48,8 @@ export function NearbyMosquesMap({
   onOpenInGoogleMaps,
 }: Props) {
   const styles = useStyles()
-  const { colors } = useTheme()
+  const { mode } = useTheme()
+  const paper = paperColors(mode)
   const { t, placeName } = useLanguage()
   const mapRef = useRef<MapView>(null)
 
@@ -95,7 +96,7 @@ export function NearbyMosquesMap({
               coordinate={{ latitude: m.lat, longitude: m.lng }}
               title={placeName(m.name)}
               description={placeName(m.area || m.address)}
-              pinColor={selected ? colors.accent : colors.headerBg}
+              pinColor={selected ? paper.ink : paper.muted}
               onPress={() => onSelectMosque(m)}
             />
           )
@@ -121,15 +122,16 @@ export function NearbyMosquesMap({
   )
 }
 
-const useStyles = makeStyles(({ colors, shadows }) => ({
+const useStyles = makeStyles(({ mode }) => {
+  const paper = paperColors(mode)
+  return {
   wrap: {
     height: 320,
-    borderRadius: radius.lg,
+    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface1,
-    ...shadows.soft,
+    borderColor: paper.line,
+    backgroundColor: paper.chip,
   },
   map: { flex: 1 },
   googleBtnWrap: {
@@ -138,15 +140,16 @@ const useStyles = makeStyles(({ colors, shadows }) => ({
     alignSelf: 'center',
   },
   emptyOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surfaceScrim,
+    backgroundColor: mode === 'dark' ? 'rgba(12,24,24,0.82)' : 'rgba(246,244,240,0.82)',
   },
   emptyText: {
-    color: colors.textSecondary,
-    fontWeight: '600',
+    fontFamily: 'Figtree_500Medium',
+    color: paper.muted,
     fontSize: 13,
   },
   noPointerEvents: { pointerEvents: 'none' },
-}))
+  }
+})

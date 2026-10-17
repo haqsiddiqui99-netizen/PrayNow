@@ -20,7 +20,7 @@ import { MosqueFilterSheet, type FilterDropdownAnchor } from '@/src/components/M
 import { MosqueRadiusChips } from '@/src/components/MosqueRadiusChips'
 import { MosqueSortBar } from '@/src/components/MosqueSortBar'
 import { NearbyMosquesMap } from '@/src/components/NearbyMosquesMap'
-import { radius } from '@/src/constants/theme'
+import { paperColors, radius } from '@/src/constants/theme'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import {
   CITY_RADIUS_KM,
@@ -32,6 +32,7 @@ import { useLanguage } from '@/src/context/LanguageContext'
 import { useLocation } from '@/src/hooks/useLocation'
 import { useMosques } from '@/src/hooks/useMosques'
 import type { Mosque } from '@/src/types'
+import { filterMosquesByFacilities, type FacilityFilterId } from '@/src/utils/facilities'
 import { openNearbyMosquesOnMap } from '@/src/utils/maps'
 import {
   filterMosquesBySect,
@@ -46,7 +47,8 @@ const DEFAULT_TRAVEL_MODE = 'driving' as const
 
 export default function MosquesScreen() {
   const styles = useStyles()
-  const { colors, mode } = useTheme()
+  const { mode } = useTheme()
+  const paper = paperColors(mode)
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const tabBarHeight = useBottomTabBarHeight()
@@ -56,6 +58,7 @@ export default function MosquesScreen() {
   const { mosques, loading, reload, citySupported, detectedCity } = useMosques(location)
   const [sortMode, setSortMode] = useState<MosqueSortMode>('nearest')
   const [sectFilter, setSectFilter] = useState<MosqueSectFilter>('all')
+  const [facilityFilter, setFacilityFilter] = useState<FacilityFilterId[]>([])
   const [radiusKm, setRadiusKm] = useState<MosqueRadiusKm>(DEFAULT_MOSQUE_RADIUS_KM)
   const [filterOpen, setFilterOpen] = useState(false)
   const [filterAnchor, setFilterAnchor] = useState<FilterDropdownAnchor | null>(null)
@@ -63,7 +66,7 @@ export default function MosquesScreen() {
   const [peekMosque, setPeekMosque] = useState<Mosque | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
 
-  const filteredByMadhab = filterMosquesBySect(mosques, sectFilter)
+  const filteredByMadhab = filterMosquesByFacilities(filterMosquesBySect(mosques, sectFilter), facilityFilter)
   const filteredByRadius = filterMosquesByRadius(sortMosques(filteredByMadhab, sortMode), radiusKm)
   const searchQuery = mosqueSearch.trim().toLowerCase()
   const filtered = searchQuery
@@ -76,7 +79,7 @@ export default function MosquesScreen() {
     : filteredByRadius
 
   const activeFilterCount =
-    (sectFilter !== 'all' ? 1 : 0) + (radiusKm !== DEFAULT_MOSQUE_RADIUS_KM ? 1 : 0)
+    (sectFilter !== 'all' ? 1 : 0) + (radiusKm !== DEFAULT_MOSQUE_RADIUS_KM ? 1 : 0) + facilityFilter.length
 
   const emptyRadiusText =
     radiusKm >= CITY_RADIUS_KM
@@ -85,7 +88,9 @@ export default function MosquesScreen() {
 
   const emptyListText = searchQuery
     ? t('mosques.emptySearch', { query: mosqueSearch.trim() })
-    : sectFilter !== 'all'
+    : facilityFilter.length
+      ? t('filter.emptyFacilities')
+      : sectFilter !== 'all'
       ? t('mosques.emptyMadhab')
       : emptyRadiusText
 
@@ -124,7 +129,15 @@ export default function MosquesScreen() {
     <ScrollView
       style={styles.page}
       contentContainerStyle={{ paddingBottom: tabBarHeight + 12 }}
-      refreshControl={<RefreshControl refreshing={loading} onRefresh={() => { void reload() }} />}>
+      refreshControl={
+        <RefreshControl
+          refreshing={loading}
+          onRefresh={() => { void reload() }}
+          tintColor={paper.ink}
+          colors={[paper.ink]}
+          progressBackgroundColor={paper.card}
+        />
+      }>
       <ScreenHeader
         title={t('screens.mosquesTitle')}
         subtitle={
@@ -145,13 +158,13 @@ export default function MosquesScreen() {
           value={sortMode}
           onChange={setSortMode}
           compact
-          hintBackgroundColor={mode === 'dark' ? colors.surface0 : '#F1F3F7'}
+          hintBackgroundColor={paper.page}
         />
       </View>
 
       <View style={styles.toolRow}>
         <Pressable ref={filterBtnRef} style={styles.filterBtn} onPress={openFilter} hitSlop={6}>
-          <Ionicons name="options-outline" size={16} color={colors.textSecondary} />
+          <Ionicons name="options-outline" size={16} color={paper.ink} />
           <Text style={styles.filterBtnText}>{t('common.filter')}</Text>
           {activeFilterCount > 0 && (
             <View style={styles.filterBadge}>
@@ -168,7 +181,7 @@ export default function MosquesScreen() {
               <Ionicons
                 name="list"
                 size={16}
-                color={viewMode === 'list' ? colors.selectedText : colors.textMuted}
+                color={viewMode === 'list' ? paper.onInk : paper.muted}
               />
             </Pressable>
             <Pressable
@@ -177,7 +190,7 @@ export default function MosquesScreen() {
               <Ionicons
                 name="map"
                 size={16}
-                color={viewMode === 'map' ? colors.selectedText : colors.textMuted}
+                color={viewMode === 'map' ? paper.onInk : paper.muted}
               />
             </Pressable>
           </View>
@@ -190,7 +203,7 @@ export default function MosquesScreen() {
             <CityUnavailableBanner detectedCity={detectedCity} country={location.country} />
           )}
           <View style={styles.searchWrap}>
-            <Text style={styles.searchIcon}>⌕</Text>
+            <Ionicons name="search" size={15} color={paper.muted} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
               placeholder={
@@ -198,7 +211,7 @@ export default function MosquesScreen() {
                   ? t('home.searchInCity')
                   : t('home.searchInRange')
               }
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={paper.faint}
               value={mosqueSearch}
               onChangeText={setMosqueSearch}
               returnKeyType="search"
@@ -208,7 +221,7 @@ export default function MosquesScreen() {
             />
             {mosqueSearch.length > 0 ? (
               <Pressable onPress={() => setMosqueSearch('')} hitSlop={8} accessibilityLabel={t('common.clearSearch')}>
-                <Text style={styles.searchClear}>✕</Text>
+                <Ionicons name="close-circle" size={16} color={paper.muted} />
               </Pressable>
             ) : null}
           </View>
@@ -242,7 +255,7 @@ export default function MosquesScreen() {
             <CityUnavailableBanner detectedCity={detectedCity} country={location.country} />
           )}
           <View style={styles.searchWrap}>
-            <Text style={styles.searchIcon}>⌕</Text>
+            <Ionicons name="search" size={15} color={paper.muted} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
               placeholder={
@@ -250,7 +263,7 @@ export default function MosquesScreen() {
                   ? t('home.searchInCity')
                   : t('home.searchInRange')
               }
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={paper.faint}
               value={mosqueSearch}
               onChangeText={setMosqueSearch}
               returnKeyType="search"
@@ -260,12 +273,12 @@ export default function MosquesScreen() {
             />
             {mosqueSearch.length > 0 ? (
               <Pressable onPress={() => setMosqueSearch('')} hitSlop={8} accessibilityLabel={t('common.clearSearch')}>
-                <Text style={styles.searchClear}>✕</Text>
+                <Ionicons name="close-circle" size={16} color={paper.muted} />
               </Pressable>
             ) : null}
           </View>
           {loading && !filtered.length ? (
-            <ActivityIndicator color={colors.headerBg} style={styles.loader} />
+            <ActivityIndicator color={paper.ink} style={styles.loader} />
           ) : filtered.length === 0 ? (
             <Text style={styles.emptyText}>{emptyListText}</Text>
           ) : (
@@ -286,8 +299,11 @@ export default function MosquesScreen() {
         anchor={filterAnchor}
         sectFilter={sectFilter}
         onChangeSect={setSectFilter}
+        facilities={facilityFilter}
+        onChangeFacilities={setFacilityFilter}
         onClearAll={() => {
           setSectFilter('all')
+          setFacilityFilter([])
           setRadiusKm(DEFAULT_MOSQUE_RADIUS_KM)
         }}
         onClose={() => setFilterOpen(false)}
@@ -296,8 +312,10 @@ export default function MosquesScreen() {
   )
 }
 
-const useStyles = makeStyles(({ colors, mode }) => ({
-  page: { flex: 1, backgroundColor: mode === 'dark' ? colors.surface0 : '#F1F3F7' },
+const useStyles = makeStyles(({ mode }) => {
+  const paper = paperColors(mode)
+  return {
+  page: { flex: 1, backgroundColor: paper.page },
   radiusRow: {
     paddingHorizontal: 16,
     marginTop: 4,
@@ -322,41 +340,37 @@ const useStyles = makeStyles(({ colors, mode }) => ({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: radius.pill,
-    backgroundColor: colors.surface2,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: paper.chip,
     flexShrink: 0,
     alignSelf: 'center',
   },
-  filterBtnText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
+  filterBtnText: { fontFamily: 'Figtree_700Bold', fontSize: 13, color: paper.ink },
   filterBadge: {
     minWidth: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: colors.accent,
+    backgroundColor: '#B3261E',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 3,
   },
-  filterBadgeText: { fontSize: 8, fontWeight: '800', color: '#fff' },
+  filterBadgeText: { fontFamily: 'Figtree_700Bold', fontSize: 8, color: '#fff' },
   viewToggleCol: {
     alignItems: 'center',
     gap: 2,
     flexShrink: 0,
   },
   viewLabel: {
+    fontFamily: 'Figtree_700Bold',
     fontSize: 8,
-    fontWeight: '700',
-    color: colors.textMuted,
+    color: paper.muted,
     letterSpacing: 0.3,
     textTransform: 'uppercase',
   },
   viewToggle: {
     flexDirection: 'row',
-    backgroundColor: colors.surface2,
+    backgroundColor: paper.chip,
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: 2,
   },
   viewToggleBtn: {
@@ -367,35 +381,30 @@ const useStyles = makeStyles(({ colors, mode }) => ({
     borderRadius: radius.pill,
   },
   viewToggleBtnActive: {
-    backgroundColor: colors.selectedBg,
+    backgroundColor: paper.ink,
   },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface2,
-    borderRadius: radius.md,
+    backgroundColor: paper.card,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: paper.line,
     paddingHorizontal: 10,
     marginBottom: 6,
   },
-  searchIcon: { fontSize: 15, color: colors.textMuted, marginRight: 6 },
+  searchIcon: { marginRight: 8 },
   searchInput: {
     flex: 1,
-    paddingVertical: 8,
-    fontSize: 13,
-    color: colors.textPrimary,
-  },
-  searchClear: {
+    paddingVertical: 10,
+    fontFamily: 'Figtree_500Medium',
     fontSize: 14,
-    fontWeight: '700',
-    color: colors.textMuted,
-    paddingLeft: 8,
+    color: paper.ink,
   },
   peekHint: {
+    fontFamily: 'Figtree_500Medium',
     fontSize: 11,
-    fontWeight: '600',
-    color: colors.textMuted,
+    color: paper.muted,
     marginBottom: 8,
     lineHeight: 16,
   },
@@ -409,20 +418,20 @@ const useStyles = makeStyles(({ colors, mode }) => ({
   mapHint: {
     marginTop: 10,
     textAlign: 'center',
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'Figtree_500Medium',
+    color: paper.muted,
+    fontSize: 13,
   },
-  // Edge-to-edge cards: the list itself carries no side gutter, unlike the
-  // filter/search rows above it which still use paddingHorizontal: 16.
-  list: { paddingHorizontal: 0, paddingTop: 10 },
+  list: { paddingHorizontal: 12, paddingTop: 10 },
   loader: { marginTop: 24 },
   emptyText: {
     marginTop: 24,
     textAlign: 'center',
-    color: colors.textSecondary,
+    fontFamily: 'Figtree_500Medium',
+    color: paper.muted,
     fontSize: 14,
     lineHeight: 20,
     paddingHorizontal: 16,
   },
-}))
+  }
+})

@@ -34,6 +34,7 @@ export default function AdminLayout() {
       <Stack.Screen name="mosques" options={{ title: t('owner.allMosques') }} />
       <Stack.Screen name="mosque-form" options={{ title: t('owner.mosque') }} />
       <Stack.Screen name="mosque-requests" options={{ title: t('owner.requests') }} />
+      <Stack.Screen name="corrections" options={{ title: t('correction.ownerTile') }} />
       <Stack.Screen name="managers" options={{ title: t('owner.admins') }} />
       <Stack.Screen name="city" options={{ title: t('owner.city') }} />
     </Stack>

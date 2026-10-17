@@ -8,6 +8,21 @@ export const MAX_TOTAL_PHOTO_BYTES = 5_000_000
 
 const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
+const FACILITY_OPTIONS = [
+  'Wudu Area',
+  'Washroom',
+  'Parking',
+  'Two-wheeler parking',
+  'Four-wheeler parking',
+  'WiFi',
+  'Wheelchair access',
+  'Chairs available',
+  'Drinking water',
+  'Women section',
+  'Library',
+  'AC',
+]
+
 const DATA_URL_RE = /^data:([a-z]+\/[a-z0-9.+-]+);base64,(.*)$/i
 
 class RequestValidationError extends Error {
@@ -27,6 +42,83 @@ function text(value, { field, max, required = false }) {
   if (required && !trimmed) throw new RequestValidationError(`${field} is required`)
   if (trimmed.length > max) throw new RequestValidationError(`${field} must be ${max} characters or fewer`)
   return trimmed
+}
+
+/** pg-mem can return TEXT[] as the literal '{}' / '{a,b}' instead of an array. */
+function parseTextArray(value) {
+  if (Array.isArray(value)) return value.map(String)
+  if (typeof value !== 'string') return []
+  const inner = value.trim().replace(/^\{|\}$/g, '')
+  return inner ? inner.split(',').map((item) => item.replace(/^"|"$/g, '').trim()).filter(Boolean) : []
+}
+
+const PRAYER_NAMES = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']
+
+function cleanClock(value, label) {
+  const text = String(value ?? '').trim().replace(/\s+/g, ' ')
+  if (!text) return ''
+  const match = text.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
+  if (!match) throw new RequestValidationError(`${label} is not a clock time`)
+  const hour = Number(match[1])
+  const minute = Number(match[2])
+  if (hour < 1 || hour > 12 || minute > 59) throw new RequestValidationError(`${label} is not a clock time`)
+  return `${hour}:${match[2]} ${match[3].toUpperCase()}`
+}
+
+function prayerTimings(body) {
+  const source = body?.timings && typeof body.timings === 'object' ? body.timings : {}
+  const timings = {}
+  for (const name of PRAYER_NAMES) {
+    const slot = source[name] && typeof source[name] === 'object' ? source[name] : {}
+    timings[name] = {
+      azan: name === 'Maghrib' ? '' : cleanClock(slot.azan, `${name} azan`),
+      jamat: cleanClock(slot.jamat, `${name} jamat`),
+    }
+  }
+  return timings
+}
+
+function maghribOffset(value) {
+  if (value === null || value === undefined || value === '') return null
+  const n = Number(value)
+  if (!Number.isInteger(n) || n < 0 || n > 45) {
+    throw new RequestValidationError('Maghrib minutes after sunset must be a whole number from 0 to 45')
+  }
+  return n
+}
+
+function nightTimes(body) {
+  const night = body?.nightTimings && typeof body.nightTimings === 'object' ? body.nightTimings : {}
+  const sehriEnd = night.sehriEnd ?? night.sehri?.end
+  return {
+    sehriEnd: cleanClock(sehriEnd, 'Sehri'),
+    iftar: cleanClock(night.iftar, 'Iftar'),
+  }
+}
+
+function parseJsonObject(value) {
+  if (!value) return null
+  if (typeof value === 'object') return value
+  try {
+    const parsed = JSON.parse(value)
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function facilities(value) {
+  if (value == null) return []
+  if (!Array.isArray(value)) throw new RequestValidationError('facilities must be an array')
+  const allowed = new Set(FACILITY_OPTIONS)
+  const picked = []
+  for (const item of value) {
+    const name = String(item ?? '').trim()
+    if (!name) continue
+    if (!allowed.has(name)) throw new RequestValidationError('Unknown facility')
+    if (!picked.includes(name)) picked.push(name)
+  }
+  return picked
 }
 
 function coordinate(value, { field, limit }) {
@@ -118,6 +210,10 @@ export function normalizeRequestInput(body) {
     ownerMobile: mobileDigits,
     ownerEmail,
     notes: text(body?.notes, { field: 'Notes', max: 2000 }),
+    facilities: facilities(body?.facilities),
+    timings: prayerTimings(body),
+    nightTimings: nightTimes(body),
+    maghribOffsetMinutes: maghribOffset(body?.maghribOffsetMinutes),
     photos,
   }
 }
@@ -141,11 +237,15 @@ export async function insertMosqueRequest(client, userId, input) {
   await client.query(
     `INSERT INTO mosque_requests
        (id, submitted_by, name, address, area, city, lat, lng,
-        owner_name, owner_mobile, owner_email, notes)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        owner_name, owner_mobile, owner_email, notes, facilities,
+        timings, night_timings, maghrib_offset_minutes)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
     [
       id, userId, input.name, input.address, input.area, input.city, input.lat, input.lng,
-      input.ownerName, input.ownerMobile, input.ownerEmail, input.notes,
+      input.ownerName, input.ownerMobile, input.ownerEmail, input.notes, input.facilities,
+      JSON.stringify(input.timings),
+      JSON.stringify(input.nightTimings),
+      input.maghribOffsetMinutes,
     ],
   )
   for (const [index, photo] of input.photos.entries()) {
@@ -176,6 +276,13 @@ function mapRequestRow(row, photoIds = []) {
     ownerMobile: row.owner_mobile,
     ownerEmail: row.owner_email || '',
     notes: row.notes || '',
+    facilities: parseTextArray(row.facilities),
+    timings: parseJsonObject(row.timings),
+    nightTimings: parseJsonObject(row.night_timings),
+    maghribOffsetMinutes:
+      row.maghrib_offset_minutes == null || row.maghrib_offset_minutes === ''
+        ? null
+        : Number(row.maghrib_offset_minutes),
     status: row.status,
     reviewNote: row.review_note || '',
     reviewedAt: row.reviewed_at,
@@ -256,6 +363,29 @@ export async function markRequestReviewed(client, id, { status, reviewNote, revi
      WHERE id = $1`,
     [id, status, reviewNote, reviewerId, mosqueId],
   )
+}
+
+/** Turns a stored request into the mosque timing rows written on approval. */
+export function scheduleFromRequest(request) {
+  const timings = parseJsonObject(request?.timings)
+  const night = parseJsonObject(request?.night_timings)
+  const slots = {}
+  if (timings) {
+    for (const name of PRAYER_NAMES) {
+      const slot = timings[name] || {}
+      slots[name] = { start: '', azan: slot.azan || '', jamat: slot.jamat || '', end: '' }
+    }
+  }
+  const offset = request?.maghrib_offset_minutes
+  const sehriEnd = night?.sehriEnd || ''
+  const iftar = night?.iftar || ''
+  return {
+    timings: timings ? slots : null,
+    night: sehriEnd || iftar
+      ? { tahajjud: { start: '', end: '' }, sehri: { start: '', end: sehriEnd }, iftar }
+      : null,
+    maghribOffsetMinutes: offset == null || offset === '' ? null : Number(offset),
+  }
 }
 
 export async function requestPhotoIds(client, requestId) {

@@ -13,8 +13,8 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated'
-import { GradientFill } from '@/src/components/GradientFill'
 import { UserMenu } from '@/src/components/UserMenu'
+import { paperColors } from '@/src/constants/theme'
 import { LANGUAGES, type LanguageCode } from '@/src/i18n/translations'
 import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
@@ -124,7 +124,7 @@ function DailyCard({
   const styles = useStyles()
   const { t } = useLanguage()
   const { mode } = useTheme()
-  const dark = mode === 'dark'
+  const paper = paperColors(mode)
   const [kind, setKind] = useState<'verse' | 'hadith'>('verse')
   const item = kind === 'verse' ? verse : hadith
   const opacity = useSharedValue(1)
@@ -141,10 +141,9 @@ function DailyCard({
 
   return (
     <View style={[styles.card, styles.daily]}>
-      <GradientFill colors={dark ? ['#12303A', '#102230', '#1B2142'] : ['#F1FAF7', '#FFFFFF', '#F3F2FF']} />
       <View style={styles.dailyHead}>
         <View style={styles.dailyLabel}>
-          <MaterialCommunityIcons name="creation" size={15} color={dark ? '#5BC9B0' : '#1F7A68'} />
+          <MaterialCommunityIcons name="creation" size={15} color={paper.ink} />
           <Text style={styles.dailyLabelText}>TODAY</Text>
         </View>
         <View style={styles.seg}>
@@ -175,7 +174,7 @@ function DailyCard({
             {item.source}
           </Text>
           <Pressable onPress={() => void share()} accessibilityRole="button" accessibilityLabel={t('common.share')} style={styles.iconBtn}>
-            <MaterialCommunityIcons name="share-variant-outline" size={18} color={dark ? '#9BAEC0' : '#5F6B7A'} />
+            <MaterialCommunityIcons name="share-variant-outline" size={18} color={paper.muted} />
           </Pressable>
         </View>
       </Animated.View>
@@ -236,10 +235,7 @@ export function MoreFeed({
   const { t } = useLanguage()
   const { mode, setMode } = useTheme()
   const dark = mode === 'dark'
-  const accent = dark ? '#5BC9B0' : '#1F7A68'
-  const muted = dark ? '#9BAEC0' : '#5F6B7A'
-  const violet = dark ? '#9C8FFF' : '#6C5CE7'
-  const blue = dark ? '#6DB6F5' : '#2E8FD0'
+  const paper = paperColors(mode)
   const [alerts, setAlerts] = useState(true)
   const [langOpen, setLangOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -293,17 +289,17 @@ export function MoreFeed({
         {showAdmin ? (
           <Animated.View entering={FadeInDown.duration(260)} style={styles.card}>
             <View style={styles.adminHead}>
-              <MaterialCommunityIcons name="shield-check-outline" size={15} color={accent} />
+              <MaterialCommunityIcons name="shield-check-outline" size={15} color={paper.ink} />
               <Text style={styles.adminHeadText}>{t('more.adminTools')}</Text>
             </View>
             {showAppAdmin ? (
               <Pressable onPress={onAppAdmin} accessibilityRole="button" style={styles.adminRow}>
-                <IconChip icon="shield-outline" bg={dark ? 'rgba(109,182,245,0.16)' : 'rgba(46,143,208,0.12)'} fg={blue} />
+                <IconChip icon="shield-outline" bg={paper.chip} fg={paper.ink} />
                 <View style={styles.flex}>
                   <Text style={styles.rowTitle}>{t('more.appAdmin')}</Text>
                   <Text style={styles.rowSub}>{t('more.appAdminSub')}</Text>
                 </View>
-                <MaterialCommunityIcons name="chevron-right" size={20} color={muted} />
+                <MaterialCommunityIcons name="chevron-right" size={20} color={paper.muted} />
               </Pressable>
             ) : null}
           </Animated.View>
@@ -311,7 +307,7 @@ export function MoreFeed({
 
         {guest ? (
           <Animated.View entering={FadeInDown.duration(260)} style={[styles.card, styles.banner]}>
-            <IconChip icon="login" size={42} bg={dark ? 'rgba(91,201,176,0.15)' : 'rgba(31,122,104,0.12)'} fg={accent} />
+            <IconChip icon="login" size={42} bg={paper.chip} fg={paper.ink} />
             <View style={styles.flex}>
               <Text style={styles.rowTitle}>{t('more.syncTitle')}</Text>
               <Text style={styles.rowSub}>{t('more.syncSub')}</Text>
@@ -335,13 +331,13 @@ export function MoreFeed({
                 {t('more.face', { bearing: Math.round(bearing), direction: t((['dir.n', 'dir.ne', 'dir.e', 'dir.se', 'dir.s', 'dir.sw', 'dir.w', 'dir.nw'] as const)[Math.round(bearing / 45) % 8]), city })}
               </Text>
             </View>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={muted} />
+            <MaterialCommunityIcons name="chevron-right" size={20} color={paper.muted} />
           </Pressable>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.duration(280).delay(120)} style={styles.tiles}>
           <Pressable onPress={onAddMosque} accessibilityRole="button" style={[styles.card, styles.tile]}>
-            <IconChip icon="plus-circle-outline" size={42} bg={dark ? 'rgba(156,143,255,0.16)' : 'rgba(108,92,231,0.12)'} fg={violet} />
+            <IconChip icon="plus-circle-outline" size={42} bg={paper.chip} fg={paper.ink} />
             <View>
               <Text style={styles.tileTitle}>{t('addMosque.title')}</Text>
               <Text style={styles.tileSub}>{t('more.addSub')}</Text>
@@ -353,7 +349,7 @@ export function MoreFeed({
                 <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
               </View>
             ) : null}
-            <IconChip icon="bell-outline" size={42} bg={dark ? 'rgba(109,182,245,0.16)' : 'rgba(46,143,208,0.12)'} fg={blue} />
+            <IconChip icon="bell-outline" size={42} bg={paper.chip} fg={paper.ink} />
             <View>
               <Text style={styles.tileTitle}>{t('more.notifications')}</Text>
               <Text style={styles.tileSub}>{t('more.noteSub')}</Text>
@@ -373,7 +369,7 @@ export function MoreFeed({
             ]
           ).map((item) => (
             <Pressable key={item.key} onPress={item.onPress} accessibilityRole="button" style={[styles.card, styles.exploreItem]}>
-              <IconChip icon={item.icon} size={36} bg={dark ? '#1C3330' : '#F3F1EC'} fg={dark ? '#EAF3F0' : '#0F1F2E'} />
+              <IconChip icon={item.icon} size={36} bg={paper.chip} fg={paper.ink} />
               <Text style={styles.exploreTitle}>{item.title}</Text>
               <Text style={styles.exploreSub} numberOfLines={2}>{item.sub}</Text>
             </Pressable>
@@ -383,7 +379,7 @@ export function MoreFeed({
         <Text style={styles.section}>{t('more.settings')}</Text>
         <Animated.View entering={FadeInDown.duration(280).delay(200)} style={styles.card}>
           <View style={styles.settingRow}>
-            <IconChip icon="bell-outline" size={36} bg={dark ? 'rgba(91,201,176,0.15)' : 'rgba(31,122,104,0.12)'} fg={accent} />
+            <IconChip icon="bell-outline" size={36} bg={paper.chip} fg={paper.ink} />
             <Text style={styles.settingTitle}>{t('more.azanAlerts')}</Text>
             <Toggle
               on={alerts}
@@ -395,15 +391,15 @@ export function MoreFeed({
             />
           </View>
           <View style={[styles.settingRow, styles.rowBorder]}>
-            <IconChip icon="weather-night" size={36} bg={dark ? 'rgba(156,143,255,0.16)' : 'rgba(108,92,231,0.12)'} fg={violet} />
+            <IconChip icon="weather-night" size={36} bg={paper.chip} fg={paper.ink} />
             <Text style={styles.settingTitle}>{t('theme.dark')}</Text>
             <Toggle on={dark} label={t('theme.dark')} onChange={(value) => setMode(value ? 'dark' : 'light')} />
           </View>
           <Pressable onPress={() => setLangOpen((open) => !open)} accessibilityRole="button" style={[styles.settingRow, styles.rowBorder]}>
-            <IconChip icon="earth" size={36} bg={dark ? 'rgba(109,182,245,0.16)' : 'rgba(46,143,208,0.12)'} fg={blue} />
+            <IconChip icon="earth" size={36} bg={paper.chip} fg={paper.ink} />
             <Text style={styles.settingTitle}>{t('lang.button')}</Text>
             <Text style={styles.settingValue}>{languageLabel}</Text>
-            <MaterialCommunityIcons name={langOpen ? 'chevron-up' : 'chevron-right'} size={20} color={muted} />
+            <MaterialCommunityIcons name={langOpen ? 'chevron-up' : 'chevron-right'} size={20} color={paper.muted} />
           </Pressable>
           {langOpen
             ? LANGUAGES.map((item) => {
@@ -416,8 +412,8 @@ export function MoreFeed({
                       setLangOpen(false)
                     }}
                     style={[styles.langRow, selected && styles.langOn]}>
-                    <Text style={[styles.langText, selected && { color: accent }]}>{item.nativeLabel}</Text>
-                    <Text style={styles.langSub}>{item.label}</Text>
+                    <Text style={[styles.langText, selected && styles.langTextOn]}>{item.nativeLabel}</Text>
+                    <Text style={[styles.langSub, selected && styles.langSubOn]}>{item.label}</Text>
                   </Pressable>
                 )
               })
@@ -451,15 +447,15 @@ export function MoreFeed({
 }
 
 const useStyles = makeStyles(({ mode }) => {
-  const dark = mode === 'dark'
-  const page = dark ? '#0A1620' : '#F1F3F7'
-  const card = dark ? '#102230' : '#FFFFFF'
-  const ink = dark ? '#EAF1F7' : '#0F1F2E'
-  const muted = dark ? '#9BAEC0' : '#5F6B7A'
-  const faint = dark ? '#6C8196' : '#9AA5B3'
-  const line = dark ? '#1C3346' : '#E7EBF1'
-  const tile = dark ? '#15293A' : '#F5F7FA'
-  const accent = dark ? '#5BC9B0' : '#1F7A68'
+  const paper = paperColors(mode)
+  const page = paper.page
+  const card = paper.card
+  const ink = paper.ink
+  const muted = paper.muted
+  const faint = paper.faint
+  const line = paper.line
+  const tile = paper.chip
+  const onInk = paper.onInk
   return {
     screen: { flex: 1, backgroundColor: page },
     head: {
@@ -471,28 +467,28 @@ const useStyles = makeStyles(({ mode }) => {
       paddingBottom: 8,
     },
     brand: { fontFamily: F.bold, fontSize: 11, letterSpacing: 1.6, color: muted },
-    title: { fontFamily: F.display, fontSize: 23, lineHeight: 26, color: ink, marginTop: 1 },
+    title: { fontFamily: F.display, fontSize: 26, lineHeight: 30, letterSpacing: -0.3, color: ink, marginTop: 1 },
     scroll: { paddingHorizontal: 12, paddingTop: 4 },
-    card: { backgroundColor: card, borderRadius: 24, borderWidth: 1, borderColor: line, marginBottom: 10, overflow: 'hidden' },
+    card: { backgroundColor: card, borderRadius: 20, borderWidth: 1, borderColor: line, marginBottom: 10, overflow: 'hidden' },
     flex: { flex: 1, minWidth: 0 },
     adminHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 12, paddingHorizontal: 16, paddingBottom: 4 },
-    adminHeadText: { fontFamily: F.heavy, fontSize: 12, letterSpacing: 0.6, color: accent },
+    adminHeadText: { fontFamily: F.heavy, fontSize: 12, letterSpacing: 0.6, color: muted },
     adminRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
     rowBorder: { borderTopWidth: 1, borderTopColor: line },
     rowTitle: { fontFamily: F.bold, fontSize: 15, color: ink },
     rowSub: { fontFamily: F.body, fontSize: 12.5, lineHeight: 17, color: muted, marginTop: 2 },
     banner: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, paddingLeft: 14, paddingRight: 12 },
-    signBtn: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 999, backgroundColor: dark ? '#EAF1F7' : '#14232F' },
-    signText: { fontFamily: F.bold, fontSize: 13, color: dark ? '#0F1F2E' : '#FFFFFF' },
+    signBtn: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 999, backgroundColor: ink },
+    signText: { fontFamily: F.bold, fontSize: 13, color: onInk },
     daily: { paddingTop: 14, paddingHorizontal: 16, paddingBottom: 14 },
     dailyHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     dailyLabel: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    dailyLabelText: { fontFamily: F.heavy, fontSize: 12, letterSpacing: 0.4, color: accent },
-    seg: { flexDirection: 'row', padding: 3, borderRadius: 999, backgroundColor: tile, borderWidth: 1, borderColor: line },
+    dailyLabelText: { fontFamily: F.heavy, fontSize: 12, letterSpacing: 0.4, color: ink },
+    seg: { flexDirection: 'row', padding: 3, borderRadius: 999, backgroundColor: tile },
     segBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999 },
-    segBtnOn: { backgroundColor: card },
+    segBtnOn: { backgroundColor: ink },
     segText: { fontFamily: F.bold, fontSize: 12.5, color: muted },
-    segTextOn: { color: ink },
+    segTextOn: { color: onInk },
     arabic: { marginTop: 14, fontSize: 26, lineHeight: 44, color: ink, textAlign: 'right', writingDirection: 'rtl' },
     trans: { marginTop: 8, fontFamily: F.italic, fontSize: 17, lineHeight: 25, color: muted },
     dailyFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 12 },
@@ -520,13 +516,13 @@ const useStyles = makeStyles(({ mode }) => {
     },
     compassN: { marginTop: 6, fontFamily: F.heavy, fontSize: 10, color: muted },
     needle: { position: 'absolute', width: 68, height: 68, alignItems: 'center' },
-    needleNorth: { position: 'absolute', top: 10, width: 0, height: 0, borderLeftWidth: 5, borderRightWidth: 5, borderBottomWidth: 22, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: accent },
+    needleNorth: { position: 'absolute', top: 10, width: 0, height: 0, borderLeftWidth: 5, borderRightWidth: 5, borderBottomWidth: 22, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: ink },
     needleSouth: { position: 'absolute', bottom: 10, width: 0, height: 0, borderLeftWidth: 5, borderRightWidth: 5, borderTopWidth: 22, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: line },
-    needlePivot: { position: 'absolute', top: 30, width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: accent },
+    needlePivot: { position: 'absolute', top: 30, width: 8, height: 8, borderRadius: 4, backgroundColor: card, borderWidth: 1.5, borderColor: ink },
     needleTip: { position: 'absolute', top: 6, width: 6, height: 6, borderRadius: 3, backgroundColor: '#F5B83D' },
     qiblaTitle: { fontFamily: F.display, fontSize: 20, color: ink },
     qiblaSub: { fontFamily: F.body, fontSize: 13, lineHeight: 18, color: muted, marginTop: 3 },
-    qiblaEm: { fontFamily: F.heavy, color: accent },
+    qiblaEm: { fontFamily: F.heavy, color: ink },
     tiles: { flexDirection: 'row', gap: 10 },
     tile: { flex: 1, minHeight: 112, padding: 14, gap: 10, marginBottom: 0 },
     tileTitle: { fontFamily: F.bold, fontSize: 15, color: ink },
@@ -553,13 +549,15 @@ const useStyles = makeStyles(({ mode }) => {
     settingRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14 },
     settingTitle: { flex: 1, fontFamily: F.semi, fontSize: 15, color: ink },
     settingValue: { fontFamily: F.semi, fontSize: 13, color: muted },
-    sw: { width: 46, height: 28, borderRadius: 14, padding: 3, backgroundColor: 'rgba(95,107,122,0.35)' },
-    swOn: { backgroundColor: accent },
-    swKnob: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#FFFFFF' },
+    sw: { width: 46, height: 28, borderRadius: 14, padding: 3, backgroundColor: tile },
+    swOn: { backgroundColor: ink },
+    swKnob: { width: 22, height: 22, borderRadius: 11, backgroundColor: card },
     langRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 18, borderTopWidth: 1, borderTopColor: line },
-    langOn: { backgroundColor: dark ? 'rgba(91,201,176,0.12)' : 'rgba(31,122,104,0.08)' },
+    langOn: { backgroundColor: ink },
     langText: { fontFamily: F.bold, fontSize: 14, color: ink },
+    langTextOn: { color: onInk },
     langSub: { flex: 1, fontFamily: F.body, fontSize: 12, color: muted },
+    langSubOn: { color: onInk },
     links: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', marginTop: 14 },
     linkWrap: { flexDirection: 'row', alignItems: 'center' },
     link: { paddingVertical: 6, paddingHorizontal: 6 },
@@ -571,8 +569,8 @@ const useStyles = makeStyles(({ mode }) => {
       overflow: 'hidden',
       fontFamily: F.semi,
       fontSize: 13,
-      color: dark ? '#0F1F2E' : '#FFFFFF',
-      backgroundColor: dark ? '#EAF1F7' : '#14232F',
+      color: onInk,
+      backgroundColor: ink,
       paddingVertical: 10,
       paddingHorizontal: 16,
       borderRadius: 14,

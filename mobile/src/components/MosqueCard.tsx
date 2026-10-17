@@ -5,7 +5,6 @@ import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { FacilitiesLine } from '@/src/components/FacilitiesLine'
 import { MosqueAnnouncementsSection } from '@/src/components/MosqueAnnouncementsSection'
-import { MosqueFridaySection } from '@/src/components/MosqueFridaySection'
 import { MosqueStaffContactsRow } from '@/src/components/MosqueStaffContactsRow'
 import { MosqueTabCard } from '@/src/components/MosqueTabCard'
 import { GoogleMapsButton } from '@/src/components/GoogleMapsButton'
@@ -73,9 +72,8 @@ export function MosqueCard({
       <View style={[styles.body, compact && styles.bodyCompact, homeCompact && styles.bodyHome, (explore || homeCompact) && styles.bodyExplore]}>
         {explore ? (
           <>
-            <MosqueTabCard mosque={mosque} travelMode={travelMode} />
+            <MosqueTabCard mosque={mosque} travelMode={travelMode} showAllPrayers />
             <View style={styles.exploreFollow}>
-              <MosqueFridaySection mosque={mosque} />
               <MosqueAnnouncementsSection mosque={mosque} />
               {showStaffContacts ? <MosqueStaffContactsRow mosque={mosque} /> : null}
             </View>
