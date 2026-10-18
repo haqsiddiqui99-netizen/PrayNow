@@ -44,6 +44,7 @@ import {
   getLivePrayerInfo,
   isFriday,
   isMosqueAzanLive,
+  parseTime,
 } from '@/src/utils/prayerSchedule'
 
 
@@ -95,6 +96,36 @@ function slotTimes(mosque: Mosque, name: PrayerName, now: Date) {
   }
 }
 
+/** Last azan that has already been called, and the clock of the one after it. */
+function azanBookends(mosque: Mosque, now: Date): { ended: string; nextClock: string } | null {
+  const friday = isFriday(now)
+  const marks: { name: string; clock: string; min: number }[] = []
+  for (const name of PRAYERS) {
+    if (friday && name === 'Dhuhr') {
+      const sessions = getJumaSessions(mosque.jumaTimings, mosque.timings?.Dhuhr?.azan || '').filter((session) =>
+        session.azan.trim(),
+      )
+      if (sessions.length) {
+        for (const session of sessions) {
+          const min = parseTime(session.azan)
+          if (Number.isFinite(min)) marks.push({ name: 'Juma', clock: session.azan.trim(), min })
+        }
+        continue
+      }
+    }
+    const clock = slotTimes(mosque, name, now).azan
+    const min = parseTime(clock)
+    if (clock && clock !== '\u2014' && Number.isFinite(min)) marks.push({ name, clock, min })
+  }
+  if (!marks.length) return null
+  marks.sort((a, b) => a.min - b.min)
+  const nowMin = now.getHours() * 60 + now.getMinutes()
+  const past = marks.filter((mark) => mark.min <= nowMin)
+  const ended = past.length ? past[past.length - 1] : marks[marks.length - 1]
+  const next = marks.find((mark) => mark.min > nowMin) ?? marks[0]
+  return { ended: ended.name, nextClock: next.clock }
+}
+
 function prayerIcon(name: PrayerName) {
   if (name === 'Fajr') return 'cloudy-night-outline' as const
   if (name === 'Dhuhr') return 'sunny-outline' as const
@@ -144,6 +175,8 @@ export const TabLiveButton = memo(function TabLiveButton({
   onPress,
   listeners = 0,
   azanTime = '',
+  idleHeadline,
+  idleNote,
   title: titleOverride,
   icon,
   actionLabel,
@@ -153,6 +186,10 @@ export const TabLiveButton = memo(function TabLiveButton({
   onPress: () => void
   listeners?: number
   azanTime?: string
+  /** Shown on the quiet button, e.g. "Maghrib azan is over". */
+  idleHeadline?: string
+  /** Shown under the headline, e.g. "Next azan at 8:04 PM". */
+  idleNote?: string
   title?: string
   icon?: 'play' | 'pause' | 'mic' | 'stop'
   actionLabel?: string
@@ -249,7 +286,8 @@ export const TabLiveButton = memo(function TabLiveButton({
   )
 
   const diag = Math.ceil(Math.hypot(box.w, box.h)) + 4
-  const title = titleOverride ?? (idle ? t('live.idleTitle') : playing ? t('live.listening') : t('live.listen'))
+  const title = titleOverride ?? (idle ? idleHeadline || t('live.idleTitle') : playing ? t('live.listening') : t('live.listen'))
+  const idleLine = idleNote || t('live.idleDetail')
   const knobIcon = icon ?? (idle ? 'moon-outline' : playing ? 'pause' : 'play')
   const idleInk = dark ? '#9AABA6' : '#7A7368'
   const idleTitle = dark ? '#C9D4D0' : '#5C564E'
@@ -258,7 +296,7 @@ export const TabLiveButton = memo(function TabLiveButton({
     <Pressable
       onPress={handlePress}
       accessibilityRole="button"
-      accessibilityLabel={actionLabel ?? (idle ? t('live.idleA11y') : playing ? t('live.pause') : t('live.listenA11y'))}
+      accessibilityLabel={actionLabel ?? (idle ? `${title}. ${idleLine}` : playing ? t('live.pause') : t('live.listenA11y'))}
       accessibilityState={{ selected: playing, disabled: idle }}
       style={({ pressed }) => [
         btn.shadowWrap,
@@ -316,13 +354,15 @@ export const TabLiveButton = memo(function TabLiveButton({
             </Animated.View>
           </View>
           <View style={btn.textCol}>
-            <Text numberOfLines={1} style={[btn.title, idle && { color: idleTitle }]}>
+            <Text numberOfLines={idle ? 2 : 1} style={[btn.title, idle && { color: idleTitle, fontSize: 15, lineHeight: 19 }]}>
               {title}
             </Text>
             {idle ? (
               <View style={[btn.chip, btn.chipIdle]}>
-                <Ionicons name="radio-outline" size={14} color={idleInk} />
-                <Text style={[btn.chipLabel, { color: idleInk }]}>{t('live.idleDetail')}</Text>
+                <Ionicons name="time-outline" size={14} color={idleInk} />
+                <Text style={[btn.chipLabel, { color: idleInk, flexShrink: 1 }]} numberOfLines={2}>
+                  {idleLine}
+                </Text>
               </View>
             ) : (
               <View style={btn.chip}>
@@ -534,9 +574,19 @@ export function MosqueTabCard({
     setSheetOpen(true)
   }
 
+  const quietAzan = azanBookends(mosque, now)
+  const idleHeadline = quietAzan
+    ? t('live.azanOver', { name: prayerName(quietAzan.ended) })
+    : t('live.idleTitle')
+  const nextClock = quietAzan ? clockParts(quietAzan.nextClock) : null
+  const nextClockLabel = nextClock
+    ? [digits(nextClock.time), nextClock.mer ? merLabel(nextClock.mer) : ''].filter(Boolean).join(' ')
+    : ''
+  const idleNote = nextClockLabel ? t('live.nextAzan', { time: nextClockLabel }) : t('live.idleDetail')
+
   const onLive = () => {
     if (!isLive && !playing) {
-      showToast(t('live.idleTitle'), 'information-circle-outline')
+      showToast(`${idleHeadline}. ${idleNote}`, 'information-circle-outline')
       return
     }
     void toggleLiveAzan(mosque.id, `${mosque.id}-live`).catch((error) => {
@@ -680,6 +730,8 @@ export function MosqueTabCard({
             onPress={onLive}
             listeners={listeners}
             azanTime={azanLabel}
+            idleHeadline={idleHeadline}
+            idleNote={idleNote}
           />
         </View>
 
