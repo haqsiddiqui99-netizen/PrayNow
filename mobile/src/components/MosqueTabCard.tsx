@@ -107,10 +107,12 @@ const WaveBar = memo(function WaveBar({
   base,
   index,
   active,
+  color,
 }: {
   base: number
   index: number
   active: boolean
+  color?: string
 }) {
   const h = useSharedValue(base)
   useEffect(() => {
@@ -133,7 +135,7 @@ const WaveBar = memo(function WaveBar({
     }
   }, [active, base, index, h])
   const style = useAnimatedStyle(() => ({ height: h.value }))
-  return <Animated.View style={[btn.bar, style]} />
+  return <Animated.View style={[btn.bar, color ? { backgroundColor: color } : null, style]} />
 })
 
 export const TabLiveButton = memo(function TabLiveButton({
@@ -156,8 +158,12 @@ export const TabLiveButton = memo(function TabLiveButton({
   actionLabel?: string
 }) {
   const { t, digits } = useLanguage()
+  const { mode } = useTheme()
+  const dark = mode === 'dark'
   const reduce = useReducedMotion()
   const playing = isPlaying
+  const idle = !isLive && !playing && !titleOverride
+  const vivid = !idle
   const [box, setBox] = useState({ w: 0, h: 0 })
   const [elapsed, setElapsed] = useState(0)
   const spin = useSharedValue(0)
@@ -168,18 +174,18 @@ export const TabLiveButton = memo(function TabLiveButton({
   useEffect(() => {
     cancelAnimation(spin)
     spin.value = 0
-    if (reduce) return
+    if (reduce || !vivid) return
     spin.value = withRepeat(
       withTiming(360, { duration: playing ? 1600 : 3200, easing: Easing.linear }),
       -1,
       false,
     )
-  }, [playing, reduce, spin])
+  }, [playing, reduce, spin, vivid])
 
   useEffect(() => {
     cancelAnimation(sheenX)
     sheenX.value = -120
-    if (reduce || box.w <= 0) return
+    if (reduce || !vivid || box.w <= 0) return
     sheenX.value = withRepeat(
       withSequence(
         withTiming(-120, { duration: 0 }),
@@ -188,14 +194,14 @@ export const TabLiveButton = memo(function TabLiveButton({
       -1,
       false,
     )
-  }, [reduce, box.w, sheenX])
+  }, [reduce, box.w, sheenX, vivid])
 
   useEffect(() => {
     cancelAnimation(pulse)
     cancelAnimation(ring)
     pulse.value = 1
     ring.value = 0
-    if (reduce) return
+    if (reduce || !vivid) return
     if (playing) {
       ring.value = withRepeat(withTiming(1, { duration: 1500, easing: Easing.out(Easing.quad) }), -1, false)
     } else {
@@ -208,7 +214,7 @@ export const TabLiveButton = memo(function TabLiveButton({
         false,
       )
     }
-  }, [playing, reduce, pulse, ring])
+  }, [playing, reduce, pulse, ring, vivid])
 
   useEffect(() => {
     if (!playing) {
@@ -243,18 +249,33 @@ export const TabLiveButton = memo(function TabLiveButton({
   )
 
   const diag = Math.ceil(Math.hypot(box.w, box.h)) + 4
-  const title = titleOverride ?? (playing ? t('live.listening') : t('live.listen'))
-  const knobIcon = icon ?? (playing ? 'pause' : 'play')
+  const title = titleOverride ?? (idle ? t('live.idleTitle') : playing ? t('live.listening') : t('live.listen'))
+  const knobIcon = icon ?? (idle ? 'moon-outline' : playing ? 'pause' : 'play')
+  const idleInk = dark ? '#9AABA6' : '#7A7368'
+  const idleTitle = dark ? '#C9D4D0' : '#5C564E'
 
   return (
     <Pressable
       onPress={handlePress}
       accessibilityRole="button"
-      accessibilityLabel={actionLabel ?? (playing ? t('live.pause') : t('live.listenA11y'))}
-      accessibilityState={{ selected: playing }}
-      style={({ pressed }) => [btn.shadowWrap, pressed && { transform: [{ scale: 0.982 }] }]}>
-      <View style={btn.pill} onLayout={onLayout}>
-        {box.w > 0 && (
+      accessibilityLabel={actionLabel ?? (idle ? t('live.idleA11y') : playing ? t('live.pause') : t('live.listenA11y'))}
+      accessibilityState={{ selected: playing, disabled: idle }}
+      style={({ pressed }) => [
+        btn.shadowWrap,
+        idle && btn.shadowIdle,
+        pressed && !idle && { transform: [{ scale: 0.982 }] },
+      ]}>
+      <View
+        style={[
+          btn.pill,
+          idle && {
+            backgroundColor: dark ? '#1A2422' : '#F3F0E8',
+            borderWidth: 1,
+            borderColor: dark ? 'rgba(255,255,255,0.08)' : '#E4DDD0',
+          },
+        ]}
+        onLayout={onLayout}>
+        {vivid && box.w > 0 && (
           <>
             <Animated.View
               pointerEvents="none"
@@ -280,29 +301,47 @@ export const TabLiveButton = memo(function TabLiveButton({
         <View style={btn.row}>
           <View style={btn.knobSlot}>
             {playing && <Animated.View style={[btn.knobRing, ringStyle]} />}
-            <Animated.View style={[btn.knob, knobStyle]}>
+            <Animated.View
+              style={[
+                btn.knob,
+                idle && { backgroundColor: dark ? '#2A3331' : '#E7E2D6', shadowOpacity: 0, elevation: 0 },
+                vivid && knobStyle,
+              ]}>
               <Ionicons
                 name={knobIcon}
-                size={24}
-                color="#0C1D3B"
+                size={22}
+                color={idle ? idleInk : '#0C1D3B'}
                 style={knobIcon === 'play' ? { marginLeft: 2 } : undefined}
               />
             </Animated.View>
           </View>
           <View style={btn.textCol}>
-            <Text numberOfLines={1} style={btn.title}>
+            <Text numberOfLines={1} style={[btn.title, idle && { color: idleTitle }]}>
               {title}
             </Text>
-            <View style={btn.chip}>
-              <Ionicons name="headset" size={14} color={BC.mint} />
-              {playing && <Text style={btn.chipElapsed}>{digits(formatElapsed(elapsed))} ·</Text>}
-              <Text style={btn.chipCount}>{digits(formatIN(listeners))}</Text>
-              <Text style={btn.chipLabel}>{t('live.chip')}</Text>
-            </View>
+            {idle ? (
+              <View style={[btn.chip, btn.chipIdle]}>
+                <Ionicons name="radio-outline" size={14} color={idleInk} />
+                <Text style={[btn.chipLabel, { color: idleInk }]}>{t('live.idleDetail')}</Text>
+              </View>
+            ) : (
+              <View style={btn.chip}>
+                <Ionicons name="headset" size={14} color={BC.mint} />
+                {playing && <Text style={btn.chipElapsed}>{digits(formatElapsed(elapsed))} ·</Text>}
+                <Text style={btn.chipCount}>{digits(formatIN(listeners))}</Text>
+                <Text style={btn.chipLabel}>{t('live.chip')}</Text>
+              </View>
+            )}
           </View>
           <View style={btn.wave} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
             {WAVE_HEIGHTS.map((h, i) => (
-              <WaveBar key={i} base={h} index={i} active={playing && !reduce} />
+              <WaveBar
+                key={i}
+                base={idle ? 6 : h}
+                index={i}
+                active={playing && !reduce}
+                color={idle ? (dark ? '#4E5C59' : '#D2CBBF') : undefined}
+              />
             ))}
           </View>
         </View>
@@ -319,6 +358,15 @@ const btn = StyleSheet.create({
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 10 },
     elevation: 10,
+  },
+  shadowIdle: {
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  chipIdle: {
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+    paddingLeft: 0,
   },
   pill: {
     minHeight: 68,
@@ -487,6 +535,10 @@ export function MosqueTabCard({
   }
 
   const onLive = () => {
+    if (!isLive && !playing) {
+      showToast(t('live.idleTitle'), 'information-circle-outline')
+      return
+    }
     void toggleLiveAzan(mosque.id, `${mosque.id}-live`).catch((error) => {
       Alert.alert(t('mosque.liveTitle'), error instanceof Error ? error.message : t('mosque.liveFail'))
     })
@@ -646,60 +698,78 @@ export function MosqueTabCard({
         )}
 
         {showAllPrayers || showAll ? (
-          <View style={styles.rowHead}>
-            <Text style={styles.rowHeadName}>{t('mosque.prayer')}</Text>
-            <Text style={styles.rowHeadTime}>{t('mosque.azan')}</Text>
-            <Text style={styles.rowHeadTime}>{t('mosque.namaz')}</Text>
-          </View>
-        ) : null}
-        {showAllPrayers || showAll
-          ? PRAYERS.map((name) => {
+          <View style={styles.schedule}>
+            {PRAYERS.map((name) => {
               const times = slotTimes(mosque, name, now)
               const active = name === focus
+              const azanClock = clockParts(times.azan)
+              const jamatClock = clockParts(times.jamat)
               return (
-                <View key={name} style={styles.row}>
-                  <Text style={[styles.rowName, active && styles.rowNow]}>{prayerName(name)}</Text>
-                  <Text style={[styles.rowTime, active && styles.rowNow]}>{digits(times.azan)}</Text>
-                  <Text style={[styles.rowTime, active && styles.rowNow]}>{digits(times.jamat)}</Text>
+                <View key={name} style={[styles.slot, active && styles.slotNow]}>
+                  <View style={[styles.slotIcon, active && styles.slotIconNow]}>
+                    <Ionicons name={prayerIcon(name)} size={16} color={active ? (dark ? '#F3D7A1' : '#8A5A12') : iconInk} />
+                  </View>
+                  <View style={styles.slotNameCol}>
+                    <Text style={[styles.slotName, active && styles.slotNameNow]} numberOfLines={1}>
+                      {prayerName(name)}
+                    </Text>
+                    {active ? <Text style={styles.slotNowLabel}>{t('mosque.now')}</Text> : null}
+                  </View>
+                  <View style={styles.timePair}>
+                    <View style={[styles.timeCell, active && styles.timeCellNow]}>
+                      <Text style={styles.timeKicker}>{t('mosque.azan')}</Text>
+                      <Text style={[styles.timeMain, active && styles.timeMainNow]}>
+                        {digits(azanClock.time)}
+                        {azanClock.mer ? <Text style={styles.timeMer}> {merLabel(azanClock.mer)}</Text> : null}
+                      </Text>
+                    </View>
+                    <View style={[styles.timeCell, active && styles.timeCellNow]}>
+                      <Text style={styles.timeKicker}>{t('mosque.namaz')}</Text>
+                      <Text style={[styles.timeMain, active && styles.timeMainNow]}>
+                        {digits(jamatClock.time)}
+                        {jamatClock.mer ? <Text style={styles.timeMer}> {merLabel(jamatClock.mer)}</Text> : null}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
               )
-            })
-          : null}
-        {showAllPrayers || (showAll && jumaSessions.length > 0) ? (
-          <View style={styles.jumaBlock}>
-            {jumaSessions.length === 0 ? (
-              <View style={styles.jumaRow}>
-                <Text style={styles.jumaName}>{prayerName('Juma')}</Text>
-                <Text style={styles.noJuma} numberOfLines={1}>
-                  {t('mosque.noJuma')}
-                </Text>
-              </View>
-            ) : (
-              <>
-                <View style={styles.jumaRow}>
-                  <Text style={styles.jumaTitle}>{prayerName('Juma')}</Text>
-                  <Text style={styles.jumaColHead}>{t('mosque.azan')}</Text>
-                  <Text style={styles.jumaColHead}>{t('mosque.khutbah')}</Text>
-                  <Text style={styles.jumaColHead}>{t('mosque.namaz')}</Text>
-                </View>
-                {jumaSessions.map((session, index) => (
-                  <View key={`juma-${index}`} style={styles.jumaRow}>
-                    <Text style={styles.jumaName}>
-                      {jumaSessions.length > 1 ? digits(index + 1) : prayerName('Juma')}
-                    </Text>
-                    <Text style={styles.jumaCol} numberOfLines={1}>
-                      {digits(session.azan.trim() || '\u2014')}
-                    </Text>
-                    <Text style={styles.jumaCol} numberOfLines={1}>
-                      {digits(session.khutba.trim() || '\u2014')}
-                    </Text>
-                    <Text style={styles.jumaCol} numberOfLines={1}>
-                      {digits(session.namaz.trim() || '\u2014')}
-                    </Text>
-                  </View>
-                ))}
-              </>
-            )}
+            })}
+            <View style={styles.jumaBlock}>
+              <Text style={styles.jumaTitle}>{prayerName('Juma')}</Text>
+              {jumaSessions.length === 0 ? (
+                <Text style={styles.noJuma}>{t('mosque.noJuma')}</Text>
+              ) : (
+                jumaSessions.map((session, index) => {
+                  const azanParts = clockParts(session.azan.trim() || '\u2014')
+                  const khutbaParts = clockParts(session.khutba.trim() || '\u2014')
+                  const namazParts = clockParts(session.namaz.trim() || '\u2014')
+                  return (
+                    <View key={`juma-${index}`} style={styles.jumaCard}>
+                      <View style={styles.jumaBadge}>
+                        <Text style={styles.jumaBadgeText}>{digits(index + 1)}</Text>
+                      </View>
+                      <View style={styles.jumaTimes}>
+                        {(
+                          [
+                            [t('mosque.azan'), azanParts],
+                            [t('mosque.khutbah'), khutbaParts],
+                            [t('mosque.namaz'), namazParts],
+                          ] as const
+                        ).map(([label, parts]) => (
+                          <View key={label} style={styles.jumaTime}>
+                            <Text style={styles.timeKicker}>{label}</Text>
+                            <Text style={styles.jumaTimeMain} numberOfLines={1}>
+                              {digits(parts.time)}
+                              {parts.mer ? <Text style={styles.timeMer}> {merLabel(parts.mer)}</Text> : null}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )
+                })
+              )}
+            </View>
           </View>
         ) : null}
         {showAllPrayers || showAll ? (
@@ -910,36 +980,93 @@ const useStyles = makeStyles(({ mode }) => {
       justifyContent: 'center',
       backgroundColor: chip,
     },
-    rowHead: {
-      flexDirection: 'row',
-      paddingTop: 2,
-      paddingBottom: 0,
-      paddingHorizontal: 2,
-    },
-    rowHeadName: { flex: 1, fontFamily: F.semi, fontSize: 10, letterSpacing: 0.6, textTransform: 'uppercase', color: panelMuted },
-    rowHeadTime: { width: 76, textAlign: 'right', fontFamily: F.semi, fontSize: 10, letterSpacing: 0.6, textTransform: 'uppercase', color: panelMuted },
-    jumaBlock: {
-      marginTop: 2,
-      paddingTop: 4,
-      borderTopWidth: 1,
-      borderTopColor: dark ? 'rgba(255,255,255,0.08)' : 'rgba(15,31,46,0.09)',
-    },
-    jumaRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 2, paddingHorizontal: 2, gap: 4 },
-    jumaTitle: { flex: 1, fontFamily: F.semi, fontSize: 10, letterSpacing: 0.6, textTransform: 'uppercase', color: panelMuted },
-    jumaName: { flex: 1, fontFamily: F.semi, fontSize: 13, color: panelInk },
-    jumaColHead: { width: 74, textAlign: 'right', fontFamily: F.semi, fontSize: 9, letterSpacing: 0.3, textTransform: 'uppercase', color: panelMuted },
-    jumaCol: { width: 74, textAlign: 'right', fontFamily: F.medium, fontSize: 12, color: panelMuted },
-    noJuma: { flex: 1, textAlign: 'right', fontFamily: F.medium, fontSize: 12, color: panelMuted },
-    row: {
+    schedule: { marginTop: 12, gap: 8 },
+    slot: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 3,
-      paddingHorizontal: 2,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: dark ? 'rgba(255,255,255,0.08)' : 'rgba(15,31,46,0.09)',
+      gap: 8,
+      paddingVertical: 8,
+      paddingLeft: 8,
+      paddingRight: 8,
+      borderRadius: 16,
+      backgroundColor: tile,
+      borderWidth: 1,
+      borderColor: tileLine,
     },
-    rowName: { flex: 1, fontFamily: F.semi, fontSize: 13, color: panelInk },
-    rowTime: { width: 76, textAlign: 'right', fontFamily: F.medium, fontSize: 13, color: panelMuted },
-    rowNow: { color: '#9A5B00', fontFamily: F.bold },
+    slotNow: {
+      backgroundColor: dark ? '#2A2418' : '#FFF8EC',
+      borderColor: dark ? '#6A5430' : '#E7C98A',
+    },
+    slotIcon: {
+      width: 34,
+      height: 34,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: chip,
+    },
+    slotIconNow: { backgroundColor: dark ? '#3A3120' : '#F6E7C8' },
+    slotNameCol: { flex: 1, minWidth: 0, gap: 1 },
+    slotName: { fontFamily: F.semi, fontSize: 14, color: panelInk },
+    slotNameNow: { fontFamily: F.bold, color: dark ? '#F3D7A1' : '#8A5A12' },
+    slotNowLabel: {
+      fontFamily: F.heavy,
+      fontSize: 9,
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
+      color: dark ? '#E2C48A' : '#9A5B00',
+    },
+    timePair: { flexDirection: 'row', gap: 6 },
+    timeCell: {
+      minWidth: 68,
+      paddingVertical: 4,
+      paddingHorizontal: 7,
+      borderRadius: 12,
+      backgroundColor: dark ? 'rgba(255,255,255,0.04)' : '#F6F7F9',
+    },
+    timeCellNow: { backgroundColor: dark ? 'rgba(243,215,161,0.08)' : '#FFFDF8' },
+    timeKicker: {
+      fontFamily: F.semi,
+      fontSize: 8,
+      letterSpacing: 0.6,
+      textTransform: 'uppercase',
+      color: panelMuted,
+    },
+    timeMain: { fontFamily: F.bold, fontSize: 12, lineHeight: 16, color: panelInk, marginTop: 1 },
+    timeMainNow: { color: dark ? '#F3D7A1' : '#8A5A12' },
+    timeMer: { fontFamily: F.semi, fontSize: 9, color: panelMuted },
+    jumaBlock: { marginTop: 4, gap: 8 },
+    jumaTitle: {
+      fontFamily: F.semi,
+      fontSize: 10,
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
+      color: panelMuted,
+      marginLeft: 4,
+    },
+    jumaCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      padding: 8,
+      borderRadius: 16,
+      backgroundColor: tile,
+      borderWidth: 1,
+      borderColor: tileLine,
+    },
+    jumaBadge: {
+      minWidth: 28,
+      height: 28,
+      paddingHorizontal: 6,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: dark ? '#3A3120' : '#F6E7C8',
+    },
+    jumaBadgeText: { fontFamily: F.heavy, fontSize: 12, color: dark ? '#F3D7A1' : '#8A5A12' },
+    jumaTimes: { flex: 1, flexDirection: 'row', gap: 4 },
+    jumaTime: { flex: 1, minWidth: 0 },
+    jumaTimeMain: { fontFamily: F.bold, fontSize: 11, lineHeight: 15, color: panelInk, marginTop: 1 },
+    noJuma: { fontFamily: F.medium, fontSize: 12, color: panelMuted, marginLeft: 4 },
   }
 })
