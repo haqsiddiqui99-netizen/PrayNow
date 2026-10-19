@@ -17,7 +17,9 @@ export class AzanBroadcaster {
     throw new Error('Use web admin to broadcast live azan from a browser.')
   }
 
-  async stop(): Promise<void> {}
+  async stop(): Promise<string | null> {
+    return null
+  }
 
   get active() {
     return false

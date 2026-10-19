@@ -314,6 +314,41 @@ export async function stopMosqueAzan(mosqueId: string, recordingUrl?: string) {
   return (await res.json()) as { ended: boolean; session: unknown }
 }
 
+export type LastAzanRecording = {
+  prayerName: string | null
+  recordedAt: string
+  url: string
+}
+
+/** The mosque's saved azan, or null when none has been recorded yet. */
+export async function fetchLastAzan(mosqueId: string): Promise<LastAzanRecording | null> {
+  try {
+    const res = await fetchWithTimeout(
+      `${getApiBaseUrl()}/api/mosques/${encodeURIComponent(mosqueId)}/azan/latest`,
+    )
+    if (!res.ok) return null
+    const data = (await res.json()) as { prayerName?: string | null; recordedAt?: string; url?: string }
+    if (!data.url) return null
+    const url = data.url.startsWith('http') ? data.url : `${getApiBaseUrl()}${data.url}`
+    return { prayerName: data.prayerName ?? null, recordedAt: data.recordedAt || '', url }
+  } catch {
+    return null
+  }
+}
+
+/** Upload the file captured on the broadcasting phone. Replaces that mosque's previous azan. */
+export async function uploadMosqueAzanRecording(
+  mosqueId: string,
+  body: { audioBase64: string; mime: string; prayerName?: string },
+): Promise<void> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/manager/mosques/${mosqueId}/azan/recording`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) await parseError(res, 'Failed to save the azan recording')
+}
+
 export interface AdminUserRow {
   id: string
   email: string

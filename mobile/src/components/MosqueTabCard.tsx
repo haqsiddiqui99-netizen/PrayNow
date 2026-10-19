@@ -34,7 +34,8 @@ import { hasActiveReminders, useMosqueNotify } from '@/src/context/MosqueNotifyC
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
 import { useLiveSession, useMosqueLive } from '@/src/hooks/useLiveAzanSession'
 import type { Mosque, PrayerName, TravelMode } from '@/src/types'
-import { getAzanState, subscribeAzan, toggleLiveAzan } from '@/src/utils/azanAudio'
+import { fetchLastAzan, type LastAzanRecording } from '@/src/services/api'
+import { getAzanState, subscribeAzan, toggleLastAzan, toggleLiveAzan } from '@/src/utils/azanAudio'
 import { renderFacilityIcon } from '@/src/utils/facilities'
 import { getJumaSessions } from '@/src/utils/jumaTimings'
 import { openGoogleMaps } from '@/src/utils/maps'
@@ -177,6 +178,7 @@ export const TabLiveButton = memo(function TabLiveButton({
   azanTime = '',
   idleHeadline,
   idleNote,
+  replayLabel,
   title: titleOverride,
   icon,
   actionLabel,
@@ -190,6 +192,8 @@ export const TabLiveButton = memo(function TabLiveButton({
   idleHeadline?: string
   /** Shown under the headline, e.g. "Next azan at 8:04 PM". */
   idleNote?: string
+  /** Shown when a saved azan can be played, e.g. "Play last Maghrib azan". */
+  replayLabel?: string
   title?: string
   icon?: 'play' | 'pause' | 'mic' | 'stop'
   actionLabel?: string
@@ -200,7 +204,9 @@ export const TabLiveButton = memo(function TabLiveButton({
   const reduce = useReducedMotion()
   const playing = isPlaying
   const idle = !isLive && !playing && !titleOverride
-  const vivid = !idle
+  const replaying = playing && !isLive && !titleOverride
+  const canReplay = idle && Boolean(replayLabel)
+  const vivid = isLive || Boolean(titleOverride)
   const [box, setBox] = useState({ w: 0, h: 0 })
   const [elapsed, setElapsed] = useState(0)
   const spin = useSharedValue(0)
@@ -286,9 +292,9 @@ export const TabLiveButton = memo(function TabLiveButton({
   )
 
   const diag = Math.ceil(Math.hypot(box.w, box.h)) + 4
-  const title = titleOverride ?? (idle ? idleHeadline || t('live.idleTitle') : playing ? t('live.listening') : t('live.listen'))
+  const title = titleOverride ?? (replaying ? t('live.playingLast') : idle ? idleHeadline || t('live.idleTitle') : playing ? t('live.listening') : t('live.listen'))
   const idleLine = idleNote || t('live.idleDetail')
-  const knobIcon = icon ?? (idle ? 'moon-outline' : playing ? 'pause' : 'play')
+  const knobIcon = icon ?? (replaying ? 'pause' : canReplay ? 'play' : idle ? 'moon-outline' : playing ? 'pause' : 'play')
   const idleInk = dark ? '#9AABA6' : '#7A7368'
   const idleTitle = dark ? '#C9D4D0' : '#5C564E'
 
@@ -296,17 +302,17 @@ export const TabLiveButton = memo(function TabLiveButton({
     <Pressable
       onPress={handlePress}
       accessibilityRole="button"
-      accessibilityLabel={actionLabel ?? (idle ? `${title}. ${idleLine}` : playing ? t('live.pause') : t('live.listenA11y'))}
-      accessibilityState={{ selected: playing, disabled: idle }}
+      accessibilityLabel={actionLabel ?? (replaying ? t('live.playingLast') : canReplay ? `${title}. ${idleLine}. ${replayLabel}` : idle ? `${title}. ${idleLine}` : playing ? t('live.pause') : t('live.listenA11y'))}
+      accessibilityState={{ selected: playing, disabled: idle && !canReplay }}
       style={({ pressed }) => [
         btn.shadowWrap,
-        idle && btn.shadowIdle,
-        pressed && !idle && { transform: [{ scale: 0.982 }] },
+        (idle || replaying) && btn.shadowIdle,
+        pressed && (!idle || canReplay || replaying) && { transform: [{ scale: 0.982 }] },
       ]}>
       <View
         style={[
           btn.pill,
-          idle && {
+          (idle || replaying) && {
             backgroundColor: dark ? '#1A2422' : '#F3F0E8',
             borderWidth: 1,
             borderColor: dark ? 'rgba(255,255,255,0.08)' : '#E4DDD0',
@@ -342,27 +348,37 @@ export const TabLiveButton = memo(function TabLiveButton({
             <Animated.View
               style={[
                 btn.knob,
-                idle && { backgroundColor: dark ? '#2A3331' : '#E7E2D6', shadowOpacity: 0, elevation: 0 },
+                (idle || replaying) && { backgroundColor: dark ? '#2A3331' : '#E7E2D6', shadowOpacity: 0, elevation: 0 },
                 vivid && knobStyle,
               ]}>
               <Ionicons
                 name={knobIcon}
                 size={22}
-                color={idle ? idleInk : '#0C1D3B'}
+                color={idle || replaying ? idleInk : '#0C1D3B'}
                 style={knobIcon === 'play' ? { marginLeft: 2 } : undefined}
               />
             </Animated.View>
           </View>
           <View style={btn.textCol}>
-            <Text numberOfLines={idle ? 2 : 1} style={[btn.title, idle && { color: idleTitle, fontSize: 15, lineHeight: 19 }]}>
+            <Text numberOfLines={idle || replaying ? 2 : 1} style={[btn.title, (idle || replaying) && { color: idleTitle, fontSize: 15, lineHeight: 19 }]}>
               {title}
             </Text>
-            {idle ? (
-              <View style={[btn.chip, btn.chipIdle]}>
-                <Ionicons name="time-outline" size={14} color={idleInk} />
-                <Text style={[btn.chipLabel, { color: idleInk, flexShrink: 1 }]} numberOfLines={2}>
-                  {idleLine}
-                </Text>
+            {idle || replaying ? (
+              <View style={btn.idleLines}>
+                <View style={[btn.chip, btn.chipIdle]}>
+                  <Ionicons name="time-outline" size={14} color={idleInk} />
+                  <Text style={[btn.chipLabel, { color: idleInk, flexShrink: 1 }]} numberOfLines={2}>
+                    {replaying ? digits(formatElapsed(elapsed)) : idleLine}
+                  </Text>
+                </View>
+                {canReplay ? (
+                  <View style={[btn.chip, btn.chipIdle]}>
+                    <Ionicons name="play" size={14} color={idleInk} />
+                    <Text style={[btn.chipLabel, { color: idleInk, flexShrink: 1 }]} numberOfLines={1}>
+                      {replayLabel}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             ) : (
               <View style={btn.chip}>
@@ -377,10 +393,10 @@ export const TabLiveButton = memo(function TabLiveButton({
             {WAVE_HEIGHTS.map((h, i) => (
               <WaveBar
                 key={i}
-                base={idle ? 6 : h}
+                base={idle && !replaying ? 6 : h}
                 index={i}
-                active={playing && !reduce}
-                color={idle ? (dark ? '#4E5C59' : '#D2CBBF') : undefined}
+                active={(playing || replaying) && !reduce && !idle}
+                color={idle || replaying ? (dark ? '#4E5C59' : '#D2CBBF') : undefined}
               />
             ))}
           </View>
@@ -447,6 +463,7 @@ const btn = StyleSheet.create({
     borderColor: '#FFFFFF',
   },
   textCol: { flex: 1, minWidth: 0, gap: 3 },
+  idleLines: { gap: 1 },
   title: {
     fontFamily: F.bold,
     fontSize: 17,
@@ -529,15 +546,34 @@ export function MosqueTabCard({
   const [playing, setPlaying] = useState(
     () => getAzanState().id === `${mosque.id}-live` && getAzanState().playing,
   )
+  const [playingLast, setPlayingLast] = useState(
+    () => getAzanState().id === `${mosque.id}-last` && getAzanState().playing,
+  )
+  const [lastAzan, setLastAzan] = useState<LastAzanRecording | null>(null)
   const [showAll, setShowAll] = useState(false)
   const subscribed = isSubscribed(mosque.id)
   const savedReminders = remindersFor(mosque.id)
   const reminding = subscribed && hasActiveReminders(savedReminders)
 
   useEffect(
-    () => subscribeAzan(() => setPlaying(getAzanState().id === `${mosque.id}-live` && getAzanState().playing)),
+    () =>
+      subscribeAzan(() => {
+        const state = getAzanState()
+        setPlaying(state.id === `${mosque.id}-live` && state.playing)
+        setPlayingLast(state.id === `${mosque.id}-last` && state.playing)
+      }),
     [mosque.id],
   )
+
+  useEffect(() => {
+    let cancelled = false
+    void fetchLastAzan(mosque.id).then((row) => {
+      if (!cancelled) setLastAzan(row)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [mosque.id, broadcast])
 
   const current = getCurrentPrayerForMosques(now)
   const next = getLivePrayerInfo(now).next.name
@@ -584,14 +620,26 @@ export function MosqueTabCard({
     : ''
   const idleNote = nextClockLabel ? t('live.nextAzan', { time: nextClockLabel }) : t('live.idleDetail')
 
+  const replayLabel = lastAzan
+    ? lastAzan.prayerName
+      ? t('live.playLastNamed', { name: prayerName(lastAzan.prayerName) })
+      : t('live.playLast')
+    : undefined
+
   const onLive = () => {
-    if (!isLive && !playing) {
-      showToast(`${idleHeadline}. ${idleNote}`, 'information-circle-outline')
+    if (isLive || playing) {
+      void toggleLiveAzan(mosque.id, `${mosque.id}-live`).catch((error) => {
+        Alert.alert(t('mosque.liveTitle'), error instanceof Error ? error.message : t('mosque.liveFail'))
+      })
       return
     }
-    void toggleLiveAzan(mosque.id, `${mosque.id}-live`).catch((error) => {
-      Alert.alert(t('mosque.liveTitle'), error instanceof Error ? error.message : t('mosque.liveFail'))
-    })
+    if (lastAzan) {
+      void toggleLastAzan(mosque.id, lastAzan.url).catch((error) => {
+        Alert.alert(t('mosque.liveTitle'), error instanceof Error ? error.message : t('mosque.liveFail'))
+      })
+      return
+    }
+    showToast(`${idleHeadline}. ${idleNote}`, 'information-circle-outline')
   }
 
   const toggleAll = () => {
@@ -726,12 +774,13 @@ export function MosqueTabCard({
         <View style={styles.liveWrap}>
           <TabLiveButton
             isLive={isLive}
-            isPlaying={playing}
+            isPlaying={playing || playingLast}
             onPress={onLive}
             listeners={listeners}
             azanTime={azanLabel}
             idleHeadline={idleHeadline}
             idleNote={idleNote}
+            replayLabel={replayLabel}
           />
         </View>
 

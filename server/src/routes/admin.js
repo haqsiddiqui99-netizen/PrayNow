@@ -13,7 +13,7 @@ import {
   userCanManageMosque,
   resolveMosqueDbId,
 } from '../services/mosques.js'
-import { startSession, stopSession, getLiveSessionForMosque } from '../services/liveAzanSessions.js'
+import { startSession, stopSession, getLiveSessionForMosque, saveMosqueAzanRecording } from '../services/liveAzanSessions.js'
 import { buildAgoraCredentials } from '../services/agora.js'
 import { notifyMosqueSubscribers, notifyUsers } from '../services/notifications.js'
 import {
@@ -50,6 +50,8 @@ import {
 const router = Router()
 // About 2 minutes of compressed speech, base64-encoded.
 const MAX_VOICE_NOTE_B64 = 3 * 1024 * 1024
+// A low-quality azan is well under this. Roughly 4.5 MB of audio.
+const MAX_AZAN_RECORDING_B64 = 6 * 1024 * 1024
 
 /** pg-mem can return TEXT[] defaults as the literal '{}' / '{a,b}' instead of an array. */
 function toTextArray(value) {
@@ -1018,6 +1020,49 @@ router.post(
         recordingUrl: req.body?.recordingUrl || null,
       })
       res.json({ session, ended: Boolean(session) })
+    } finally {
+      client.release()
+    }
+  },
+)
+
+// The phone that broadcast the azan uploads the local mic file when it stops.
+router.post(
+  '/manager/mosques/:id/azan/recording',
+  authMiddleware,
+  requireRole('admin', 'mosque_manager'),
+  async (req, res) => {
+    const audioBase64 = typeof req.body?.audioBase64 === 'string' ? req.body.audioBase64.replace(/\s/g, '') : ''
+    const mime = String(req.body?.mime || 'audio/aac').slice(0, 64)
+    const prayerName = String(req.body?.prayerName || '').trim().slice(0, 16) || null
+    if (!audioBase64 || audioBase64.length < 1000) {
+      return res.status(400).json({ error: 'Recording is empty' })
+    }
+    if (audioBase64.length > MAX_AZAN_RECORDING_B64 || !/^[A-Za-z0-9+/=]+$/.test(audioBase64)) {
+      return res.status(400).json({ error: 'Recording is too long or unreadable' })
+    }
+    if (!mime.startsWith('audio/')) return res.status(400).json({ error: 'Recording must be audio' })
+
+    const client = await pool.connect()
+    try {
+      await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+      const dbId = await resolveMosqueDbId(client, req.params.id)
+      if (!dbId) return res.status(404).json({ error: 'Mosque not found' })
+      const allowed = await userCanManageMosque(client, req.user.sub, req.user.role, dbId)
+      if (!allowed) return res.status(403).json({ error: 'Not assigned to this mosque' })
+
+      const recordingUrl = `/api/mosques/${encodeURIComponent(req.params.id)}/azan/latest/audio`
+      await saveMosqueAzanRecording(client, {
+        mosqueDbId: dbId,
+        prayerName,
+        mime,
+        audio: audioBase64,
+        recordingUrl,
+      })
+      res.status(201).json({ ok: true, url: recordingUrl })
+    } catch (err) {
+      console.error('azan recording upload failed', err)
+      res.status(500).json({ error: err.message || 'Failed to save azan recording' })
     } finally {
       client.release()
     }

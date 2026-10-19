@@ -1,4 +1,5 @@
 import Constants from 'expo-constants'
+import { cacheDirectory } from 'expo-file-system/legacy'
 
 export interface AgoraCredentials {
   configured: boolean
@@ -25,6 +26,23 @@ type AzanRtcEngine = {
   joinChannel(token: string, channelId: string, uid: number, options: object): number
   leaveChannel(): number
   release(): void
+  startAudioRecording(config: {
+    filePath?: string
+    encode?: boolean
+    sampleRate?: number
+    fileRecordingType?: number
+    quality?: number
+  }): number
+  stopAudioRecording(): number
+}
+
+const LAST_AZAN_FILE = 'praynow-last-azan.aac'
+
+/** Agora wants a filesystem path. The cache helper returns a file:// URI. */
+function lastAzanPaths(): { uri: string; nativePath: string } | null {
+  if (!cacheDirectory) return null
+  const uri = `${cacheDirectory}${LAST_AZAN_FILE}`
+  return { uri, nativePath: uri.replace(/^file:\/\//, '') }
 }
 
 /** Lazy-load native Agora — top-level import crashes Expo Go (module not linked). */
@@ -91,6 +109,8 @@ export function isAgoraNativeAvailable(): boolean {
 /** Mosque admin: publish microphone to the mosque Agora channel. */
 export class AzanBroadcaster {
   private engine: AzanRtcEngine | null = null
+  private recordTimer: ReturnType<typeof setTimeout> | null = null
+  private recordUri: string | null = null
 
   async start(creds: AgoraCredentials): Promise<void> {
     if (!creds.appId) {
@@ -107,16 +127,63 @@ export class AzanBroadcaster {
     engine.setClientRole(agora.ClientRoleType.ClientRoleBroadcaster)
     joinLiveChannel(engine, creds, agora.ClientRoleType.ClientRoleBroadcaster)
     this.engine = engine
+    this.scheduleRecording()
   }
 
-  async stop(): Promise<void> {
-    if (!this.engine) return
+  /** Join is async, so wait briefly before writing the local mic file. */
+  private scheduleRecording() {
+    this.clearRecordTimer()
+    this.recordTimer = setTimeout(() => {
+      this.recordTimer = null
+      this.beginLocalRecording()
+    }, 800)
+  }
+
+  private clearRecordTimer() {
+    if (!this.recordTimer) return
+    clearTimeout(this.recordTimer)
+    this.recordTimer = null
+  }
+
+  private beginLocalRecording() {
+    const engine = this.engine
+    const agora = loadAgora()
+    const paths = lastAzanPaths()
+    if (!engine || !agora || !paths) return
     try {
-      this.engine.leaveChannel()
-      this.engine.release()
-    } finally {
-      this.engine = null
+      const code = engine.startAudioRecording({
+        filePath: paths.nativePath,
+        encode: true,
+        sampleRate: 32000,
+        fileRecordingType: agora.AudioFileRecordingType.AudioFileRecordingMic,
+        quality: agora.AudioRecordingQualityType.AudioRecordingQualityLow,
+      })
+      this.recordUri = code === 0 ? paths.uri : null
+    } catch {
+      this.recordUri = null
     }
+  }
+
+  /** Leaves the channel and returns the local recording URI when one was written. */
+  async stop(): Promise<string | null> {
+    this.clearRecordTimer()
+    const uri = this.recordUri
+    this.recordUri = null
+    const engine = this.engine
+    this.engine = null
+    if (!engine) return null
+    try {
+      if (uri) engine.stopAudioRecording()
+      engine.leaveChannel()
+      engine.release()
+    } catch {
+      try {
+        engine.release()
+      } catch {
+        /* already released */
+      }
+    }
+    return uri
   }
 
   get active() {

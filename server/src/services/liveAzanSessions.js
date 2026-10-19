@@ -104,6 +104,51 @@ export async function leaveLiveListener(client, mosqueDbId) {
   return rows[0]?.listeners ?? null
 }
 
+/** Keep a single azan file per mosque and point the latest session at it. */
+export async function saveMosqueAzanRecording(client, { mosqueDbId, prayerName = null, mime, audio, recordingUrl }) {
+  await client.query(
+    `INSERT INTO mosque_azan_recordings (mosque_id, prayer_name, mime, audio, created_at)
+     VALUES ($1, $2, $3, $4, NOW())
+     ON CONFLICT (mosque_id) DO UPDATE SET
+       prayer_name = EXCLUDED.prayer_name,
+       mime = EXCLUDED.mime,
+       audio = EXCLUDED.audio,
+       created_at = NOW()`,
+    [mosqueDbId, prayerName, mime, audio],
+  )
+  await client.query(
+    `UPDATE mosque_live_azan_sessions
+     SET recording_url = $2
+     WHERE id = (
+       SELECT id FROM mosque_live_azan_sessions
+       WHERE mosque_id = $1
+       ORDER BY started_at DESC
+       LIMIT 1
+     )`,
+    [mosqueDbId, recordingUrl],
+  )
+}
+
+/** Metadata for the mosque's saved azan, without the audio bytes. */
+export async function getMosqueAzanRecording(client, mosqueDbId) {
+  const { rows } = await client.query(
+    `SELECT prayer_name, mime, created_at
+     FROM mosque_azan_recordings
+     WHERE mosque_id = $1`,
+    [mosqueDbId],
+  )
+  return rows[0] || null
+}
+
+/** Audio bytes (base64 text) for the mosque's saved azan. */
+export async function getMosqueAzanAudio(client, mosqueDbId) {
+  const { rows } = await client.query(
+    `SELECT mime, audio FROM mosque_azan_recordings WHERE mosque_id = $1`,
+    [mosqueDbId],
+  )
+  return rows[0] || null
+}
+
 /** The most recent ended session with a recording, for a mosque. */
 export async function getLatestRecording(client, mosqueDbId) {
   const { rows } = await client.query(

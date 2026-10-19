@@ -8,6 +8,8 @@ const ADHAN_RECORDING = require('../../assets/audio/adhan.mp3')
 
 let listener: AzanListener | null = null
 let recording: AudioPlayer | null = null
+let lastPlayer: AudioPlayer | null = null
+let lastUrl: string | null = null
 let countedMosqueId: string | null = null
 let currentMosqueId: string | null = null
 let currentSessionKey: string | null = null
@@ -87,6 +89,13 @@ export async function stopAzan() {
       /* noop */
     }
   }
+  if (lastPlayer) {
+    try {
+      lastPlayer.pause()
+    } catch {
+      /* noop */
+    }
+  }
   if (currentMosqueId !== null || currentSessionKey !== null || playing) {
     currentMosqueId = null
     currentSessionKey = null
@@ -148,6 +157,43 @@ export async function toggleLiveAzan(mosqueId: string, sessionKey: string) {
 
   await playRecording(mosqueId, sessionKey)
   await countIfLive(mosqueId)
+}
+
+function lastAzanPlayer(url: string): AudioPlayer {
+  if (lastPlayer && lastUrl === url) return lastPlayer
+  try {
+    lastPlayer?.remove()
+  } catch {
+    /* already released */
+  }
+  lastPlayer = createAudioPlayer(url)
+  lastUrl = url
+  lastPlayer.addListener('playbackStatusUpdate', (status) => {
+    if (!status.didJustFinish || !playing || !currentSessionKey?.endsWith('-last')) return
+    currentMosqueId = null
+    currentSessionKey = null
+    playing = false
+    notify()
+  })
+  return lastPlayer
+}
+
+/** Play or pause the mosque's saved azan. Live broadcast uses toggleLiveAzan. */
+export async function toggleLastAzan(mosqueId: string, url: string) {
+  const sessionKey = `${mosqueId}-last`
+  if (currentMosqueId === mosqueId && currentSessionKey === sessionKey && playing) {
+    await stopAzan()
+    return
+  }
+  await stopAzan()
+  await setAudioModeAsync({ playsInSilentMode: true }).catch(() => {})
+  const player = lastAzanPlayer(url)
+  await player.seekTo(0).catch(() => {})
+  player.play()
+  currentMosqueId = mosqueId
+  currentSessionKey = sessionKey
+  playing = true
+  notify()
 }
 
 /** @deprecated Use toggleLiveAzan(mosqueId, sessionKey). Kept for call-site compatibility. */

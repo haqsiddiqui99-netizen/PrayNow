@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { PermissionsAndroid, Platform } from 'react-native'
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake'
+import { deleteAsync, EncodingType, readAsStringAsync } from 'expo-file-system/legacy'
 import { useLanguage } from '@/src/context/LanguageContext'
 import { AzanBroadcaster, isAgoraNativeAvailable } from '@/src/services/agoraClient'
-import { startMosqueAzan, stopMosqueAzan } from '@/src/services/api'
+import { startMosqueAzan, stopMosqueAzan, uploadMosqueAzanRecording } from '@/src/services/api'
 import { isMosqueLive, refreshLiveSessions } from '@/src/store/liveAzanSessions'
 import type { BroadcastPrayer } from '@/src/types'
 
@@ -46,6 +47,8 @@ export function useAzanBroadcast(mosqueId: string | undefined) {
   const [hint, setHint] = useState('')
   const [elapsed, setElapsed] = useState(0)
   const [prayer, setPrayer] = useState<BroadcastPrayer | undefined>(undefined)
+  const prayerRef = useRef(prayer)
+  prayerRef.current = prayer
 
   useEffect(() => {
     return () => {
@@ -116,13 +119,31 @@ export function useAzanBroadcast(mosqueId: string | undefined) {
     setBusy(true)
     setError('')
     try {
-      await broadcasterRef.current?.stop()
+      const recordingUri = (await broadcasterRef.current?.stop()) ?? null
       broadcasterRef.current = null
       releaseScreenAwake()
+      let saved = false
+      if (recordingUri) {
+        try {
+          const audioBase64 = await readAsStringAsync(recordingUri, { encoding: EncodingType.Base64 })
+          if (audioBase64.length >= 1000) {
+            await uploadMosqueAzanRecording(mosqueId, {
+              audioBase64,
+              mime: 'audio/aac',
+              prayerName: prayerRef.current,
+            })
+            saved = true
+          }
+        } catch {
+          saved = false
+        } finally {
+          await deleteAsync(recordingUri, { idempotent: true }).catch(() => {})
+        }
+      }
       await stopMosqueAzan(mosqueId)
       await refreshLiveSessions()
       setLive(false)
-      setHint(t('cast.stopped'))
+      setHint(saved ? t('live.lastSaved') : recordingUri ? t('live.lastSaveFail') : t('cast.stopped'))
     } catch (e) {
       setError(e instanceof Error ? e.message : t('cast.stopFail'))
     } finally {

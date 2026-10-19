@@ -8,7 +8,7 @@ import { buildLiveAzanFeeds } from '../services/liveAzan.js'
 import { listUpcomingEvents } from '../services/mosqueEvents.js'
 import { listActiveJanaza } from '../services/mosqueJanaza.js'
 import { listNeeds } from '../services/mosqueNeeds.js'
-import { getLiveSessions, getLiveSessionForMosque, getLatestRecording, joinLiveListener, leaveLiveListener } from '../services/liveAzanSessions.js'
+import { getLiveSessions, getLiveSessionForMosque, getLatestRecording, getMosqueAzanRecording, getMosqueAzanAudio, joinLiveListener, leaveLiveListener } from '../services/liveAzanSessions.js'
 import { buildAgoraCredentials } from '../services/agora.js'
 import { askOpenAiIslamicQuestion, transcribeOpenAiAudio } from '../services/islamicChat.js'
 import {
@@ -336,6 +336,44 @@ router.get('/live-azan/sessions', async (_req, res) => {
   try {
     await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
     res.json({ sessions: await getLiveSessions(client), serverTime: new Date().toISOString() })
+  } finally {
+    client.release()
+  }
+})
+
+// The mosque's most recent saved azan (metadata only).
+router.get('/mosques/:id/azan/latest', async (req, res) => {
+  const client = await pool.connect()
+  try {
+    await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+    const dbId = await resolveMosqueDbId(client, req.params.id)
+    if (!dbId) return res.status(404).json({ error: 'Mosque not found' })
+    const recording = await getMosqueAzanRecording(client, dbId)
+    if (!recording) return res.status(404).json({ error: 'No recording' })
+    res.json({
+      prayerName: recording.prayer_name,
+      recordedAt: recording.created_at,
+      url: `/api/mosques/${encodeURIComponent(req.params.id)}/azan/latest/audio`,
+    })
+  } finally {
+    client.release()
+  }
+})
+
+router.get('/mosques/:id/azan/latest/audio', async (req, res) => {
+  const client = await pool.connect()
+  try {
+    await client.query(`SET search_path TO ${process.env.PGSCHEMA || 'praynow'}, public`)
+    const dbId = await resolveMosqueDbId(client, req.params.id)
+    if (!dbId) return res.status(404).end()
+    const recording = await getMosqueAzanAudio(client, dbId)
+    if (!recording?.audio) return res.status(404).end()
+    res.setHeader('Content-Type', recording.mime || 'audio/aac')
+    res.setHeader('Cache-Control', 'public, max-age=300')
+    res.send(Buffer.from(recording.audio, 'base64'))
+  } catch (err) {
+    console.error('azan recording failed', err)
+    res.status(500).end()
   } finally {
     client.release()
   }

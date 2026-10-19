@@ -354,6 +354,15 @@ ALTER TABLE mosque_requests ADD COLUMN IF NOT EXISTS maghrib_offset_minutes INTE
 ALTER TABLE mosques ADD COLUMN IF NOT EXISTS maghrib_offset_minutes INTEGER;
 ALTER TABLE mosque_night_timings ADD COLUMN IF NOT EXISTS iftar_time VARCHAR(16) NOT NULL DEFAULT '';
 
+-- One saved azan per mosque. A new broadcast replaces the previous file.
+CREATE TABLE IF NOT EXISTS mosque_azan_recordings (
+  mosque_id   UUID PRIMARY KEY REFERENCES mosques(id) ON DELETE CASCADE,
+  prayer_name VARCHAR(16),
+  mime        VARCHAR(64) NOT NULL DEFAULT 'audio/aac',
+  audio       TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_mosque_requests_status ON mosque_requests(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_mosque_requests_user ON mosque_requests(submitted_by, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_mosque_request_photos_request
