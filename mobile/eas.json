@@ -14,8 +14,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://YOUR_API_HOST",
-        "EXPO_PUBLIC_ADMIN_URL": "https://YOUR_ADMIN_HOST"
+        "EXPO_PUBLIC_API_URL": "https://api-praynow-production.up.railway.app",
+        "EXPO_PUBLIC_ADMIN_URL": "https://praynow-production.up.railway.app"
       }
     },
     "production": {
@@ -24,8 +24,8 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://YOUR_API_HOST",
-        "EXPO_PUBLIC_ADMIN_URL": "https://YOUR_ADMIN_HOST"
+        "EXPO_PUBLIC_API_URL": "https://api-praynow-production.up.railway.app",
+        "EXPO_PUBLIC_ADMIN_URL": "https://praynow-production.up.railway.app"
       }
     }
   },
