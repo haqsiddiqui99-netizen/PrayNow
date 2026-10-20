@@ -13,7 +13,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
 import dotenv from 'dotenv'
-import { withClient, formatDbError } from '../src/db/pool.js'
+import { withClient, closePool, formatDbError } from '../src/db/pool.js'
 import { ensureDatabaseReady } from '../src/db/ensureReady.js'
 import { mosqueFieldsFromBody, upsertMosqueTimings, upsertNightTimings } from '../src/services/mosques.js'
 
@@ -240,7 +240,9 @@ async function main() {
   })
 }
 
-main().catch((err) => {
-  console.error('Import failed:', formatDbError(err))
-  process.exit(1)
-})
+main()
+  .catch((err) => {
+    console.error('Import failed:', formatDbError(err))
+    process.exitCode = 1
+  })
+  .finally(() => closePool())

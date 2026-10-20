@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs'
 import { randomUUID } from 'node:crypto'
-import { withClient, formatDbError } from './pool.js'
+import { withClient, closePool, formatDbError } from './pool.js'
 import { generateYearFromDefaults } from '../services/cityPrayerDays.js'
 import dotenv from 'dotenv'
 
@@ -137,25 +137,65 @@ const CITY_SCHEDULE = [
   { prayer_name: 'Isha', start_time: '8:00 PM', end_time: '4:55 AM' },
 ]
 
-async function seed() {
+/** Creates or resets the owner admin from SEED_ADMIN_* (defaults are for local dev only). */
+async function upsertSeedAdmin(client) {
   const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@praynow.com'
   const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'Admin@12345'
   const adminName = process.env.SEED_ADMIN_NAME || 'PrayNow Admin'
   const adminMobile = String(process.env.SEED_ADMIN_MOBILE || '9999999999').replace(/\D/g, '')
+  const hash = await bcrypt.hash(adminPassword, 10)
+  await client.query(
+    `INSERT INTO users (id, email, password_hash, full_name, mobile, role)
+     VALUES ($1, $2, $3, $4, $5, 'admin')
+     ON CONFLICT (email) DO UPDATE SET
+       password_hash = EXCLUDED.password_hash,
+       full_name = EXCLUDED.full_name,
+       mobile = COALESCE(EXCLUDED.mobile, users.mobile),
+       role = 'admin'`,
+    [SEED_ADMIN_ID, adminEmail, hash, adminName, adminMobile],
+  )
+  console.log('Admin user:', adminEmail, '| mobile login:', adminMobile)
+}
 
+/**
+ * Production Postgres starts empty. Create the owner admin and city defaults once,
+ * without the demo mosques and demo logins. Never touches an existing admin.
+ */
+export async function ensureFirstAdmin(client) {
+  const { rows } = await client.query(`SELECT 1 FROM users WHERE role = 'admin' LIMIT 1`)
+  if (rows.length) return false
+  if (process.env.NODE_ENV === 'production' && !process.env.SEED_ADMIN_PASSWORD) {
+    console.warn('No admin account yet. Set SEED_ADMIN_PASSWORD (and SEED_ADMIN_MOBILE) and redeploy to create one.')
+    return false
+  }
+  await upsertSeedAdmin(client)
+  await client.query(
+    `INSERT INTO city_settings (
+       id, city, country, lat, lng, zawal_start, zawal_end, sunrise, fajr_namaz_end,
+       tahajjud_start, tahajjud_end, sehri_start, sehri_end
+     )
+     VALUES (
+       1, 'Delhi', 'India', 28.6139, 77.2090, '11:20 AM', '11:55 AM', '5:45 AM', '5:40 AM',
+       '12:30 AM', '4:40 AM', '3:10 AM', '4:50 AM'
+     )
+     ON CONFLICT (id) DO NOTHING`,
+  )
+  const { rows: schedule } = await client.query(`SELECT 1 FROM city_prayer_schedule LIMIT 1`)
+  if (!schedule.length) {
+    for (const row of CITY_SCHEDULE) {
+      await client.query(
+        `INSERT INTO city_prayer_schedule (id, prayer_name, start_time, end_time)
+         VALUES ($1, $2, $3, $4)`,
+        [randomUUID(), row.prayer_name, row.start_time, row.end_time],
+      )
+    }
+  }
+  return true
+}
+
+async function seed() {
   await withClient(async (client) => {
-    const hash = await bcrypt.hash(adminPassword, 10)
-    await client.query(
-      `INSERT INTO users (id, email, password_hash, full_name, mobile, role)
-       VALUES ($1, $2, $3, $4, $5, 'admin')
-       ON CONFLICT (email) DO UPDATE SET
-         password_hash = EXCLUDED.password_hash,
-         full_name = EXCLUDED.full_name,
-         mobile = COALESCE(EXCLUDED.mobile, users.mobile),
-         role = 'admin'`,
-      [SEED_ADMIN_ID, adminEmail, hash, adminName, adminMobile],
-    )
-    console.log('Admin user:', adminEmail, '| mobile login:', adminMobile)
+    await upsertSeedAdmin(client)
 
     const appUserMobile = String(process.env.SEED_USER_MOBILE || '6666666666').replace(/\D/g, '')
     const appUserPassword = process.env.SEED_USER_PASSWORD || 'User@12345'
@@ -341,8 +381,10 @@ export async function runSeed() {
 
 const isDirectRun = process.argv[1]?.endsWith('seed.js')
 if (isDirectRun) {
-  runSeed().catch((err) => {
-    console.error('Seed failed:', formatDbError(err))
-    process.exit(1)
-  })
+  runSeed()
+    .catch((err) => {
+      console.error('Seed failed:', formatDbError(err))
+      process.exitCode = 1
+    })
+    .finally(() => closePool())
 }

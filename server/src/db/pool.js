@@ -31,6 +31,7 @@ export function getPool() {
   return sharedPool
 }
 
+/** Runs fn on a pooled client. The API shares this pool, so it stays open afterwards. */
 export async function withClient(fn) {
   const pool = getPool()
   const client = await pool.connect()
@@ -39,12 +40,19 @@ export async function withClient(fn) {
     return await fn(client)
   } finally {
     client.release()
-    if (!isMemoryDatabase()) {
-      await pool.end()
-      sharedPool = null
-    }
   }
 }
+
+/** One-off scripts call this so Node can exit. */
+export async function closePool() {
+  if (!sharedPool || isMemoryDatabase()) return
+  const pool = sharedPool
+  sharedPool = null
+  await pool.end()
+}
+
+// CREATE TYPE has no IF NOT EXISTS, and pg-mem cannot run a DO block, so skip it once it exists.
+const CREATE_USER_ROLE_RE = /^CREATE TYPE user_role AS ENUM[^;]*;/m
 
 export async function runMigration() {
   if (isMemoryDatabase()) {
@@ -54,11 +62,21 @@ export async function runMigration() {
   }
 
   const sqlPath = path.join(__dirname, '../../db/schema.sql')
-  const sql = fs.readFileSync(sqlPath, 'utf8')
-  await withClient(async (client) => {
-    await client.query(sql)
-    console.log('Migration complete — schema:', schema)
-  })
+  let sql = fs.readFileSync(sqlPath, 'utf8')
+  try {
+    await withClient(async (client) => {
+      const { rows } = await client.query(
+        `SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+         WHERE t.typname = 'user_role' AND n.nspname = $1`,
+        [schema],
+      )
+      if (rows.length) sql = sql.replace(CREATE_USER_ROLE_RE, '')
+      await client.query(sql)
+      console.log('Migration complete — schema:', schema)
+    })
+  } finally {
+    await closePool()
+  }
 }
 
 export function formatDbError(err) {

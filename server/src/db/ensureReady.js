@@ -1,5 +1,5 @@
 import { getPool, isMemoryDatabase } from './pool.js'
-import { runSeed } from './seed.js'
+import { ensureFirstAdmin, runSeed } from './seed.js'
 import { hydrateLocalMosquesFromFiles } from './hydrateLocalMosques.js'
 import { getMemoryDb } from './memory.js'
 import { restoreMemorySnapshot } from './memorySnapshot.js'
@@ -18,6 +18,8 @@ export async function ensureDatabaseReady() {
         console.log('In-memory database empty — seeding demo data…')
         await runSeed()
       }
+    } else {
+      await ensureFirstAdmin(client)
     }
   } finally {
     client.release()
