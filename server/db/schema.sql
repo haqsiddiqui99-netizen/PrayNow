@@ -363,6 +363,60 @@ CREATE TABLE IF NOT EXISTS mosque_azan_recordings (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Halal directory: restaurants, meat shops, attar and more. Featured rows are paid placements.
+-- Dates are kept as 'YYYY-MM-DD' text so they never shift with the server time zone.
+CREATE TABLE IF NOT EXISTS halal_listings (
+  id               UUID PRIMARY KEY,
+  category         VARCHAR(24) NOT NULL,
+  name             VARCHAR(160) NOT NULL,
+  tagline          VARCHAR(200) NOT NULL DEFAULT '',
+  description      TEXT NOT NULL DEFAULT '',
+  area             VARCHAR(120) NOT NULL DEFAULT '',
+  address          VARCHAR(300) NOT NULL DEFAULT '',
+  city             VARCHAR(80) NOT NULL DEFAULT '',
+  lat              DOUBLE PRECISION,
+  lng              DOUBLE PRECISION,
+  phone            VARCHAR(20) NOT NULL DEFAULT '',
+  whatsapp         VARCHAR(20) NOT NULL DEFAULT '',
+  website          VARCHAR(500) NOT NULL DEFAULT '',
+  photo_url        VARCHAR(500) NOT NULL DEFAULT '',
+  tags             VARCHAR(400) NOT NULL DEFAULT '',
+  price_level      SMALLINT NOT NULL DEFAULT 0,
+  delivers         BOOLEAN NOT NULL DEFAULT FALSE,
+  cert_body        VARCHAR(160) NOT NULL DEFAULT '',
+  cert_number      VARCHAR(80) NOT NULL DEFAULT '',
+  cert_valid_until VARCHAR(10) NOT NULL DEFAULT '',
+  verified         BOOLEAN NOT NULL DEFAULT FALSE,
+  featured         BOOLEAN NOT NULL DEFAULT FALSE,
+  featured_until   VARCHAR(10) NOT NULL DEFAULT '',
+  sort_boost       INTEGER NOT NULL DEFAULT 0,
+  is_active        BOOLEAN NOT NULL DEFAULT TRUE,
+  views            INTEGER NOT NULL DEFAULT 0,
+  contacts         INTEGER NOT NULL DEFAULT 0,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_halal_listings_category ON halal_listings(category, is_active);
+
+-- A business asking to be listed (or featured). The owner follows up by phone.
+CREATE TABLE IF NOT EXISTS halal_listing_requests (
+  id             UUID PRIMARY KEY,
+  business_name  VARCHAR(160) NOT NULL,
+  category       VARCHAR(24) NOT NULL,
+  city           VARCHAR(80) NOT NULL DEFAULT '',
+  area           VARCHAR(120) NOT NULL DEFAULT '',
+  contact_name   VARCHAR(120) NOT NULL DEFAULT '',
+  phone          VARCHAR(20) NOT NULL,
+  note           TEXT NOT NULL DEFAULT '',
+  wants_featured BOOLEAN NOT NULL DEFAULT FALSE,
+  status         VARCHAR(16) NOT NULL DEFAULT 'new',
+  submitted_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_halal_requests_status ON halal_listing_requests(status, created_at DESC);
+
 CREATE INDEX IF NOT EXISTS idx_mosque_requests_status ON mosque_requests(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_mosque_requests_user ON mosque_requests(submitted_by, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_mosque_request_photos_request

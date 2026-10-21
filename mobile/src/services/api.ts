@@ -984,3 +984,79 @@ export async function resolveCorrection(id: string, status: 'fixed' | 'dismissed
   return ((await res.json()) as { correction: MosqueCorrection }).correction
 }
 
+export type HalalCategory =
+  | 'restaurant'
+  | 'meat'
+  | 'bakery'
+  | 'grocery'
+  | 'perfume'
+  | 'cosmetics'
+  | 'modest'
+  | 'books'
+  | 'travel'
+  | 'janazah'
+
+export type HalalListing = {
+  id: string
+  category: HalalCategory
+  name: string
+  tagline: string
+  description: string
+  area: string
+  address: string
+  city: string
+  lat: number | null
+  lng: number | null
+  phone: string
+  whatsapp: string
+  /** Empty or an https link. */
+  website: string
+  photoUrl: string
+  tags: string[]
+  /** 0 when unknown, otherwise 1 (budget) to 3 (premium). */
+  priceLevel: number
+  delivers: boolean
+  certBody: string
+  certNumber: string
+  /** 'YYYY-MM-DD' or empty. */
+  certValidUntil: string
+  verified: boolean
+  /** A paid placement that is currently running. */
+  featured: boolean
+}
+
+export async function fetchHalalListings(): Promise<HalalListing[]> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/halal/listings`)
+  if (!res.ok) await parseError(res, 'Failed to load halal places')
+  return ((await res.json()) as { listings?: HalalListing[] }).listings ?? []
+}
+
+/** Fire-and-forget: counts an opened listing or a tap on call, WhatsApp or directions. */
+export function trackHalalListing(id: string, kind: 'view' | 'contact') {
+  void fetchWithTimeout(`${getApiBaseUrl()}/api/halal/listings/${id}/track`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind }),
+  }).catch(() => {})
+}
+
+export type HalalListingRequestInput = {
+  businessName: string
+  category: HalalCategory
+  city: string
+  area: string
+  contactName: string
+  phone: string
+  note: string
+  wantsFeatured: boolean
+}
+
+export async function submitHalalListingRequest(body: HalalListingRequestInput): Promise<void> {
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/halal/requests`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) await parseError(res, 'Failed to send your request')
+}
+

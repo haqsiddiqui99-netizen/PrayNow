@@ -58,6 +58,56 @@ export type CorrectionRow = {
   createdAt: string
 }
 
+export type HalalListingRow = {
+  id: string
+  category: string
+  name: string
+  tagline: string
+  description: string
+  area: string
+  address: string
+  city: string
+  lat: number | null
+  lng: number | null
+  phone: string
+  whatsapp: string
+  website: string
+  photoUrl: string
+  tags: string[]
+  priceLevel: number
+  delivers: boolean
+  certBody: string
+  certNumber: string
+  certValidUntil: string
+  verified: boolean
+  /** True only while the paid spot is running. */
+  featured: boolean
+  featuredFlag: boolean
+  featuredUntil: string
+  sortBoost: number
+  isActive: boolean
+  views: number
+  contacts: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type HalalRequestRow = {
+  id: string
+  businessName: string
+  category: string
+  city: string
+  area: string
+  contactName: string
+  phone: string
+  note: string
+  wantsFeatured: boolean
+  status: string
+  submittedByName: string
+  submittedByMobile: string
+  createdAt: string
+}
+
 export function getPortalUser(): PortalUser | null {
   const raw = localStorage.getItem(USER_KEY)
   if (!raw) return null
@@ -166,6 +216,16 @@ export const desk = {
       '/api/admin/city/days/generate-year',
       { method: 'POST', body: JSON.stringify({ year, city, source }) },
     ),
+  halalListings: () => request<{ listings: HalalListingRow[]; categories: string[] }>('/api/admin/halal/listings'),
+  createHalal: (body: object) =>
+    request<{ listing: HalalListingRow }>('/api/admin/halal/listings', { method: 'POST', body: JSON.stringify(body) }),
+  updateHalal: (id: string, body: object) =>
+    request<{ listing: HalalListingRow }>(`/api/admin/halal/listings/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteHalal: (id: string) => request(`/api/admin/halal/listings/${id}`, { method: 'DELETE' }),
+  halalRequests: (status: string) =>
+    request<{ requests: HalalRequestRow[] }>(`/api/admin/halal/requests?status=${encodeURIComponent(status)}`),
+  setHalalRequest: (id: string, status: string) =>
+    request(`/api/admin/halal/requests/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   importCsv: (csv: string, city: string) =>
     request<{ upserted: number; yearDaysLoaded: number; city: string }>(
       '/api/admin/city/days/import-csv',

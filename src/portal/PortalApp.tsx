@@ -1,18 +1,20 @@
 import { useState } from 'react'
 import { clearPortalSession, getPortalUser, signIn, type PortalUser } from './api'
 import { CityDesk } from './pages/CityDesk'
+import { HalalDesk } from './pages/HalalDesk'
 import { MosquesDesk } from './pages/MosquesDesk'
 import { Overview } from './pages/Overview'
 import { PeopleDesk } from './pages/PeopleDesk'
 import { QueuesDesk } from './pages/QueuesDesk'
 
-export type DeskPage = 'overview' | 'people' | 'mosques' | 'queues' | 'city'
+export type DeskPage = 'overview' | 'people' | 'mosques' | 'queues' | 'halal' | 'city'
 
 const NAV: Array<{ id: DeskPage; label: string; hint: string }> = [
   { id: 'overview', label: 'Overview', hint: 'Counts' },
   { id: 'people', label: 'People', hint: 'Accounts' },
   { id: 'mosques', label: 'Mosques', hint: 'Records and times' },
   { id: 'queues', label: 'Queues', hint: 'Requests and reports' },
+  { id: 'halal', label: 'Halal', hint: 'Listings and featured spots' },
   { id: 'city', label: 'City times', hint: 'Home schedule' },
 ]
 
@@ -64,6 +66,7 @@ export function PortalApp() {
         {page === 'people' ? <PeopleDesk /> : null}
         {page === 'mosques' ? <MosquesDesk /> : null}
         {page === 'queues' ? <QueuesDesk /> : null}
+        {page === 'halal' ? <HalalDesk /> : null}
         {page === 'city' ? <CityDesk /> : null}
       </main>
     </div>

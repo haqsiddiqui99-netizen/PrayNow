@@ -3,20 +3,27 @@ import { desk } from '../api'
 import type { DeskPage } from '../PortalApp'
 
 export function Overview({ go }: { go: (page: DeskPage) => void }) {
-  const [counts, setCounts] = useState({ people: 0, mosques: 0, requests: 0, corrections: 0 })
+  const [counts, setCounts] = useState({ people: 0, mosques: 0, requests: 0, corrections: 0, halal: 0 })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let live = true
-    void Promise.all([desk.users(), desk.mosques(), desk.requests('pending'), desk.corrections('pending')])
-      .then(([people, mosques, requests, corrections]) => {
+    void Promise.all([
+      desk.users(),
+      desk.mosques(),
+      desk.requests('pending'),
+      desk.corrections('pending'),
+      desk.halalRequests('new'),
+    ])
+      .then(([people, mosques, requests, corrections, halal]) => {
         if (!live) return
         setCounts({
           people: people.length,
           mosques: mosques.length,
           requests: requests.requests.length,
           corrections: corrections.corrections.length,
+          halal: halal.requests.length,
         })
       })
       .catch((err: unknown) => {
@@ -35,6 +42,7 @@ export function Overview({ go }: { go: (page: DeskPage) => void }) {
     { id: 'mosques', label: 'Mosques', value: counts.mosques, note: 'Records already in the app' },
     { id: 'queues', label: 'Add-mosque requests', value: counts.requests, note: 'Waiting for approve or reject' },
     { id: 'queues', label: 'Correction reports', value: counts.corrections, note: 'Times or details marked wrong' },
+    { id: 'halal', label: 'Halal business requests', value: counts.halal, note: 'Shops asking to be listed or featured' },
   ]
 
   return (

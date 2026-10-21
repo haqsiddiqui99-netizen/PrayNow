@@ -3,6 +3,7 @@ import { ensureFirstAdmin, runSeed } from './seed.js'
 import { hydrateLocalMosquesFromFiles } from './hydrateLocalMosques.js'
 import { getMemoryDb } from './memory.js'
 import { restoreMemorySnapshot } from './memorySnapshot.js'
+import { ensureHalalStarterListings } from '../services/halal.js'
 
 export async function ensureDatabaseReady() {
   const pool = getPool()
@@ -21,6 +22,8 @@ export async function ensureDatabaseReady() {
     } else {
       await ensureFirstAdmin(client)
     }
+    const added = await ensureHalalStarterListings(client)
+    if (added) console.log(`Added ${added} starter halal listings`)
   } finally {
     client.release()
   }

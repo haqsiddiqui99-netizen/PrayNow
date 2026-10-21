@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit'
 import publicRoutes from './routes/public.js'
 import adminRoutes from './routes/admin.js'
 import meRoutes from './routes/me.js'
+import halalRoutes from './routes/halal.js'
 import { ensureDatabaseReady } from './db/ensureReady.js'
 import { isMemoryDatabase } from './db/pool.js'
 
@@ -51,6 +52,13 @@ const deleteLimiter = rateLimit({
   skip: (req) => req.method !== 'DELETE' || (req.path !== '/' && req.path !== ''),
   message: { error: 'Too many attempts. Try again in a few minutes.' },
 })
+const halalLimiter = rateLimit({
+  ...limitJson,
+  windowMs: 60 * 1000,
+  limit: 60,
+  skip: (req) => req.method !== 'POST',
+  message: { error: 'Too many requests. Please wait a moment.' },
+})
 
 app.use(cors({
   origin(origin, callback) {
@@ -68,6 +76,7 @@ app.use('/api/login', authLimiter)
 app.use('/api/register', authLimiter)
 app.use('/api/chat', chatLimiter)
 app.use('/api/me', deleteLimiter)
+app.use('/api/halal', halalLimiter)
 
 app.use(express.json({ limit: '10mb' }))
 
@@ -83,6 +92,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api', publicRoutes)
 app.use('/api', adminRoutes)
 app.use('/api', meRoutes)
+app.use('/api', halalRoutes)
 
 app.use((err, _req, res, _next) => {
   console.error(err)
