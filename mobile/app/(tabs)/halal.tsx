@@ -21,7 +21,7 @@ import { GradientFill } from '@/src/components/GradientFill'
 import { HalalDetailSheet } from '@/src/components/halal/HalalDetailSheet'
 import { HalalJoinSheet } from '@/src/components/halal/HalalJoinSheet'
 import { HalalArt, HalalListingCard, VerifiedSeal, roundKm } from '@/src/components/halal/HalalListingCard'
-import { HALAL_CATEGORIES, HALAL_GOLD, halalCategory } from '@/src/constants/halalCategories'
+import { HALAL_CATEGORIES, HALAL_GOLD, halalCategory, halalTag } from '@/src/constants/halalCategories'
 import { paperColors } from '@/src/constants/theme'
 import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
@@ -54,7 +54,12 @@ export default function HalalScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [failed, setFailed] = useState(false)
   const [query, setQuery] = useState('')
-  const [category, setCategory] = useState<HalalCategory | null>(null)
+  const [category, setCategoryState] = useState<HalalCategory | null>(null)
+  const [tagFilter, setTagFilter] = useState<string | null>(null)
+  const setCategory = (next: HalalCategory | null) => {
+    setCategoryState(next)
+    setTagFilter(null)
+  }
   const [verifiedOnly, setVerifiedOnly] = useState(false)
   const [deliveryOnly, setDeliveryOnly] = useState(false)
   const [savedOnly, setSavedOnly] = useState(false)
@@ -127,11 +132,26 @@ export default function HalalScreen() {
 
   const needle = query.trim().toLowerCase()
   const filtering = Boolean(needle || category || verifiedOnly || deliveryOnly || savedOnly)
+  const categoryTags = category ? halalCategory(category).tags ?? [] : []
+  const activeTag = categoryTags.some((item) => item.id === tagFilter) ? tagFilter : null
+
+  const tagCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const { listing } of pool) {
+      if (listing.category !== category) continue
+      for (const tag of listing.tags) {
+        const id = tag.trim().toLowerCase()
+        counts.set(id, (counts.get(id) ?? 0) + 1)
+      }
+    }
+    return counts
+  }, [pool, category])
 
   const results = useMemo(() => {
     if (!filtering) return []
     return pool
       .filter(({ listing }) => (category ? listing.category === category : true))
+      .filter(({ listing }) => (activeTag ? listing.tags.some((tag) => tag.trim().toLowerCase() === activeTag) : true))
       .filter(({ listing }) => (verifiedOnly ? listing.verified : true))
       .filter(({ listing }) => (deliveryOnly ? listing.delivers : true))
       .filter(({ listing }) => (savedOnly ? saved.includes(listing.id) : true))
@@ -144,12 +164,16 @@ export default function HalalScreen() {
           listing.city,
           listing.description,
           listing.tags.join(' '),
+          listing.tags.map((tag) => {
+            const known = halalTag(tag)
+            return known ? t(known.label) : ''
+          }).join(' '),
           t(halalCategory(listing.category).label),
         ].join(' ')
         return `${haystack} ${placeName(haystack)}`.toLowerCase().includes(needle)
       })
       .sort((a, b) => Number(b.listing.featured) - Number(a.listing.featured) || byDistance(a, b))
-  }, [filtering, pool, category, verifiedOnly, deliveryOnly, savedOnly, saved, needle, t, placeName])
+  }, [filtering, pool, category, activeTag, verifiedOnly, deliveryOnly, savedOnly, saved, needle, t, placeName])
 
   const featured = useMemo(() => pool.filter(({ listing }) => listing.featured).sort(byDistance).slice(0, 8), [pool])
   const certified = useMemo(
@@ -302,6 +326,29 @@ export default function HalalScreen() {
                   <Ionicons name="close" size={18} color="#FFFFFF" />
                 </Pressable>
               </View>
+            ) : null}
+            {categoryTags.length ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.filters, styles.subFilters]}>
+                <Pressable onPress={() => setTagFilter(null)} style={[styles.filter, !activeTag && styles.filterOn]} accessibilityState={{ selected: !activeTag }}>
+                  <Text style={[styles.filterText, !activeTag && styles.filterTextOn]}>{t('halal.tag.all')}</Text>
+                </Pressable>
+                {categoryTags.map((item) => {
+                  const on = item.id === activeTag
+                  const count = tagCounts.get(item.id) ?? 0
+                  return (
+                    <Pressable
+                      key={item.id}
+                      onPress={() => setTagFilter(on ? null : item.id)}
+                      style={[styles.filter, on && styles.filterOn, !count && !on && styles.filterIdle]}
+                      accessibilityState={{ selected: on }}>
+                      <MaterialCommunityIcons name={item.icon} size={14} color={on ? paper.onInk : paper.ink} />
+                      <Text style={[styles.filterText, on && styles.filterTextOn]}>
+                        {count ? `${t(item.label)} · ${digits(count)}` : t(item.label)}
+                      </Text>
+                    </Pressable>
+                  )
+                })}
+              </ScrollView>
             ) : null}
             <Text style={styles.section}>{t('halal.results', { count: digits(results.length) })}</Text>
             {results.map(renderCard)}
@@ -557,6 +604,8 @@ const useStyles = makeStyles(({ mode }) => {
       backgroundColor: paper.chip,
     },
     filterOn: { backgroundColor: paper.ink },
+    filterIdle: { opacity: 0.55 },
+    subFilters: { paddingTop: 2, paddingBottom: 6 },
     filterText: { fontFamily: 'Figtree_700Bold', fontSize: 12.5, color: paper.ink },
     filterTextOn: { color: paper.onInk },
     loading: { paddingVertical: 60, alignItems: 'center' },

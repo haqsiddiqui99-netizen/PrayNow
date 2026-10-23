@@ -14,6 +14,32 @@ const CATEGORY_LABELS: Record<string, string> = {
   janazah: 'Janazah supplies',
 }
 
+/** Tag ids must match HALAL_CATEGORIES in the phone app, which filters on them. */
+const CATEGORY_TAGS: Record<string, { title: string; tags: Array<[string, string]> }> = {
+  meat: {
+    title: 'Meat sold',
+    tags: [
+      ['chicken', 'Chicken'],
+      ['mutton', 'Mutton'],
+      ['beef', 'Beef'],
+      ['fish', 'Fish'],
+      ['other', 'Others'],
+    ],
+  },
+}
+
+function tagList(raw: string) {
+  return raw
+    .split(',')
+    .map((tag) => tag.trim().toLowerCase())
+    .filter(Boolean)
+}
+
+function toggleTag(raw: string, tag: string) {
+  const list = tagList(raw)
+  return (list.includes(tag) ? list.filter((item) => item !== tag) : [...list, tag]).join(', ')
+}
+
 const REQUEST_STATUSES = ['new', 'contacted', 'listed', 'declined', 'all']
 
 type Draft = {
@@ -349,6 +375,21 @@ export function HalalDesk() {
               {input('Name', 'name', { required: true, maxLength: 160 })}
               {input('Tagline', 'tagline', { maxLength: 200, placeholder: 'Mutton nihari since 1960' })}
               {input('Tags', 'tags', { placeholder: 'biryani, late night, family seating' })}
+              {CATEGORY_TAGS[draft.category] ? (
+                <div className="span-2">
+                  <p className="filter-label">{CATEGORY_TAGS[draft.category].title}</p>
+                  <div className="type-picks">
+                    {CATEGORY_TAGS[draft.category].tags.map(([tag, label]) => {
+                      const on = tagList(draft.tags).includes(tag)
+                      return (
+                        <button key={tag} type="button" className={on ? 'pick on' : 'pick'} onClick={() => set('tags', toggleTag(draft.tags, tag))}>
+                          {label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : null}
               <label className="span-2">
                 About
                 <textarea value={draft.description} onChange={(e) => set('description', e.target.value)} rows={3} maxLength={2000} />
@@ -379,7 +420,7 @@ export function HalalDesk() {
               {input('Certificate number', 'certNumber')}
               {input('Certificate valid until', 'certValidUntil', { type: 'date' })}
               {input('Featured until', 'featuredUntil', { type: 'date' })}
-              <div className="span-2 actions">
+              <div className="span-2 checks row">
                 {toggle('Verified (certificate seen)', 'verified')}
                 {toggle('Featured (paid)', 'featured')}
                 {toggle('Delivers', 'delivers')}

@@ -1242,6 +1242,12 @@ const en = {
   'halal.catSub.travel': "Trusted travel agents",
   'halal.cat.janazah': "Janazah supplies",
   'halal.catSub.janazah': "Kafan & ghusl kits",
+  'halal.tag.chicken': "Chicken",
+  'halal.tag.mutton': "Mutton",
+  'halal.tag.beef': "Beef",
+  'halal.tag.fish': "Fish",
+  'halal.tag.other': "Others",
+  'halal.tag.all': "All",
 } as const
 
 export type TranslationKey = keyof typeof en
@@ -2473,6 +2479,12 @@ const hi: Record<TranslationKey, string> = {
   'halal.catSub.travel': "भरोसेमंद ट्रैवल एजेंट",
   'halal.cat.janazah': "जनाज़े का सामान",
   'halal.catSub.janazah': "कफ़न और ग़ुस्ल किट",
+  'halal.tag.chicken': "चिकन",
+  'halal.tag.mutton': "मटन",
+  'halal.tag.beef': "बीफ़",
+  'halal.tag.fish': "मछली",
+  'halal.tag.other': "अन्य",
+  'halal.tag.all': "सभी",
 }
 
 const ur: Record<TranslationKey, string> = {
@@ -3702,6 +3714,12 @@ const ur: Record<TranslationKey, string> = {
   'halal.catSub.travel': "قابلِ اعتماد ٹریول ایجنٹ",
   'halal.cat.janazah': "جنازے کا سامان",
   'halal.catSub.janazah': "کفن اور غسل کٹ",
+  'halal.tag.chicken': "چکن",
+  'halal.tag.mutton': "مٹن",
+  'halal.tag.beef': "بیف",
+  'halal.tag.fish': "مچھلی",
+  'halal.tag.other': "دیگر",
+  'halal.tag.all': "سب",
 }
 
 const ar: Record<TranslationKey, string> = {
@@ -4931,6 +4949,12 @@ const ar: Record<TranslationKey, string> = {
   'halal.catSub.travel': "وكلاء سفر موثوقون",
   'halal.cat.janazah': "مستلزمات الجنازة",
   'halal.catSub.janazah': "كفن وأدوات الغسل",
+  'halal.tag.chicken': "دجاج",
+  'halal.tag.mutton': "لحم ضأن",
+  'halal.tag.beef': "لحم بقر",
+  'halal.tag.fish': "سمك",
+  'halal.tag.other': "أخرى",
+  'halal.tag.all': "الكل",
 }
 
 export const translations: Record<LanguageCode, Record<TranslationKey, string>> = {

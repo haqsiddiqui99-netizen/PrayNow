@@ -178,7 +178,7 @@ export function listingFieldsFromBody(body, { partial = false } = {}) {
   }
   if (has('tags')) {
     const list = Array.isArray(b.tags) ? b.tags : splitTags(b.tags)
-    fields.tags = list.map((tag) => cleanText(tag, 40).replace(/,/g, ' ')).filter(Boolean).slice(0, 8).join(',')
+    fields.tags = list.map((tag) => cleanText(tag, 40).replace(/,/g, ' ')).filter(Boolean).slice(0, 12).join(',')
   }
   if (has('priceLevel')) fields.price_level = Math.max(0, Math.min(3, Math.round(Number(b.priceLevel) || 0)))
   if (has('delivers')) fields.delivers = Boolean(b.delivers)

@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
 import { Image, Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import { GradientFill } from '@/src/components/GradientFill'
-import { HALAL_GOLD, halalCategory } from '@/src/constants/halalCategories'
+import { HALAL_GOLD, halalCategory, halalTag, sortHalalTags } from '@/src/constants/halalCategories'
 import { paperColors } from '@/src/constants/theme'
 import { useLanguage } from '@/src/context/LanguageContext'
 import { makeStyles, useTheme } from '@/src/context/ThemeContext'
@@ -124,11 +124,15 @@ export function HalalListingCard({ listing, km, saved, onOpen, onToggleSave, onC
               <Text style={[styles.tagText, styles.tagDeliverText]}>{t('halal.deliversYes')}</Text>
             </View>
           ) : null}
-          {listing.tags.slice(0, 3).map((tag) => (
-            <View key={tag} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
-            </View>
-          ))}
+          {sortHalalTags(listing.tags).slice(0, 3).map((tag) => {
+            const known = halalTag(tag)
+            return (
+              <View key={tag} style={styles.tag}>
+                {known ? <MaterialCommunityIcons name={known.icon} size={12} color={paper.muted} /> : null}
+                <Text style={styles.tagText}>{known ? t(known.label) : tag}</Text>
+              </View>
+            )
+          })}
         </View>
       ) : null}
 
