@@ -332,12 +332,26 @@ th { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: 
 .fields.dense .c8 { grid-column: span 8; }
 .fields.dense .c12 { grid-column: span 12; }
 
-.switch { flex-direction: row; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 650; color: #5c5148; cursor: pointer; }
+.switch {
+  display: inline-flex;
+  flex: none;
+  width: max-content;
+  max-width: 100%;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: #5c5148;
+  cursor: pointer;
+}
 .switch input {
   appearance: none;
   position: relative;
-  flex: none;
+  flex: 0 0 34px;
   width: 34px;
+  min-width: 34px;
+  max-width: 34px;
   height: 20px;
   padding: 0;
   border: 0;
@@ -568,7 +582,21 @@ th { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: 
   text-transform: capitalize;
 }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.actions input { flex: 1; min-width: 180px; }
+.actions input:not([type='checkbox']) { flex: 1; min-width: 180px; }
+.actions .switch,
+.form-grid .switch,
+.checks .switch,
+.block-top .switch {
+  flex: none;
+  width: max-content;
+}
+.actions .switch input,
+.form-grid .switch input {
+  flex: 0 0 34px;
+  width: 34px;
+  min-width: 34px;
+  max-width: 34px;
+}
 .year { margin-top: 16px; }
 
 .error, .ok { padding: 10px 12px; border-radius: 12px; margin-bottom: 12px; }
