@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1280" viewBox="0 0 1024 1280">
+  <defs>
+    <linearGradient id="sbg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1565C0"/>
+      <stop offset="100%" stop-color="#0A3D8F"/>
+    </linearGradient></defs>
+  <rect width="1024" height="1280" fill="url(#sbg)"/>
+  <g transform="translate(512 560) scale(0.78) translate(-512 -512)">
+    
+    <path d="M 286 768 L 286 518 C 286 338 378 232 512 152 C 646 232 738 338 738 518 L 738 768" fill="none" stroke="#FFFFFF" stroke-width="82" stroke-linecap="round" stroke-linejoin="round"/>
+    
+    <mask id="cstack">
+      <rect x="-400" y="-400" width="2000" height="2000" fill="#000"/>
+      <circle cx="536" cy="512" r="122" fill="#fff"/>
+      <circle cx="579.92" cy="487.6" r="92.72" fill="#000"/>
+    </mask>
+    <circle cx="536" cy="512" r="122" fill="#E8C56B" mask="url(#cstack)"/>
+  </g>
+  <text x="512" y="1088" text-anchor="middle" font-family="Figtree" font-weight="700" font-size="108">
+    <tspan fill="#FFFFFF">Pray</tspan><tspan fill="#E8C56B">Now</tspan>
+  </text>
+</svg>

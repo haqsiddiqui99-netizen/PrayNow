@@ -30,8 +30,11 @@ export function PortalApp() {
     <div className="shell">
       <aside className="side">
         <div className="brand">
-          <p className="brand-kicker">PrayNow</p>
-          <h1>Desk</h1>
+          <img className="brand-mark" src="/favicon.svg" alt="" />
+          <div>
+            <p className="brand-kicker">PrayNow</p>
+            <h1>Desk</h1>
+          </div>
         </div>
         <nav className="nav">
           {NAV.map((item) => (
@@ -93,6 +96,7 @@ function SignIn({ onSuccess }: { onSuccess: (user: PortalUser) => void }) {
             .finally(() => setBusy(false))
         }}
       >
+        <img className="gate-mark" src="/favicon.svg" alt="" />
         <p className="brand-kicker">PrayNow</p>
         <h1>Owner desk</h1>
         <p className="lede">

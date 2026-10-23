@@ -4,7 +4,7 @@
     "slug": "praynow",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/Home_PP.png",
+    "icon": "./assets/brand/icon.png",
     "scheme": "praynow",
     "userInterfaceStyle": "light",
     "ios": {
@@ -17,6 +17,7 @@
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/brand/adaptive-foreground.png",
         "backgroundColor": "#0d47a1"
       },
       "permissions": [
@@ -39,7 +40,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/brand/splash-icon.png",
           "resizeMode": "contain",
           "backgroundColor": "#0d47a1"
         }
