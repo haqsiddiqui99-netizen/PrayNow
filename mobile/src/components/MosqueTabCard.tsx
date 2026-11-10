@@ -738,9 +738,6 @@ export function MosqueTabCard({
       <View style={[styles.panel, { backgroundColor: panelBottom }]}>
         <GradientFill colors={[panelTop, panelBottom]} vertical />
         <View style={styles.pTop}>
-          <View style={[styles.pIcon, isLive && styles.pIconLive]}>
-            <Ionicons name={prayerIcon(focus)} size={18} color={isLive ? liveText : iconInk} />
-          </View>
           <View style={styles.pTitle}>
             <Text style={styles.pName} numberOfLines={1}>
               {prayerName(focus)}
@@ -1020,15 +1017,6 @@ const useStyles = makeStyles(({ mode }) => {
       overflow: 'hidden',
     },
     pTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    pIcon: {
-      width: 40,
-      height: 40,
-      borderRadius: 14,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: chip,
-    },
-    pIconLive: { backgroundColor: dark ? '#3A2422' : '#FDECEA' },
     pTitle: { flex: 1, minWidth: 0, justifyContent: 'center', gap: 4 },
     pName: { fontFamily: F.display, fontSize: 24, lineHeight: 28, color: panelInk, letterSpacing: -0.3 },
     pTimes: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 0 },

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
-import { useFocusEffect, useRouter } from 'expo-router'
+import { useFocusEffect } from 'expo-router'
+import { useBottomTabBarHeight } from 'expo-router/js-tabs'
 import { useCallback, useMemo, useState } from 'react'
 import { Platform, Pressable, ScrollView, Share, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -20,18 +21,13 @@ function tap(kind: 'count' | 'done') {
 export default function DuasScreen() {
   const styles = useStyles()
   const { t } = useLanguage()
-  const { mode } = useTheme()
-  const router = useRouter()
   const insets = useSafeAreaInsets()
-  const ink = mode === 'dark' ? '#EAF3F0' : '#0F1F2E'
+  const tabBarHeight = useBottomTabBarHeight()
   const [tab, setTab] = useState<Tab>('tasbih')
 
   return (
     <View style={styles.page}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel={t('common.back')} style={styles.back}>
-          <Ionicons name="chevron-back" size={22} color={ink} />
-        </Pressable>
         <Text style={styles.headerTitle}>{t('more.duas')}</Text>
       </View>
       <View style={styles.seg} accessibilityRole="tablist">
@@ -51,7 +47,7 @@ export default function DuasScreen() {
           )
         })}
       </View>
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 28 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: tabBarHeight + 28 }} showsVerticalScrollIndicator={false}>
         {tab === 'tasbih' ? <TasbihPanel /> : <DuaList />}
       </ScrollView>
     </View>
@@ -215,8 +211,7 @@ const useStyles = makeStyles(({ mode }) => {
   const chip = dark ? '#1C3330' : '#F3F1EC'
   return {
     page: { flex: 1, backgroundColor: dark ? '#0C1818' : '#F6F4F0' },
-    header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, marginBottom: 10 },
-    back: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: card },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginBottom: 10 },
     headerTitle: { fontFamily: 'Newsreader_600SemiBold', fontSize: 26, color: ink, letterSpacing: -0.3 },
     seg: { flexDirection: 'row', marginHorizontal: 12, padding: 4, borderRadius: 16, backgroundColor: chip, marginBottom: 12 },
     segBtn: { flex: 1, paddingVertical: 9, borderRadius: 12, alignItems: 'center' },
@@ -237,7 +232,15 @@ const useStyles = makeStyles(({ mode }) => {
       borderColor: line,
       alignItems: 'center',
     },
-    arabicBig: { fontSize: 34, lineHeight: 54, color: ink, textAlign: 'center', writingDirection: 'rtl' },
+    arabicBig: {
+      fontFamily: 'Amiri_700Bold',
+      fontSize: 40,
+      lineHeight: 76,
+      color: ink,
+      textAlign: 'center',
+      writingDirection: 'rtl',
+      paddingTop: 4,
+    },
     meaning: { fontFamily: 'Figtree_500Medium', fontSize: 13, color: muted, textAlign: 'center', marginTop: 2 },
     counter: {
       width: 208,
@@ -296,7 +299,15 @@ const useStyles = makeStyles(({ mode }) => {
     duaCard: { marginHorizontal: 12, marginBottom: 10, padding: 16, borderRadius: 22, backgroundColor: card, borderWidth: 1, borderColor: line },
     duaHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
     duaTitle: { flex: 1, fontFamily: 'Figtree_700Bold', fontSize: 15, color: ink },
-    arabic: { fontSize: 24, lineHeight: 42, color: ink, textAlign: 'right', writingDirection: 'rtl', marginTop: 10 },
+    arabic: {
+      fontFamily: 'Amiri_700Bold',
+      fontSize: 30,
+      lineHeight: 60,
+      color: ink,
+      textAlign: 'center',
+      writingDirection: 'rtl',
+      marginTop: 12,
+    },
     latin: { fontFamily: 'Figtree_500Medium', fontStyle: 'italic', fontSize: 13, lineHeight: 19, color: muted, marginTop: 6 },
     duaMeaning: { fontFamily: 'Figtree_500Medium', fontSize: 14, lineHeight: 20, color: ink, marginTop: 8 },
     source: { fontFamily: 'Figtree_600SemiBold', fontSize: 11.5, color: muted, marginTop: 10 },

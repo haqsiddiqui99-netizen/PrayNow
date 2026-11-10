@@ -14,6 +14,7 @@ import {
 } from '@expo-google-fonts/figtree'
 import { Newsreader_500Medium, Newsreader_600SemiBold } from '@expo-google-fonts/newsreader'
 import { Poppins_500Medium } from '@expo-google-fonts/poppins'
+import { Amiri_700Bold } from '@expo-google-fonts/amiri/700Bold'
 import * as Font from 'expo-font'
 
 /** Font family names must match @expo/vector-icons createIconSet registrations. */
@@ -41,6 +42,7 @@ const ACCENT_FONTS = {
   Figtree_800ExtraBold,
   Newsreader_500Medium,
   Newsreader_600SemiBold,
+  Amiri_700Bold,
 } as const
 
 const ALL_FONTS = { ...ICON_FONTS, ...TEXT_FONTS, ...ACCENT_FONTS }

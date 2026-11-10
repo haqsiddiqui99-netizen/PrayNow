@@ -1,5 +1,5 @@
-# Web app + owner desk. The API is a separate service (server/Dockerfile).
-FROM node:22-alpine AS build
+# Public app (Expo web) plus the owner desk. The API is a separate service.
+FROM node:22-alpine AS desk
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -18,6 +18,21 @@ ENV VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY
 
 RUN npm run build
 
+FROM node:22-alpine AS app
+WORKDIR /app
+
+COPY mobile/package.json mobile/package-lock.json ./
+RUN npm install -g npm@11.6.2 && npm ci
+
+COPY mobile/ ./
+ENV CI=1
+ENV EXPO_NO_TELEMETRY=1
+# The hosted site calls /api on its own address. Do not bake a LAN URL.
+ENV EXPO_PUBLIC_API_URL=
+ENV EXPO_PUBLIC_ADMIN_URL=
+RUN npx expo export --platform web
+
 FROM caddy:2-alpine
 COPY Caddyfile /etc/caddy/Caddyfile
-COPY --from=build /app/dist /srv
+COPY --from=app /app/dist /srv/app
+COPY --from=desk /app/dist /srv/desk

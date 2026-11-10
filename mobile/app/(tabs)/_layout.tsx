@@ -126,6 +126,17 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
+          name="duas"
+          options={{
+            title: t('more.duas'),
+            tabBarLabel: t('tabs.duas'),
+            tabBarAccessibilityLabel: t('more.duas'),
+            tabBarIcon: ({ focused, color }) => (
+              <TabImageIcon name="duas" focused={focused} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="my-mosque"
           options={{
             title: t('tabs.myMosque'),

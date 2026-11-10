@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useFocusEffect } from 'expo-router'
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
-import { Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native'
+import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import Animated, {
   Easing,
   FadeInDown,
@@ -32,12 +32,9 @@ const F = {
   bold: 'Figtree_700Bold',
   heavy: 'Figtree_800ExtraBold',
   display: 'Newsreader_600SemiBold',
-  italic: 'Newsreader_500Medium',
 } as const
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name']
-
-export type DailyItem = { arabic?: string; translation: string; source: string }
 
 const IconChip = memo(function IconChip({
   icon,
@@ -112,76 +109,6 @@ function Compass({ bearing }: { bearing: number }) {
   )
 }
 
-function DailyCard({
-  verse,
-  hadith,
-  onToast,
-}: {
-  verse: DailyItem
-  hadith: DailyItem
-  onToast: (message: string) => void
-}) {
-  const styles = useStyles()
-  const { t } = useLanguage()
-  const { mode } = useTheme()
-  const paper = paperColors(mode)
-  const [kind, setKind] = useState<'verse' | 'hadith'>('verse')
-  const item = kind === 'verse' ? verse : hadith
-  const opacity = useSharedValue(1)
-  const fade = useAnimatedStyle(() => ({ opacity: opacity.value }))
-  const text = [item.arabic, item.translation, item.source].filter(Boolean).join('\n')
-
-  const share = async () => {
-    try {
-      await Share.share({ message: text })
-    } catch {
-      onToast(t('more.shareFail'))
-    }
-  }
-
-  return (
-    <View style={[styles.card, styles.daily]}>
-      <View style={styles.dailyHead}>
-        <View style={styles.dailyLabel}>
-          <MaterialCommunityIcons name="creation" size={15} color={paper.ink} />
-          <Text style={styles.dailyLabelText}>TODAY</Text>
-        </View>
-        <View style={styles.seg}>
-          {(['verse', 'hadith'] as const).map((key) => {
-            const on = kind === key
-            return (
-              <Pressable
-                key={key}
-                onPress={() => {
-                  if (key === kind) return
-                  opacity.value = withSequence(withTiming(0.35, { duration: 120 }), withTiming(1, { duration: 180 }))
-                  setKind(key)
-                }}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: on }}
-                style={[styles.segBtn, on && styles.segBtnOn]}>
-                <Text style={[styles.segText, on && styles.segTextOn]}>{key === 'verse' ? t('more.verse') : t('more.hadith')}</Text>
-              </Pressable>
-            )
-          })}
-        </View>
-      </View>
-      <Animated.View style={fade}>
-        {item.arabic ? <Text style={styles.arabic}>{item.arabic}</Text> : null}
-        <Text style={styles.trans}>{item.translation}</Text>
-        <View style={styles.dailyFoot}>
-          <Text style={styles.source} numberOfLines={2}>
-            {item.source}
-          </Text>
-          <Pressable onPress={() => void share()} accessibilityRole="button" accessibilityLabel={t('common.share')} style={styles.iconBtn}>
-            <MaterialCommunityIcons name="share-variant-outline" size={18} color={paper.muted} />
-          </Pressable>
-        </View>
-      </Animated.View>
-    </View>
-  )
-}
-
 export function MoreFeed({
   topInset,
   bottomInset,
@@ -190,8 +117,6 @@ export function MoreFeed({
   city,
   lat,
   lon,
-  verse,
-  hadith,
   unread,
   language,
   onLanguage,
@@ -214,8 +139,6 @@ export function MoreFeed({
   city: string
   lat: number
   lon: number
-  verse: DailyItem
-  hadith: DailyItem
   unread: number
   language: LanguageCode
   onLanguage: (code: LanguageCode) => void
@@ -319,10 +242,6 @@ export function MoreFeed({
         ) : null}
 
         <Animated.View entering={FadeInDown.duration(280).delay(40)}>
-          <DailyCard verse={verse} hadith={hadith} onToast={say} />
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.duration(280).delay(80)}>
           <Pressable onPress={onQibla} accessibilityRole="button" accessibilityLabel={t('more.qibla')} style={[styles.card, styles.qibla]}>
             <Compass bearing={bearing} />
             <View style={styles.flex}>
@@ -435,6 +354,10 @@ export function MoreFeed({
                     void Linking.openURL(`${site}/privacy/`)
                     return
                   }
+                  if (key === 'privacy' && Platform.OS === 'web' && typeof window !== 'undefined') {
+                    void Linking.openURL(`${window.location.origin}/privacy/`)
+                    return
+                  }
                   say(t('more.soon'))
                 }}
                 accessibilityRole="button"
@@ -490,29 +413,6 @@ const useStyles = makeStyles(({ mode }) => {
     banner: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, paddingLeft: 14, paddingRight: 12 },
     signBtn: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 999, backgroundColor: ink },
     signText: { fontFamily: F.bold, fontSize: 13, color: onInk },
-    daily: { paddingTop: 14, paddingHorizontal: 16, paddingBottom: 14 },
-    dailyHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    dailyLabel: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    dailyLabelText: { fontFamily: F.heavy, fontSize: 12, letterSpacing: 0.4, color: ink },
-    seg: { flexDirection: 'row', padding: 3, borderRadius: 999, backgroundColor: tile },
-    segBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999 },
-    segBtnOn: { backgroundColor: ink },
-    segText: { fontFamily: F.bold, fontSize: 12.5, color: muted },
-    segTextOn: { color: onInk },
-    arabic: { marginTop: 14, fontSize: 26, lineHeight: 44, color: ink, textAlign: 'right', writingDirection: 'rtl' },
-    trans: { marginTop: 8, fontFamily: F.italic, fontSize: 17, lineHeight: 25, color: muted },
-    dailyFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 12 },
-    source: { flex: 1, fontFamily: F.bold, fontSize: 13, color: muted },
-    iconBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: card,
-      borderWidth: 1,
-      borderColor: line,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
     qibla: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingLeft: 12, paddingRight: 14 },
     compass: { width: 68, height: 68, alignItems: 'center', justifyContent: 'center' },
     compassDial: {

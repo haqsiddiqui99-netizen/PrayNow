@@ -37,7 +37,6 @@ function RootStack() {
       <Stack.Screen name="calendar" options={{ headerShown: false }} />
       <Stack.Screen name="tracker" options={{ headerShown: false }} />
       <Stack.Screen name="ai" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="duas" options={{ headerShown: false }} />
       <Stack.Screen name="quran" options={{ headerShown: false }} />
       <Stack.Screen name="zakat" options={{ headerShown: false }} />
       <Stack.Screen name="submit-mosque" options={{ headerShown: false }} />

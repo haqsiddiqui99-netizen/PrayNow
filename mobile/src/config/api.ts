@@ -26,6 +26,11 @@ export function getApiBaseUrl(): string {
     process.env.EXPO_PUBLIC_API_URL?.trim() ||
     String(Constants.expoConfig?.extra?.apiUrl || '').trim()
 
+  // The hosted website calls /api on its own address. Caddy forwards that to the API.
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && (typeof __DEV__ === 'undefined' || !__DEV__)) {
+    return window.location.origin.replace(/\/$/, '')
+  }
+
   // Production / preview builds: always use the baked public API URL (HTTPS OK).
   if (typeof __DEV__ === 'undefined' || !__DEV__) {
     if (fromEnv) return normalizeBase(fromEnv)

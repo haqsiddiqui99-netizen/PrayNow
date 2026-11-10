@@ -5,7 +5,6 @@ import { MoreFeed } from '@/src/components/MoreFeed'
 import { useAuth } from '@/src/context/AuthContext'
 import { useInbox } from '@/src/context/InboxContext'
 import { useLanguage } from '@/src/context/LanguageContext'
-import { DAILY_HADITH, DAILY_VERSE } from '@/src/data/mockData'
 import { useLocation } from '@/src/hooks/useLocation'
 import { isAppAdmin } from '@/src/utils/roles'
 
@@ -27,12 +26,6 @@ export default function MoreScreen() {
       city={location.supportedCity?.name ?? location.city}
       lat={location.lat}
       lon={location.lng}
-      verse={{
-        arabic: DAILY_VERSE.arabic,
-        translation: DAILY_VERSE.translation,
-        source: DAILY_VERSE.reference,
-      }}
-      hadith={{ translation: DAILY_HADITH.text, source: DAILY_HADITH.source }}
       unread={user ? unreadCount : 0}
       language={language}
       onLanguage={setLanguage}
@@ -44,7 +37,7 @@ export default function MoreScreen() {
       onCalendar={() => router.push('/calendar')}
       onTracker={() => router.push('/tracker')}
       onHalal={() => router.push('/halal')}
-      onDuas={() => router.push('/duas')}
+      onDuas={() => router.push('/(tabs)/duas')}
       onQuran={() => router.push('/quran')}
       onZakat={() => router.push('/zakat')}
     />
