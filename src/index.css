@@ -195,10 +195,16 @@ input {
 }
 
 .nav-icon {
-  font-size: 20px;
-  line-height: 1;
+  width: 22px;
+  height: 22px;
   position: relative;
-  display: inline-block;
+  display: block;
+}
+
+.nav-icon svg {
+  width: 22px;
+  height: 22px;
+  display: block;
 }
 
 .btn-primary {
