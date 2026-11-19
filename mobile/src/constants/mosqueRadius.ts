@@ -13,7 +13,7 @@ export const MOSQUE_RADIUS_STOPS: { value: MosqueRadiusKm; label: string }[] = [
   { value: CITY_RADIUS_KM, label: 'City' },
 ]
 
-export const DEFAULT_MOSQUE_RADIUS_KM: MosqueRadiusKm = 5
+export const DEFAULT_MOSQUE_RADIUS_KM: MosqueRadiusKm = CITY_RADIUS_KM
 export const HOME_NEARBY_PREVIEW_LIMIT = 5
 
 /** Short readout for the currently selected radius. */
