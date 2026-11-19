@@ -22,6 +22,8 @@ FROM node:22-alpine AS app
 WORKDIR /app
 
 COPY mobile/package.json mobile/package-lock.json ./
+# postinstall runs these patch scripts, so they must exist before npm ci.
+COPY mobile/scripts ./scripts
 RUN npm install -g npm@11.6.2 && npm ci
 
 COPY mobile/ ./
