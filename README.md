@@ -1,6 +1,6 @@
 # PrayNow
 
-Mobile-first mosque finder and prayer times app — React + Vite frontend, Express + PostgreSQL backend.
+Mobile-first mosque finder and prayer times app. The app is Expo (`mobile/`), which also builds the public website. The owner desk is React + Vite (`src/portal`), and the API is Express + PostgreSQL (`server/`).
 
 ## Features
 
@@ -9,14 +9,14 @@ Mobile-first mosque finder and prayer times app — React + Vite frontend, Expre
 - **Mosque managers** — update timings for assigned mosques only
 - PostgreSQL database with role-based API
 
-## Quick Start (Frontend only — mock data)
+## Quick Start
 
 ```bash
 npm install
-npm run dev
+npm run server:dev     # API on http://localhost:5000
+npm run mobile:start   # app on http://localhost:8081 (press w for web)
+npm run dev            # owner desk on http://localhost:5173/portal/
 ```
-
-Open http://localhost:5173
 
 ## Full Stack (Database + API + Admin)
 
@@ -56,7 +56,7 @@ npm run db:seed
 
 This creates the `praynow` schema, tables, default admin, and imports Delhi mosques.
 
-### 4. Run API + frontend
+### 4. Run API + desk + app
 
 Terminal 1:
 
@@ -64,10 +64,16 @@ Terminal 1:
 npm run server:dev
 ```
 
-Terminal 2:
+Terminal 2 (owner desk at http://localhost:5173/portal/):
 
 ```bash
 npm run dev
+```
+
+Terminal 3 (app):
+
+```bash
+npm run mobile:start
 ```
 
 ## Mobile 3-role accounts (no web admin required)
@@ -94,8 +100,8 @@ There are **three places** to add mosque names, addresses, prayer timings, and o
 
 ### 1. Admin portal (best for one-by-one)
 
-1. Run API + web (`npm run server:dev` and `npm run dev`)
-2. **More → Admin Portal** → login
+1. Run API + desk (`npm run server:dev` and `npm run dev`)
+2. Open http://localhost:5173/portal/ and sign in
 3. **Mosques → + Add Mosque** — fill basic details, lat/lng, imam, facilities, prayer timings, Juma, Tahajjud/Sehri → **Save**
 4. **City tab** — set city-wide prayer windows (Home screen NOW/NEXT, Zawal, sunrise)
 
@@ -122,9 +128,9 @@ Re-running updates existing mosques matched by `legacy_id` or name+address.
 
 `server/src/db/seed.js` contains 10 real Delhi mosques. Run `npm run db:seed` to load or refresh them.
 
-### Offline fallback (mobile without API)
+### When the API is unreachable
 
-If the API is unreachable, the app uses `mobile/src/data/mockData.ts`. Keep it in sync with your live data only if you need offline demo mode.
+The app keeps the last mosque list it loaded. With nothing loaded yet, it shows a "Could not reach PrayNow" message with a Try again button. It never shows sample mosques.
 
 ## Database schema
 
@@ -175,17 +181,12 @@ Without keys, sessions still track live state but no audio flows
 (`agoraConfigured: false`). With App ID only, the Agora project must be in
 "testing" mode (no token required).
 
-**2. Broadcast (web admin).** A mosque manager logs into the admin dashboard,
-opens their assigned mosque, and taps **🎙️ Start Azan**. The browser captures
-the mic and publishes to the mosque's channel. Tap **⏹ Stop Azan** to end
-(manual stop only). Broadcasting works in any modern browser over HTTPS/localhost.
+**2. Broadcast.** A mosque admin signs in on the phone app, opens **My Mosque**,
+and starts the azan. The phone publishes its microphone to the mosque's channel.
 
-**3. Listen.**
-- **Web:** the *Live Azan* page joins live channels and plays them automatically.
-- **Mobile:** the mosque card **LIVE** badge reflects real broadcasts (polled every
-  20s). Real-time mobile listening requires an [Expo **dev build**](mobile/README.md)
-  with `react-native-agora` (Expo Go can't load native audio modules) — this is the
-  next step for full mobile live audio.
+**3. Listen.** Listeners open the **Azan** tab and pick the mosque. Live audio needs
+an installed build (APK or dev build), since Expo Go cannot load `react-native-agora`.
+The Android build drops Agora's video extensions (`mobile/plugins/withAgoraVoiceOnly.js`).
 
 **4. Recordings.** When a broadcast stops you can attach a `recordingUrl`
 (`POST …/azan/stop { recordingUrl }`); it's stored on the session so past azans
@@ -193,7 +194,6 @@ can be replayed later.
 
 ## Tech Stack
 
-- Frontend (web): React 19, TypeScript, Vite 8
-- **Mobile:** Expo / React Native — see [`mobile/README.md`](mobile/README.md)
+- **App and public website:** Expo / React Native — see [`mobile/README.md`](mobile/README.md)
+- Owner desk: React 19, TypeScript, Vite 8
 - Backend: Express, PostgreSQL (`pg`), JWT, bcrypt
-- Falls back to `mockData.ts` when API is offline

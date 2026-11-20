@@ -15,6 +15,7 @@ import { useBottomTabBarHeight } from "expo-router/js-tabs"
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ScreenHeader } from '@/src/components/AppHeader'
 import { CityUnavailableBanner } from '@/src/components/CityUnavailableBanner'
+import { LoadFailed } from '@/src/components/LoadFailed'
 import { MosqueCard } from '@/src/components/MosqueCard'
 import { MosqueFilterSheet, type FilterDropdownAnchor } from '@/src/components/MosqueFilterSheet'
 import { MosqueRadiusChips } from '@/src/components/MosqueRadiusChips'
@@ -55,7 +56,7 @@ export default function MosquesScreen() {
   const filterBtnRef = useRef<View>(null)
   const { t, formatRadius, placeName } = useLanguage()
   const { location, loading: locLoading } = useLocation()
-  const { mosques, loading, reload, citySupported, detectedCity } = useMosques(location)
+  const { mosques, loading, failed, reload, citySupported, detectedCity } = useMosques(location)
   const [sortMode, setSortMode] = useState<MosqueSortMode>('nearest')
   const [sectFilter, setSectFilter] = useState<MosqueSectFilter>('all')
   const [facilityFilter, setFacilityFilter] = useState<FacilityFilterId[]>([])
@@ -245,6 +246,8 @@ export default function MosquesScreen() {
             </View>
           ) : filtered.length > 0 ? (
             <Text style={styles.mapHint}>Tap a pin to see mosque details</Text>
+          ) : failed ? (
+            <LoadFailed message={t('mosques.loadFail')} onRetry={() => void reload()} />
           ) : (
             <Text style={styles.emptyText}>{emptyListText}</Text>
           )}
@@ -279,6 +282,8 @@ export default function MosquesScreen() {
           </View>
           {loading && !filtered.length ? (
             <ActivityIndicator color={paper.ink} style={styles.loader} />
+          ) : failed ? (
+            <LoadFailed message={t('mosques.loadFail')} onRetry={() => void reload()} />
           ) : filtered.length === 0 ? (
             <Text style={styles.emptyText}>{emptyListText}</Text>
           ) : (

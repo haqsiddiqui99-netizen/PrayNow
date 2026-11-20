@@ -6,7 +6,7 @@ COPY package.json package-lock.json ./
 # node:22-alpine ships npm 10, which rejects this npm 11 lockfile.
 RUN npm install -g npm@11.6.2 && npm ci
 
-COPY index.html vite.config.ts tsconfig.json ./
+COPY vite.config.ts tsconfig.json ./
 COPY public ./public
 COPY portal ./portal
 COPY src ./src

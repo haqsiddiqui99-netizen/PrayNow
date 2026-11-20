@@ -23,8 +23,12 @@
         <li>Your name, mobile number, and a hashed password, when you create an account.</li>
         <li>The mosques you follow, your notification token, and messages sent to you.</li>
         <li>Mosque details, photos, and corrections you submit.</li>
-        <li>Questions you send to the in-app guide. Those are sent to OpenAI to produce an answer.</li>
+        <li>Questions you send to the in-app guide. Those are sent to OpenAI to produce an answer. A spoken question is sent to OpenAI to turn it into text, and the audio is not kept.</li>
+        <li>For mosque admins: azan recordings and voice announcements you upload. Live azan audio passes through Agora while it plays and is not recorded unless you save a recording.</li>
       </ul>
+
+      <h2>Services we use</h2>
+      <p>To show the weather and air quality, the app sends your approximate location (rounded to about 1 km) to Open-Meteo. It does not include your name or account. Push notifications go through Google Firebase and Expo.</p>
 
       <h2>What stays on your phone</h2>
       <p>Your location is used on the phone to find nearby mosques, prayer times, and the Qibla direction. It is not saved as a location history on our server. Prayer tracking, tasbih, and Quran progress are stored on the phone.</p>

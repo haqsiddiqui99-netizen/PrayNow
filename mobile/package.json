@@ -29,6 +29,7 @@
     "expo-router": "~57.0.22",
     "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
+    "expo-updates": "~57.0.28",
     "expo-web-browser": "~57.0.3",
     "hijri-converter": "^1.1.1",
     "react": "19.2.3",
@@ -62,6 +63,8 @@
     "eas:preview": "npx eas-cli build --platform android --profile preview",
     "eas:development": "npx eas-cli build --platform android --profile development",
     "eas:production": "npx eas-cli build --platform android --profile production",
+    "update:preview": "node scripts/eas-update.mjs preview",
+    "update:production": "node scripts/eas-update.mjs production",
     "eas:submit": "npx eas-cli submit --platform android --profile production"
   },
   "private": true

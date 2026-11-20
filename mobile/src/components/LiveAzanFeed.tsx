@@ -31,6 +31,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { CityUnavailableBanner } from '@/src/components/CityUnavailableBanner'
 import { GradientFill } from '@/src/components/GradientFill'
+import { LoadFailed } from '@/src/components/LoadFailed'
 import { UserMenu } from '@/src/components/UserMenu'
 import { CITY_RADIUS_KM, MOSQUE_RADIUS_STOPS, type MosqueRadiusKm } from '@/src/constants/mosqueRadius'
 import { paperColors } from '@/src/constants/theme'
@@ -356,6 +357,7 @@ export function LiveAzanFeed({
   citySupported = true,
   detectedCity = '',
   country,
+  failed = false,
 }: {
   nearby: Mosque[]
   catalog: Mosque[]
@@ -368,6 +370,7 @@ export function LiveAzanFeed({
   citySupported?: boolean
   detectedCity?: string
   country?: string
+  failed?: boolean
 }) {
   const styles = useStyles()
   const { mode } = useTheme()
@@ -555,7 +558,9 @@ export function LiveAzanFeed({
 
         {loading && nearby.length === 0 ? <ActivityIndicator color={ink} style={styles.loader} /> : null}
 
-        {view === 'all' ? (
+        {failed && !loading ? (
+          <LoadFailed message={t('mosques.loadFail')} onRetry={onRefresh} />
+        ) : view === 'all' ? (
           <>
             {lists.live.length > 0 ? (
               lists.live.map((mosque) => (

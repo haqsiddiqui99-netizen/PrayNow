@@ -1,6 +1,5 @@
 import { getApiBaseUrl } from '@/src/config/api'
 import type { ApiCitySettingsResponse } from '@/src/config/cityPrayerConfig'
-import { MOCK_MOSQUES } from '@/src/data/mockData'
 import type { BroadcastPrayer, Mosque, MosqueTimings, NightTimings, PrayerName, TaraweehSettings } from '@/src/types'
 import { getStoredToken, type AppUser } from '@/src/services/authStorage'
 
@@ -99,34 +98,19 @@ export async function fetchSupportedCities(): Promise<
     pinPrefixes?: string[]
   }>
 > {
-  try {
-    const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/cities`)
-    if (!res.ok) throw new Error('Failed')
-    return (await res.json()) as Array<{
-      id: string
-      name: string
-      country: string
-      mosqueCount: number
-      lat?: number | null
-      lng?: number | null
-      aliases?: string[]
-      pinCodes?: string[]
-      pinPrefixes?: string[]
-    }>
-  } catch {
-    return [
-      {
-        id: 'kanpur',
-        name: 'Kanpur',
-        country: 'India',
-        mosqueCount: 0,
-        lat: 26.4499,
-        lng: 80.3319,
-        pinCodes: ['208001'],
-        pinPrefixes: ['208'],
-      },
-    ]
-  }
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/cities`)
+  if (!res.ok) throw new Error(`API ${res.status}`)
+  return (await res.json()) as Array<{
+    id: string
+    name: string
+    country: string
+    mosqueCount: number
+    lat?: number | null
+    lng?: number | null
+    aliases?: string[]
+    pinCodes?: string[]
+    pinPrefixes?: string[]
+  }>
 }
 
 export async function fetchCitySettings(): Promise<ApiCitySettingsResponse> {
@@ -161,13 +145,9 @@ export async function fetchCityDays(city: string, from: string, to: string): Pro
 }
 
 export async function fetchMosques(): Promise<Mosque[]> {
-  try {
-    const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/mosques`)
-    if (!res.ok) throw new Error(`API ${res.status}`)
-    return (await res.json()) as Mosque[]
-  } catch {
-    return MOCK_MOSQUES
-  }
+  const res = await fetchWithTimeout(`${getApiBaseUrl()}/api/mosques`)
+  if (!res.ok) throw new Error(`API ${res.status}`)
+  return (await res.json()) as Mosque[]
 }
 
 export interface LiveAzanSession {

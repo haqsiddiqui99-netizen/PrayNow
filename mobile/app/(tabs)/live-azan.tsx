@@ -19,7 +19,7 @@ export default function LiveAzanScreen() {
     searchAddress,
     savedLocations,
   } = useLocation()
-  const { mosques, allMosques, loading, reload, citySupported, detectedCity } = useMosques(location)
+  const { mosques, allMosques, loading, failed, reload, citySupported, detectedCity } = useMosques(location)
   const [cityPickerOpen, setCityPickerOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -56,6 +56,7 @@ export default function LiveAzanScreen() {
         citySupported={citySupported}
         detectedCity={detectedCity}
         country={location.country}
+        failed={failed}
       />
       <CityPickerSheet
         visible={cityPickerOpen}

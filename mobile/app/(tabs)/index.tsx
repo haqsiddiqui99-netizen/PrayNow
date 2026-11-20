@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AppHeader, APP_HEADER_CONTENT_HEIGHT } from '@/src/components/AppHeader'
 import { CityPickerSheet } from '@/src/components/CityPickerSheet'
 import { CityUnavailableBanner } from '@/src/components/CityUnavailableBanner'
+import { LoadFailed } from '@/src/components/LoadFailed'
 import { MosqueCard } from '@/src/components/MosqueCard'
 import { MosqueFilterSheet, type FilterDropdownAnchor } from '@/src/components/MosqueFilterSheet'
 import { MosqueRadiusChips } from '@/src/components/MosqueRadiusChips'
@@ -84,7 +85,7 @@ export default function HomeScreen() {
     searchAddress,
     savedLocations,
   } = useLocation()
-  const { mosques, loading, reload, citySupported, detectedCity, supportedCity } = useMosques(location)
+  const { mosques, loading, failed, reload, citySupported, detectedCity, supportedCity } = useMosques(location)
   const [prayerInfo, setPrayerInfo] = useState(() => getLivePrayerInfo(new Date(), cityPrayer))
   const [sortMode, setSortMode] = useState<MosqueSortMode>('nearest')
   const [sectFilter, setSectFilter] = useState<MosqueSectFilter>('all')
@@ -323,7 +324,7 @@ export default function HomeScreen() {
             ) : null}
           </View>
           {nearbySort}
-          {!loading && citySupported && nearbyTotal === 0 && (
+          {!loading && !failed && citySupported && nearbyTotal === 0 && (
             <Text style={styles.emptyNearby}>
               {searchQuery
                 ? t('mosques.emptySearch', { query: mosqueSearch.trim() })
@@ -333,6 +334,8 @@ export default function HomeScreen() {
           </View>
           {loading && nearbyTotal === 0 ? (
             <ActivityIndicator color={paper.ink} style={styles.loader} />
+          ) : failed ? (
+            <LoadFailed message={t('mosques.loadFail')} onRetry={() => void reload()} />
           ) : (
             nearby.map((m) => (
               <MosqueCard

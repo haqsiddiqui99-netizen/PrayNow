@@ -19,12 +19,15 @@ import { isAppAdmin, isMosqueAdmin } from '@/src/utils/roles'
 
 type AuthMode = 'signin' | 'signup'
 
-const DEMO_ACCOUNTS = [
-  { label: 'Everyday', mobile: '6666666666', password: 'User@12345' },
-  { label: 'Mosque admin', mobile: '8888888888', password: 'Manager@12345' },
-  { label: 'Khairul', mobile: '7777777777', password: 'Khairul12345' },
-  { label: 'App owner', mobile: '9999999999', password: 'Admin@12345' },
-] as const
+// Local seed accounts only. Release builds and the live site never ship these.
+const DEMO_ACCOUNTS: readonly { label: string; mobile: string; password: string }[] = __DEV__
+  ? [
+      { label: 'Everyday', mobile: '6666666666', password: 'User@12345' },
+      { label: 'Mosque admin', mobile: '8888888888', password: 'Manager@12345' },
+      { label: 'Khairul', mobile: '7777777777', password: 'Khairul12345' },
+      { label: 'App owner', mobile: '9999999999', password: 'Admin@12345' },
+    ]
+  : []
 
 const PALETTE = {
   light: {
@@ -276,7 +279,7 @@ export default function LoginScreen() {
             )}
           </Pressable>
 
-          {authMode === 'signin' ? (
+          {authMode === 'signin' && DEMO_ACCOUNTS.length > 0 ? (
             <Pressable
               accessibilityRole="button"
               style={styles.demoLink}

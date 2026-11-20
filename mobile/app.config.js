@@ -9,6 +9,14 @@ const hasGoogleServices = existsSync(GOOGLE_SERVICES_FILE)
 /** Extends app.json with store IDs + build-time public URLs for EAS. */
 export default ({ config }) => ({
   ...config,
+  // Over-the-air JS updates only reach builds with the same app version.
+  // Bump "version" in app.json whenever a native module or permission changes.
+  runtimeVersion: { policy: 'appVersion' },
+  updates: {
+    url: `https://u.expo.dev/${EAS_PROJECT_ID}`,
+    checkAutomatically: 'ON_LOAD',
+    fallbackToCacheTimeout: 0,
+  },
   ios: {
     ...config.ios,
     bundleIdentifier: 'com.praynow.app',
@@ -28,6 +36,7 @@ export default ({ config }) => ({
   plugins: [
     ...(config.plugins || []),
     ['expo-notifications', { color: '#0F1F2E', defaultChannel: 'default' }],
+    './plugins/withAgoraVoiceOnly',
     [
       'react-native-android-widget',
       {

@@ -77,7 +77,8 @@ async function getJSON<T>(url: string, timeoutMs = 6000): Promise<T> {
 }
 
 export async function fetchWeather(lat: number, lon: number): Promise<RawWeather> {
-  const q = `latitude=${lat}&longitude=${lon}`;
+  // About 1 km is enough for weather, so the exact position never leaves the phone.
+  const q = `latitude=${lat.toFixed(2)}&longitude=${lon.toFixed(2)}`;
   const [w, a] = await Promise.allSettled([
     getJSON<any>(
       `https://api.open-meteo.com/v1/forecast?${q}&current=temperature_2m,weather_code,cloud_cover,is_day&timezone=auto`,

@@ -1,7 +1,8 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import { useFocusEffect } from 'expo-router'
+import Constants from 'expo-constants'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import Animated, {
   Easing,
   FadeInDown,
@@ -14,6 +15,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 import { UserMenu } from '@/src/components/UserMenu'
+import { getSiteUrl } from '@/src/config/api'
 import { paperColors } from '@/src/constants/theme'
 import { LANGUAGES, type LanguageCode } from '@/src/i18n/translations'
 import { useLanguage } from '@/src/context/LanguageContext'
@@ -155,6 +157,7 @@ export function MoreFeed({
   onZakat: () => void
 }) {
   const styles = useStyles()
+  const router = useRouter()
   const { t } = useLanguage()
   const { mode, setMode } = useTheme()
   const dark = mode === 'dark'
@@ -349,16 +352,8 @@ export function MoreFeed({
               {index > 0 ? <Text style={styles.linkDot}>·</Text> : null}
               <Pressable
                 onPress={() => {
-                  const site = (process.env.EXPO_PUBLIC_ADMIN_URL || '').replace(/\/$/, '')
-                  if (key === 'privacy' && site) {
-                    void Linking.openURL(`${site}/privacy/`)
-                    return
-                  }
-                  if (key === 'privacy' && Platform.OS === 'web' && typeof window !== 'undefined') {
-                    void Linking.openURL(`${window.location.origin}/privacy/`)
-                    return
-                  }
-                  say(t('more.soon'))
+                  if (key === 'privacy') void Linking.openURL(getSiteUrl('/privacy/'))
+                  else router.push(key === 'help' ? '/help' : '/about')
                 }}
                 accessibilityRole="button"
                 style={styles.link}>
@@ -367,7 +362,7 @@ export function MoreFeed({
             </View>
           ))}
         </View>
-        <Text style={styles.version}>PrayNow v1.0.0</Text>
+        <Text style={styles.version}>PrayNow v{Constants.expoConfig?.version ?? '1.0.0'}</Text>
       </ScrollView>
 
       {toast ? (

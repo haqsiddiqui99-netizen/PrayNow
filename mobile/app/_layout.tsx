@@ -40,6 +40,8 @@ function RootStack() {
       <Stack.Screen name="quran" options={{ headerShown: false }} />
       <Stack.Screen name="zakat" options={{ headerShown: false }} />
       <Stack.Screen name="submit-mosque" options={{ headerShown: false }} />
+      <Stack.Screen name="help" options={{ headerShown: false }} />
+      <Stack.Screen name="about" options={{ headerShown: false }} />
     </Stack>
   )
 }

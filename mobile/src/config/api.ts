@@ -53,3 +53,22 @@ export function getApiBaseUrl(): string {
   if (Platform.OS === 'android') return 'http://10.0.2.2:5000'
   return 'http://localhost:5000'
 }
+
+const LIVE_SITE = 'https://praynow-production.up.railway.app'
+
+/** Public website that hosts the privacy policy and account deletion pages. */
+export function getSiteUrl(path = ''): string {
+  const fromEnv =
+    process.env.EXPO_PUBLIC_ADMIN_URL?.trim() ||
+    String(Constants.expoConfig?.extra?.adminUrl || '').trim()
+  let base = fromEnv || LIVE_SITE
+  if (!fromEnv && Platform.OS === 'web' && typeof window !== 'undefined' && !__DEV__) {
+    base = window.location.origin
+  }
+  return `${normalizeBase(base)}${path}`
+}
+
+/** Support inbox shown in Help. Hidden when EXPO_PUBLIC_SUPPORT_EMAIL is not set. */
+export function getSupportEmail(): string {
+  return process.env.EXPO_PUBLIC_SUPPORT_EMAIL?.trim() || ''
+}
