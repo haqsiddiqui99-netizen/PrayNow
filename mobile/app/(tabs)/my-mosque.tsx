@@ -347,14 +347,15 @@ export default function MyMosqueTab() {
     if (!mosque) return
     const previous = features
     setFeatures(next)
-    setFeatureNote('')
     try {
       const saved = await updateAssignedMosque(mosque.id, {
         facilities: next.filter((row) => row.enabled).map((row) => row.name),
         featureOptions: next.map((row) => row.name),
       })
-      setMosque(saved)
-      setFeatures(featureRows(saved))
+      // Merge only the feature fields: swapping the whole mosque re-renders every panel and flashes the screen.
+      setMosque((prev) => (prev ? { ...prev, facilities: saved.facilities, featureOptions: saved.featureOptions } : saved))
+      const rows = featureRows(saved)
+      setFeatures((current) => (JSON.stringify(current) === JSON.stringify(rows) ? current : rows))
       setFeatureNote(changeNote)
     } catch (e) {
       setFeatures(previous)

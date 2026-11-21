@@ -44,9 +44,9 @@ function buildLoopData<T>(data: T[]): T[] {
   return out
 }
 
-function midOffset(dataLength: number, indexInCycle: number) {
+function midOffset(dataLength: number, indexInCycle: number, rowH: number) {
   const midLoop = Math.floor(LOOPS / 2)
-  return (midLoop * dataLength + indexInCycle) * ITEM_H
+  return (midLoop * dataLength + indexInCycle) * rowH
 }
 
 function WheelColumn<T extends string | number>({
@@ -71,14 +71,24 @@ function WheelColumn<T extends string | number>({
   const cycleLen = data.length
   const items = loop ? buildLoopData(data) : data
   const selectedIndex = Math.max(0, data.indexOf(selected))
+  // Rows can render a fraction of a pixel off ITEM_H (screen scaling), and across
+  // thousands of looped rows that adds up to half a row. Use the measured height.
+  const rowH = useRef(ITEM_H)
+  const offsetOf = (index: number) => (loop ? midOffset(cycleLen, index, rowH.current) : index * rowH.current)
 
   const scrollToY = useCallback((y: number, animated: boolean) => {
     ref.current?.scrollTo({ y, animated })
   }, [])
 
+  const onRowLayout = (height: number) => {
+    if (height <= 0 || Math.abs(height - rowH.current) < 0.001) return
+    rowH.current = height
+    scrollToY(offsetOf(Math.max(0, data.indexOf(lastEmitted.current))), false)
+  }
+
   // Place in the middle copy so user can roll either direction forever.
   useEffect(() => {
-    const y = loop ? midOffset(cycleLen, selectedIndex) : selectedIndex * ITEM_H
+    const y = offsetOf(selectedIndex)
     const id = requestAnimationFrame(() => {
       scrollToY(y, false)
       ready.current = true
@@ -93,32 +103,27 @@ function WheelColumn<T extends string | number>({
     if (!ready.current) return
     if (selected === lastEmitted.current) return
     // External value change (rare) — re-center quietly
-    const y = loop ? midOffset(cycleLen, Math.max(0, data.indexOf(selected))) : selectedIndex * ITEM_H
-    scrollToY(y, false)
+    scrollToY(offsetOf(Math.max(0, data.indexOf(selected))), false)
     lastEmitted.current = selected
   }, [selected, cycleLen, data, loop, scrollToY, selectedIndex])
 
   const settle = (rawY: number) => {
-    const maxY = (items.length - 1) * ITEM_H
+    const h = rowH.current
+    const maxY = (items.length - 1) * h
     const y = Math.min(maxY, Math.max(0, rawY))
-    const absIndex = Math.round(y / ITEM_H)
+    const absIndex = Math.round(y / h)
     const cycleIndex = ((absIndex % cycleLen) + cycleLen) % cycleLen
     const value = data[cycleIndex]!
 
+    // Snap to nearest item.
+    scrollToY(absIndex * h, true)
     if (loop) {
-      // Snap to nearest item, then if near either end jump back to middle copy (no animation).
-      const snappedY = absIndex * ITEM_H
-      scrollToY(snappedY, true)
-
+      // Near either end, jump back to the middle copy (no animation) so rolling never hits a wall.
       const loopIndex = Math.floor(absIndex / cycleLen)
-      const nearEdge = loopIndex <= 1 || loopIndex >= LOOPS - 2
-      if (nearEdge) {
-        const recenterY = midOffset(cycleLen, cycleIndex)
-        // After snap settles, teleport to middle so rolling never hits a wall.
+      if (loopIndex <= 1 || loopIndex >= LOOPS - 2) {
+        const recenterY = midOffset(cycleLen, cycleIndex, h)
         setTimeout(() => scrollToY(recenterY, false), 160)
       }
-    } else {
-      scrollToY(absIndex * ITEM_H, true)
     }
 
     if (value !== lastEmitted.current) {
@@ -137,12 +142,30 @@ function WheelColumn<T extends string | number>({
     if (Math.abs(vy) < 0.15) settle(e.nativeEvent.contentOffset.y)
   }
 
+  // Mouse wheels, trackpads and some flings end without a momentum or drag event,
+  // so also snap once scrolling has been still for a moment.
+  const idle = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (idle.current) clearTimeout(idle.current)
+  }, [])
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = e.nativeEvent.contentOffset.y
+    if (idle.current) clearTimeout(idle.current)
+    idle.current = setTimeout(() => {
+      // settle() scrolls too, so skip when already resting on a row to avoid looping.
+      const row = Math.round(y / rowH.current)
+      const offRow = Math.abs(y - row * rowH.current) > 0.5
+      const shown = data[((row % cycleLen) + cycleLen) % cycleLen]
+      if (offRow || shown !== lastEmitted.current) settle(y)
+    }, 140)
+  }
+
   return (
     <View style={[styles.wheelCol, { width }]}>
       <ScrollView
         ref={ref}
         showsVerticalScrollIndicator={false}
-        snapToInterval={ITEM_H}
+        snapToInterval={rowH.current}
         snapToAlignment="start"
         decelerationRate={Platform.OS === 'ios' ? 0.998 : 0.985}
         nestedScrollEnabled
@@ -151,6 +174,8 @@ function WheelColumn<T extends string | number>({
         scrollEventThrottle={16}
         onMomentumScrollEnd={onMomentumEnd}
         onScrollEndDrag={onDragEnd}
+        onScroll={onScroll}
+        onContentSizeChange={(_, height) => onRowLayout((height - PAD * 2) / items.length)}
         contentContainerStyle={{ paddingVertical: PAD }}>
         {items.map((item, i) => (
           <View key={`${String(item)}-${i}`} style={[styles.wheelItem, styles.noPointerEvents]}>

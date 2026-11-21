@@ -255,7 +255,7 @@ const useStyles = makeStyles(({ mode }) => {
     chipOn: { backgroundColor: ink },
     chipText: { fontFamily: F.semi, fontSize: 13, color: ink },
     chipTextOn: { color: dark ? '#0F1F2E' : '#FFFFFF' },
-    timeField: { marginTop: 10 },
+    timeField: { marginTop: 10, flexDirection: 'row' },
     addBtn: {
       flexDirection: 'row',
       alignItems: 'center',

@@ -249,7 +249,8 @@ const useStyles = makeStyles(({ mode }) => {
     chipText: { fontFamily: F.semi, fontSize: 13, color: ink },
     chipTextOn: { color: dark ? '#0F1F2E' : '#FFFFFF' },
     timeRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginTop: 14 },
-    timeField: { flex: 1, minWidth: 0 },
+    // Row, so the inline picker's flex sizes its width instead of collapsing its height.
+    timeField: { flex: 1, minWidth: 0, flexDirection: 'row' },
     repeat: { flexDirection: 'row', gap: 6 },
     addBtn: {
       flexDirection: 'row',

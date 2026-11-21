@@ -797,6 +797,13 @@ export function MosqueTabCard({
 
         {showAllPrayers || showAll ? (
           <View style={styles.schedule}>
+            <View style={styles.columnHead}>
+              <View style={styles.flex} />
+              <View style={styles.timePair}>
+                <Text style={[styles.timeKicker, styles.headCell]}>{t('mosque.azan')}</Text>
+                <Text style={[styles.timeKicker, styles.headCell]}>{t('mosque.namaz')}</Text>
+              </View>
+            </View>
             {PRAYERS.map((name) => {
               const times = slotTimes(mosque, name, now)
               const active = name === focus
@@ -815,15 +822,13 @@ export function MosqueTabCard({
                   </View>
                   <View style={styles.timePair}>
                     <View style={[styles.timeCell, active && styles.timeCellNow]}>
-                      <Text style={styles.timeKicker}>{t('mosque.azan')}</Text>
-                      <Text style={[styles.timeMain, active && styles.timeMainNow]}>
+                      <Text style={[styles.timeMain, active && styles.timeMainNow]} numberOfLines={1}>
                         {digits(azanClock.time)}
                         {azanClock.mer ? <Text style={styles.timeMer}> {merLabel(azanClock.mer)}</Text> : null}
                       </Text>
                     </View>
                     <View style={[styles.timeCell, active && styles.timeCellNow]}>
-                      <Text style={styles.timeKicker}>{t('mosque.namaz')}</Text>
-                      <Text style={[styles.timeMain, active && styles.timeMainNow]}>
+                      <Text style={[styles.timeMain, active && styles.timeMainNow]} numberOfLines={1}>
                         {digits(jamatClock.time)}
                         {jamatClock.mer ? <Text style={styles.timeMer}> {merLabel(jamatClock.mer)}</Text> : null}
                       </Text>
@@ -833,39 +838,50 @@ export function MosqueTabCard({
               )
             })}
             <View style={styles.jumaBlock}>
-              <Text style={styles.jumaTitle}>{prayerName('Juma')}</Text>
               {jumaSessions.length === 0 ? (
-                <Text style={styles.noJuma}>{t('mosque.noJuma')}</Text>
+                <>
+                  <Text style={styles.jumaTitle}>{prayerName('Juma')}</Text>
+                  <Text style={styles.noJuma}>{t('mosque.noJuma')}</Text>
+                </>
               ) : (
-                jumaSessions.map((session, index) => {
-                  const azanParts = clockParts(session.azan.trim() || '\u2014')
-                  const khutbaParts = clockParts(session.khutba.trim() || '\u2014')
-                  const namazParts = clockParts(session.namaz.trim() || '\u2014')
-                  return (
-                    <View key={`juma-${index}`} style={styles.jumaCard}>
-                      <View style={styles.jumaBadge}>
-                        <Text style={styles.jumaBadgeText}>{digits(index + 1)}</Text>
+                <>
+                  <View style={styles.columnHead}>
+                    <View style={styles.flex} />
+                    <View style={styles.timePair}>
+                      {[t('mosque.azan'), t('mosque.khutbah'), t('mosque.namaz')].map((label) => (
+                        <Text key={label} style={[styles.timeKicker, styles.headCell]} numberOfLines={1}>
+                          {label}
+                        </Text>
+                      ))}
+                    </View>
+                  </View>
+                  {jumaSessions.map((session, index) => (
+                    <View key={`juma-${index}`} style={styles.slot}>
+                      <View style={styles.slotIcon}>
+                        <Ionicons name="people-outline" size={16} color={iconInk} />
                       </View>
-                      <View style={styles.jumaTimes}>
-                        {(
-                          [
-                            [t('mosque.azan'), azanParts],
-                            [t('mosque.khutbah'), khutbaParts],
-                            [t('mosque.namaz'), namazParts],
-                          ] as const
-                        ).map(([label, parts]) => (
-                          <View key={label} style={styles.jumaTime}>
-                            <Text style={styles.timeKicker}>{label}</Text>
-                            <Text style={styles.jumaTimeMain} numberOfLines={1}>
-                              {digits(parts.time)}
-                              {parts.mer ? <Text style={styles.timeMer}> {merLabel(parts.mer)}</Text> : null}
-                            </Text>
-                          </View>
-                        ))}
+                      <View style={styles.slotNameCol}>
+                        <Text style={styles.slotName} numberOfLines={1}>
+                          {prayerName('Juma')}
+                          {jumaSessions.length > 1 ? ` ${digits(index + 1)}` : ''}
+                        </Text>
+                      </View>
+                      <View style={styles.timePair}>
+                        {[session.azan, session.khutba, session.namaz].map((value, cell) => {
+                          const parts = clockParts(value.trim() || '\u2014')
+                          return (
+                            <View key={cell} style={styles.timeCell}>
+                              <Text style={styles.timeMain} numberOfLines={1}>
+                                {digits(parts.time)}
+                                {parts.mer ? <Text style={styles.timeMer}> {merLabel(parts.mer)}</Text> : null}
+                              </Text>
+                            </View>
+                          )
+                        })}
                       </View>
                     </View>
-                  )
-                })
+                  ))}
+                </>
               )}
             </View>
           </View>
@@ -1105,11 +1121,15 @@ const useStyles = makeStyles(({ mode }) => {
       textTransform: 'uppercase',
       color: dark ? '#E2C48A' : '#9A5B00',
     },
-    timePair: { flexDirection: 'row', gap: 6 },
+    // Header cells share the slot's padding and the cells' width so the labels sit over their times.
+    columnHead: { flexDirection: 'row', paddingHorizontal: 9, marginBottom: -4 },
+    headCell: { width: 64, paddingHorizontal: 6 },
+    flex: { flex: 1 },
+    timePair: { flexDirection: 'row', gap: 4 },
     timeCell: {
-      minWidth: 68,
+      width: 64,
       paddingVertical: 4,
-      paddingHorizontal: 7,
+      paddingHorizontal: 6,
       borderRadius: 12,
       backgroundColor: dark ? 'rgba(255,255,255,0.04)' : '#F6F7F9',
     },
@@ -1133,29 +1153,6 @@ const useStyles = makeStyles(({ mode }) => {
       color: panelMuted,
       marginLeft: 4,
     },
-    jumaCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      padding: 8,
-      borderRadius: 16,
-      backgroundColor: tile,
-      borderWidth: 1,
-      borderColor: tileLine,
-    },
-    jumaBadge: {
-      minWidth: 28,
-      height: 28,
-      paddingHorizontal: 6,
-      borderRadius: 10,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: dark ? '#3A3120' : '#F6E7C8',
-    },
-    jumaBadgeText: { fontFamily: F.heavy, fontSize: 12, color: dark ? '#F3D7A1' : '#8A5A12' },
-    jumaTimes: { flex: 1, flexDirection: 'row', gap: 4 },
-    jumaTime: { flex: 1, minWidth: 0 },
-    jumaTimeMain: { fontFamily: F.bold, fontSize: 11, lineHeight: 15, color: panelInk, marginTop: 1 },
     noJuma: { fontFamily: F.medium, fontSize: 12, color: panelMuted, marginLeft: 4 },
   }
 })
